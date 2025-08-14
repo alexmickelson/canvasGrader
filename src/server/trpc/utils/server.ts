@@ -1,6 +1,6 @@
 import { type LoaderFunctionArgs } from "react-router";
-import { createCallerFactory, createTRPCContext } from "./trpc";
-import { appRouter } from "./main";
+import { createCallerFactory, createTRPCContext } from "./trpc.js";
+import { appRouter } from "./main.js";
 
 // allow trpc calls to be created on the server render before moving to the client
 const createContext = (opts: { headers: Headers }) => {

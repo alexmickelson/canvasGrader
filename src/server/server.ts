@@ -2,7 +2,8 @@ import { EventEmitter } from "events";
 import compression from "compression";
 import express from "express";
 import * as trpcExpress from "@trpc/server/adapters/express";
-import { appRouter } from "./trpc/utils/main";
+import path from "path";
+import { appRouter } from "./trpc/utils/main.js";
 import cron from "node-cron";
 
 cron.schedule("0 2 * * *", async () => {
@@ -18,7 +19,8 @@ app.use(
   trpcExpress.createExpressMiddleware({
     router: appRouter,
     createContext: () => ({}),
-    onError({ error, type, path, input }) {
+    onError: (opts) => {
+      const { error, type, path, input } = opts;
       const hasPath = typeof path !== "undefined";
       const hasInput = typeof input !== "undefined";
       const errorMsg = `[tRPC:${type}]${
@@ -40,7 +42,15 @@ app.use(
   })
 );
 
-const port = parseInt(process.env.PORT || "3000", 10);
+// Serve built frontend from dist in production
+const distPath = path.resolve(process.cwd(), "dist");
+app.use(express.static(distPath));
+// SPA fallback to index.html for non-API routes
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
+
+const port = parseInt(process.env.PORT || "3334", 10);
 app.listen(port, () => {
   console.log(`Express server listening on port ${port}`);
 });

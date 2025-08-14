@@ -61,5 +61,28 @@
           type = "app";
           program = "${startScript}/bin/run-canvasgrader";
         };
+
+        # Production app: build client and server, then run compiled server
+        apps.production = let
+          prodScript = pkgs.writeShellApplication {
+            name = "run-canvasgrader-prod";
+            runtimeInputs = with pkgs; [ nodejs_20 pnpm ];
+            text = ''
+              set -euo pipefail
+
+              # install deps and build
+              pnpm install --frozen-lockfile || pnpm install
+              pnpm run build
+              pnpm run build:server
+
+              # run compiled server which also serves static dist
+              export NODE_ENV=production
+              exec node --enable-source-maps dist-server/server.js
+            '';
+          };
+        in {
+          type = "app";
+          program = "${prodScript}/bin/run-canvasgrader-prod";
+        };
       });
 }

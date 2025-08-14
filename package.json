@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "tsx src/server/server.ts",
-    "dev:all": "sh -c 'pnpm run dev & pnpm run server & wait -n'"
+    "dev:all": "sh -c 'pnpm run dev & pnpm run server & wait -n'",
+    "start": "node --enable-source-maps dist-server/server.js",
+    "build:prod": "pnpm run build && pnpm run build:server"
   },
   "dependencies": {
     "@huggingface/transformers": "3.5.0",
