@@ -1,6 +1,9 @@
 import { type LoaderFunctionArgs } from "react-router";
 import { createCallerFactory, createTRPCContext } from "./trpc.js";
 import { appRouter } from "./main.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // allow trpc calls to be created on the server render before moving to the client
 const createContext = (opts: { headers: Headers }) => {

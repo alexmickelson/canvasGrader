@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --clear-screen=false",
     "build": "tsc -b && vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "tsx src/server/server.ts",
+    "server": "tsx watch --clear-screen=false src/server/server.ts",
     "dev:all": "sh -c 'pnpm run dev & pnpm run server & wait -n'",
     "start": "node --enable-source-maps dist-server/server.js",
     "build:prod": "pnpm run build && pnpm run build:server"
@@ -48,6 +48,7 @@
     "react-router": "^7.6.3",
     "rehype-raw": "^7.0.0",
     "superjson": "^2.2.2",
+    "yaml": "^2.8.1",
     "zed": "^0.1.0",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.6"
