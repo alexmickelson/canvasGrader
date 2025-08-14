@@ -1,4 +1,8 @@
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
 export const useSettingsQuery = () => {
@@ -8,5 +12,14 @@ export const useSettingsQuery = () => {
 
 export const useUpdateSettingsMutation = () => {
   const trpc = useTRPC();
-  return useMutation(trpc.settings.updateSettings.mutationOptions());
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.settings.updateSettings.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getSettings.queryKey(),
+        });
+      },
+    })
+  );
 };

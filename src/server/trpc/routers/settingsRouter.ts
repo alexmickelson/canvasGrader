@@ -23,6 +23,9 @@ const settingsSchema = z.object({
     .default([]),
 });
 
+export type Settings = z.infer<typeof settingsSchema>;
+export type SettingsCourse = Settings["courses"][number];
+
 export const settingsRouter = createTRPCRouter({
   getSettings: publicProcedure.query(async () => {
     const settingsPath = path.join(storageDirectory, "settings.yml");
