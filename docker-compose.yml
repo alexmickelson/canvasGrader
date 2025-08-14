@@ -1,0 +1,30 @@
+services:
+  app:
+    container_name: cavnas_ai_app
+    image: node:20
+    volumes:
+      - ../:/app
+    working_dir: /app
+    ports:
+      - 5173:5173
+      - 24678:24678
+    entrypoint: sh
+    command: |
+      -c "
+        cd /app
+        pnpm install
+        pnpm run dev
+      "
+  trpc:
+    container_name: cavnas_ai_trpc
+    image: node:20
+    volumes:
+      - ../:/app
+    working_dir: /app
+    entrypoint: sh
+    command: |
+      -c "
+        cd /app
+        pnpm install
+        pnpm run server
+      "
