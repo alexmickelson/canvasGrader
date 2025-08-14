@@ -66,17 +66,63 @@ export const CanvasAssignmentSchema = z.object({
 export type CanvasAssignment = z.infer<typeof CanvasAssignmentSchema>;
 
 export const CanvasSubmissionSchema = z.object({
-  id: z.number(),
+  // Base identifiers
+  id: z.number().optional(),
   assignment_id: z.number(),
   user_id: z.number(),
-  submitted_at: z.string().nullable().optional(),
-  score: z.number().nullable().optional(),
-  grade: z.string().nullable().optional(),
-  workflow_state: z.string(),
+
+  // Linked resources
+  assignment: z.any().nullable().optional(),
+  course: z.any().nullable().optional(),
+
+  // Attempt & content
   attempt: z.number().nullable().optional(),
-  late: z.boolean(),
-  missing: z.boolean(),
-  user: z.string().optional(), // sometimes joined from enrollments
+  body: z.string().nullable().optional(),
+
+  // Grading & score
+  grade: z.string().nullable().optional(),
+  grade_matches_current_submission: z.boolean().nullable().optional(),
+  score: z.number().nullable().optional(),
+  grader_id: z.number().nullable().optional(),
+  graded_at: z.string().nullable().optional(),
+
+  // Links
+  html_url: z.string().nullable().optional(),
+  preview_url: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+
+  // Comments & type
+  submission_comments: z.any().nullable().optional(),
+  submission_type: z.string().nullable().optional(),
+
+  // Timestamps & status
+  submitted_at: z.string().nullable().optional(),
+  workflow_state: z.string(),
+  late: z.boolean().nullable().optional(),
+  missing: z.boolean().nullable().optional(),
+  late_policy_status: z
+    .enum(["late", "missing", "extended", "none"])
+    .nullable()
+    .optional(),
+  points_deducted: z.number().nullable().optional(),
+  seconds_late: z.number().nullable().optional(),
+
+  // Visibility & exceptions
+  assignment_visible: z.boolean().nullable().optional(),
+  excused: z.boolean().nullable().optional(),
+  redo_request: z.boolean().nullable().optional(),
+
+  // Misc
+  extra_attempts: z.number().nullable().optional(),
+  anonymous_id: z.string().nullable().optional(),
+  posted_at: z.string().nullable().optional(),
+  read_status: z.string().nullable().optional(),
+
+  // User (as embedded object or string; normalized below)
+  user: z
+    .union([z.string(), z.object({ id: z.number(), name: z.string() })])
+    .nullable()
+    .optional(),
 });
 export type CanvasSubmission = z.infer<typeof CanvasSubmissionSchema>;
 
@@ -118,11 +164,14 @@ export const canvasRouter = createTRPCRouter({
       });
       return submissions.map((submission) => ({
         ...submission,
-        user: parseSchema(
-          z.object({ id: z.number(), name: z.string() }),
-          submission.user,
-          "CanvasUser"
-        ),
+        user:
+          submission && submission.user
+            ? parseSchema(
+                z.object({ id: z.number(), name: z.string() }),
+                submission.user,
+                "CanvasUser"
+              )
+            : null,
       }));
     }),
 });
