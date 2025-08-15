@@ -1,0 +1,4 @@
+GET https://snow.instructure.com/courses/1013058/assignments/15397389/submissions/2083026?preview=1&version=1
+Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
+
+###

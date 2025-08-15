@@ -1,10 +1,12 @@
 import type { FC } from "react";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
 import { userName, initials } from "./userUtils";
+import { AssignmentPreviewComponent } from "./AssignmentPreviewComponent";
 
-export const SubmissionDetails: FC<{ submission: CanvasSubmission }> = ({
-  submission,
-}) => {
+export const SubmissionDetails: FC<{
+  submission: CanvasSubmission;
+  courseId: number;
+}> = ({ submission, courseId }) => {
   const fmt = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleString() : "—";
   const name = userName(submission);
@@ -56,11 +58,11 @@ export const SubmissionDetails: FC<{ submission: CanvasSubmission }> = ({
   const pointsDeducted = submission.points_deducted ?? undefined;
   const formatSeconds = (s?: number) => {
     if (!s || s <= 0) return undefined;
-    const m = Math.floor(s / 60);
-    const h = Math.floor(m / 60);
-    const mm = m % 60;
-    if (h > 0) return `${h}h${mm ? ` ${mm}m` : ""}`;
-    return `${m}m`;
+    const totalMinutes = Math.floor(s / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) return `${hours}h${minutes ? ` ${minutes}m` : ""}`;
+    return `${totalMinutes}m`;
   };
 
   return (
@@ -80,11 +82,13 @@ export const SubmissionDetails: FC<{ submission: CanvasSubmission }> = ({
             )}
           </div>
           <div className="mt-1 text-xs text-gray-400 flex gap-3 flex-wrap">
-            <span>Submission #{submission.id}</span>
-            <span className="inline-flex items-center gap-1">
-              <span className="h-1 w-1 rounded-full bg-gray-600" />
-              {submission.workflow_state}
-            </span>
+            <span>Submission #{submission.id ?? "—"}</span>
+            {submission.submission_type && (
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1 w-1 rounded-full bg-gray-600" />
+                {submission.submission_type}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -161,59 +165,7 @@ export const SubmissionDetails: FC<{ submission: CanvasSubmission }> = ({
       </div>
 
       {/* Content/Links */}
-      {(submission.body ||
-        submission.url ||
-        submission.html_url ||
-        submission.preview_url) && (
-        <div className="space-y-2">
-          {submission.body && (
-            <div>
-              <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-                Text entry
-              </div>
-              <div className="whitespace-pre-wrap rounded border border-gray-700 bg-gray-800 p-2 text-sm text-gray-100">
-                {submission.body}
-              </div>
-            </div>
-          )}
-          {submission.url && (
-            <div className="text-sm">
-              <a
-                href={submission.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-indigo-300 hover:text-indigo-200 underline"
-              >
-                Open submitted URL
-              </a>
-            </div>
-          )}
-          {(submission.html_url || submission.preview_url) && (
-            <div className="flex gap-2">
-              {submission.html_url && (
-                <a
-                  href={submission.html_url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex items-center rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 hover:bg-gray-700"
-                >
-                  Open in Canvas
-                </a>
-              )}
-              {submission.preview_url && (
-                <a
-                  href={submission.preview_url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex items-center rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 hover:bg-gray-700"
-                >
-                  Preview
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <AssignmentPreviewComponent submission={submission} courseId={courseId} />
     </div>
   );
 };

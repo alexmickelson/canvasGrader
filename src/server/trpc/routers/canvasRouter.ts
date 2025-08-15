@@ -1,7 +1,14 @@
 import z from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "../utils/trpc";
-import { paginatedRequest } from "./canvasServiceUtils";
+import {
+  paginatedRequest,
+  canvasRequestOptions,
+  downloadSubmissionAttachments,
+} from "./canvasServiceUtils";
 import { parseSchema } from "./parseSchema";
+import { axiosClient } from "../../../utils/axiosUtils";
+import { renderAttachmentsToPdf } from "./canvasServiceUtils";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -173,5 +180,54 @@ export const canvasRouter = createTRPCRouter({
               )
             : null,
       }));
+    }),
+  // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.
+
+  buildPreviewPdf: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        assignmentId: z.number(),
+        userId: z.number(),
+      })
+    )
+    .query(async ({ input: { courseId, assignmentId, userId } }) => {
+      // Fetch the submission with attachments
+      type CanvasAttachment = {
+        id: number;
+        filename?: string;
+        display_name?: string;
+        content_type?: string;
+        size?: number;
+        url: string; // download URL
+      };
+      type SubmissionWithAttachments = {
+        id?: number;
+        attachments?: CanvasAttachment[];
+      };
+      const { data: submission } =
+        await axiosClient.get<SubmissionWithAttachments>(
+          `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
+          {
+            headers: canvasRequestOptions.headers,
+            params: { include: "attachments" },
+          }
+        );
+
+      console.log("Submission data:", submission);
+
+      const attachments = submission.attachments ?? [];
+      if (!attachments.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No attachments found for this submission.",
+        });
+      }
+
+      // Download attachments, render into single PDF
+      const downloaded = await downloadSubmissionAttachments(submission);
+      const pdfBytes = await renderAttachmentsToPdf(downloaded);
+      const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+      return { pdfBase64 };
     }),
 });

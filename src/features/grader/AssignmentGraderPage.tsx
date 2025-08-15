@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { useSubmissionsQuery } from "./graderHooks";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
@@ -16,15 +16,6 @@ export const AssignmentGraderPage = () => {
 
   // Selected submission for slide-over panel
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
-
-  // Close panel on Escape
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   if (!parsedCourseId || !parsedAssignmentId) {
     return (
@@ -89,8 +80,8 @@ export const AssignmentGraderPage = () => {
             </button>
           </div>
           <div className="p-4 space-y-3 text-sm">
-            {selected ? (
-              <SubmissionDetails submission={selected} />
+            {selected && courseId ? (
+              <SubmissionDetails submission={selected} courseId={Number(courseId)} />
             ) : (
               <div className="text-gray-400">No submission selected</div>
             )}

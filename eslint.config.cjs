@@ -49,5 +49,5 @@ module.exports = defineConfig([
       "jsx-a11y/no-access-key": "off",
     },
   },
-  globalIgnores(["**/dist", "**/.eslintrc.cjs"]),
+  globalIgnores(["**/dist", "**/dist-server", "**/.eslintrc.cjs"]),
 ]);
