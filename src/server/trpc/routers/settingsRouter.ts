@@ -3,6 +3,8 @@ import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import fs from "fs";
 import path from "path";
 import yaml from "yaml";
+import axios from "axios";
+import { canvasApi, canvasRequestOptions } from "./canvasServiceUtils";
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
@@ -10,6 +12,39 @@ function ensureStorageDirExists() {
   if (!fs.existsSync(storageDirectory)) {
     fs.mkdirSync(storageDirectory, { recursive: true });
   }
+}
+
+// Sanitize a string to be safe as a folder/file name
+function sanitizeName(name: string): string {
+  return name
+    .replace(/[\n\r\t]/g, " ") // remove control whitespace
+    .replace(/[\\/:*?"<>|]/g, "_") // invalid filename chars on most OS
+    .replace(/\s+/g, " ") // collapse whitespace
+    .trim();
+}
+
+async function getCourseTermName(courseId: number): Promise<string> {
+  try {
+    const url = `${canvasApi}/courses/${courseId}`;
+    const { data } = await axios.get(url, {
+      ...canvasRequestOptions,
+      params: { include: "term" },
+    });
+    const termName: string | undefined = (data?.term?.name as string) || undefined;
+    return termName && termName !== "The End of Time" ? termName : "Unknown Term";
+  } catch {
+    return "Unknown Term";
+  }
+}
+
+function ensureCourseDir(termName: string, courseName: string) {
+  const term = sanitizeName(termName || "Unknown Term");
+  const course = sanitizeName(courseName || "Course");
+  const dir = path.join(storageDirectory, term, course);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
 }
 
 const settingsSchema = z.object({
@@ -53,6 +88,28 @@ export const settingsRouter = createTRPCRouter({
 
       // Ensure storage directory exists
       ensureStorageDirExists();
+
+      // Determine newly added courses (to create folders for)
+      let previous: Settings = { courses: [] };
+      if (fs.existsSync(settingsPath)) {
+        try {
+          const prevFile = fs.readFileSync(settingsPath, "utf8");
+          previous = settingsSchema.parse(yaml.parse(prevFile) || {});
+        } catch {
+          previous = { courses: [] };
+        }
+      }
+
+      const prevIds = new Set(previous.courses.map((c) => c.canvasId));
+      const added = input.courses.filter((c) => !prevIds.has(c.canvasId));
+
+      // For each newly tracked course, create storage folder as termName/courseName
+      await Promise.all(
+        added.map(async (c) => {
+          const termName = await getCourseTermName(c.canvasId);
+          ensureCourseDir(termName, c.name);
+        })
+      );
 
       // Write updated settings to settings.yml
       fs.writeFileSync(settingsPath, yaml.stringify(input), "utf8");

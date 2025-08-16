@@ -9,6 +9,8 @@ import {
 import { parseSchema } from "./parseSchema";
 import { axiosClient } from "../../../utils/axiosUtils";
 import { renderAttachmentsToPdf } from "./canvasServiceUtils";
+import fs from "fs";
+import path from "path";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -17,6 +19,44 @@ if (!canvasToken) {
   throw new Error(
     "Canvas token is not set. Please set the CANVAS_TOKEN environment variable."
   );
+}
+
+const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
+
+function ensureDir(dirPath: string) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function sanitizeName(name: string): string {
+  return (name || "")
+    .replace(/[\n\r\t]/g, " ")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function getCourseMeta(courseId: number): Promise<{
+  courseName: string;
+  termName: string;
+}> {
+  try {
+    const { data } = await axiosClient.get(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}` as string,
+      {
+        headers: canvasRequestOptions.headers,
+        params: { include: "term" },
+      }
+    );
+    const courseName: string = data?.name || `Course ${courseId}`;
+    const rawTerm: string | undefined = data?.term?.name;
+    const termName =
+      rawTerm && rawTerm !== "The End of Time" ? rawTerm : "Unknown Term";
+    return { courseName, termName };
+  } catch {
+    return { courseName: `Course ${courseId}`, termName: "Unknown Term" };
+  }
 }
 
 export const CanvasTermSchema = z.object({
@@ -71,6 +111,41 @@ export const CanvasAssignmentSchema = z.object({
 });
 
 export type CanvasAssignment = z.infer<typeof CanvasAssignmentSchema>;
+
+// New: persist assignment folders and metadata to storage
+async function persistAssignmentsToStorage(
+  courseId: number,
+  assignments: CanvasAssignment[]
+): Promise<void> {
+  // Persist assignment metadata to storage under Term/Course/<ID - Name>/assignment.json
+  try {
+    const { courseName, termName } = await getCourseMeta(courseId);
+    const baseDir = path.join(
+      storageDirectory,
+      sanitizeName(termName),
+      sanitizeName(courseName)
+    );
+    ensureDir(baseDir);
+
+    await Promise.all(
+      assignments.map(async (a) => {
+        const assignDir = path.join(
+          baseDir,
+          sanitizeName(`${a.id} - ${a.name}`)
+        );
+        ensureDir(assignDir);
+        const filePath = path.join(assignDir, "assignment.json");
+        try {
+          fs.writeFileSync(filePath, JSON.stringify(a, null, 2), "utf8");
+        } catch (err) {
+          console.warn("Failed to write assignment.json for", a.id, err);
+        }
+      })
+    );
+  } catch (err) {
+    console.warn("Failed to persist assignments to storage", err);
+  }
+}
 
 export const CanvasSubmissionSchema = z.object({
   // Base identifiers
@@ -152,9 +227,14 @@ export const canvasRouter = createTRPCRouter({
         url,
         params: { include: "submission" },
       });
-      return assignments.map((assignment) =>
+      const normalized = assignments.map((assignment) =>
         parseSchema(CanvasAssignmentSchema, assignment, "CanvasAssignment")
       );
+
+      // Persist assignment metadata to storage under Term/Course/<ID - Name>/assignment.json
+      await persistAssignmentsToStorage(input.courseId, normalized);
+
+      return normalized;
     }),
   getAssignmentSubmissions: publicProcedure
     .input(
