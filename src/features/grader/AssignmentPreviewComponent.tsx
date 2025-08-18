@@ -3,6 +3,7 @@ import DOMPurify from "dompurify";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
 import { usePreviewPdfQuery } from "./graderHooks";
 import Spinner from "../../utils/Spinner";
+import { PDFPreview } from "../../utils/PDFPreview";
 
 export const AssignmentPreviewComponent: FC<{
   submission: CanvasSubmission;
@@ -63,14 +64,17 @@ export const AssignmentPreviewComponent: FC<{
           </div>
         )}
 
-        {!isLoading && !isError && pdfDataUrl && (
-          <div className="rounded border border-gray-700 bg-gray-900 overflow-hidden">
-            <iframe
-              src={pdfDataUrl}
-              className="w-full h-[520px] bg-white"
-              title="Submission preview PDF"
-            />
+        {!isLoading && !isError && !pdfDataUrl && data === null && (
+          <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-yellow-300">
+            No attachments found for this submission - unable to generate PDF preview.
           </div>
+        )}
+
+        {!isLoading && !isError && pdfDataUrl && (
+          <PDFPreview 
+            pdfDataUrl={pdfDataUrl} 
+            className="w-full"
+          />
         )}
 
         <div className="text-[11px] text-gray-500">

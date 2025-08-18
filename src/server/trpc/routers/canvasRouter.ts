@@ -1,10 +1,9 @@
 import z from "zod";
-import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import {
   paginatedRequest,
   canvasRequestOptions,
-  downloadSubmissionAttachments,
+  downloadSubmissionAttachmentsToFolder,
 } from "./canvasServiceUtils";
 import { parseSchema } from "./parseSchema";
 import { axiosClient } from "../../../utils/axiosUtils";
@@ -272,7 +271,7 @@ export const canvasRouter = createTRPCRouter({
       })
     )
     .query(async ({ input: { courseId, assignmentId, userId } }) => {
-      // Fetch the submission with attachments
+      // Fetch the submission with attachments and user data
       type CanvasAttachment = {
         id: number;
         filename?: string;
@@ -284,13 +283,17 @@ export const canvasRouter = createTRPCRouter({
       type SubmissionWithAttachments = {
         id?: number;
         attachments?: CanvasAttachment[];
+        user?: {
+          id: number;
+          name: string;
+        };
       };
       const { data: submission } =
         await axiosClient.get<SubmissionWithAttachments>(
           `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
           {
             headers: canvasRequestOptions.headers,
-            params: { include: "attachments" },
+            params: { include: ["attachments", "user"] },
           }
         );
 
@@ -298,16 +301,44 @@ export const canvasRouter = createTRPCRouter({
 
       const attachments = submission.attachments ?? [];
       if (!attachments.length) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No attachments found for this submission.",
-        });
+        console.log("No attachments found for this submission, returning null");
+        return null;
       }
 
-      // Download attachments, render into single PDF
-      const downloaded = await downloadSubmissionAttachments(submission);
+      // Get course, assignment, and user metadata for folder structure
+      const { courseName, termName } = await getCourseMeta(courseId);
+      const { data: assignment } = await axiosClient.get(
+        `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+        {
+          headers: canvasRequestOptions.headers,
+        }
+      );
+      const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
+      const userName = submission.user?.name || `User ${userId}`;
+
+      // Create folder structure: semester/course/assignment/studentName
+      // Example: storage/Spring 2025/Online Web Intro/15357295 - Hello World in HTML/John Doe/
+      const submissionDir = path.join(
+        storageDirectory,
+        sanitizeName(termName),
+        sanitizeName(courseName),
+        sanitizeName(`${assignmentId} - ${assignmentName}`),
+        sanitizeName(userName)
+      );
+      ensureDir(submissionDir);
+
+      // Download attachments and store them in the structured folder
+      const downloaded = await downloadSubmissionAttachmentsToFolder(submission, submissionDir);
+      
+      // Generate PDF preview and save it
       const pdfBytes = await renderAttachmentsToPdf(downloaded);
       const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+      
+      // Save the preview PDF to the same folder
+      const previewPdfPath = path.join(submissionDir, "preview.pdf");
+      fs.writeFileSync(previewPdfPath, pdfBytes);
+      console.log("Saved preview PDF to:", previewPdfPath);
+      
       return { pdfBase64 };
     }),
 });

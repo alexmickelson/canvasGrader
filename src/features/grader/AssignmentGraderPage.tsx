@@ -5,6 +5,7 @@ import { useSubmissionsQuery } from "./graderHooks";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
 import { SubmissionDetails } from "./SubmissionDetails";
 import { userName, initials } from "./userUtils";
+import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -25,7 +26,13 @@ export const AssignmentGraderPage = () => {
 
   return (
     <div className="p-4 text-gray-200">
-      <h1 className="text-xl font-semibold mb-4">Assignment Grader</h1>
+      <h1 className="text-xl font-semibold mb-4">
+        Grade{" "}
+        <AssignmentName
+          assignmentId={parsedAssignmentId}
+          courseId={parsedCourseId}
+        />
+      </h1>
 
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
       <div className="flex gap-4 items-stretch">
@@ -81,7 +88,10 @@ export const AssignmentGraderPage = () => {
           </div>
           <div className="p-4 space-y-3 text-sm">
             {selected && courseId ? (
-              <SubmissionDetails submission={selected} courseId={Number(courseId)} />
+              <SubmissionDetails
+                submission={selected}
+                courseId={Number(courseId)}
+              />
             ) : (
               <div className="text-gray-400">No submission selected</div>
             )}
@@ -90,6 +100,22 @@ export const AssignmentGraderPage = () => {
       </div>
     </div>
   );
+};
+
+const AssignmentName = ({
+  assignmentId,
+  courseId,
+}: {
+  assignmentId: number;
+  courseId: number;
+}) => {
+  const { data: assignments } = useAssignmentsQuery(courseId);
+  const assignment = assignments?.find((a) => a.id === assignmentId);
+  if (!assignment) {
+    return <span className="text-gray-400">Unknown Assignment</span>;
+  }
+
+  return <span className="text-gray-200">{assignment.name}</span>;
 };
 
 const SubmissionsList: FC<{

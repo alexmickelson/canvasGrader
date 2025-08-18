@@ -276,6 +276,62 @@ export async function downloadSubmissionAttachments(
   return results;
 }
 
+// Download all attachments on a submission and save them to a specific folder structure
+export async function downloadSubmissionAttachmentsToFolder(
+  submission: SubmissionWithAttachmentsLike,
+  targetDir: string
+): Promise<DownloadedAttachment[]> {
+  const attachments = submission.attachments ?? [];
+  const results: DownloadedAttachment[] = [];
+
+  // Ensure the target directory exists
+  await fs.mkdir(targetDir, { recursive: true });
+
+  for (const att of attachments) {
+    const name = att.display_name || att.filename || `file-${att.id}`;
+    try {
+      const resp = await axiosClient.get<ArrayBuffer>(att.url, {
+        headers: canvasRequestOptions.headers,
+        responseType: "arraybuffer",
+      });
+      const bytes = new Uint8Array(resp.data);
+      const headerType =
+        (resp.headers["content-type"] as string | undefined) || "";
+      const claimedType = att.content_type || "";
+      const contentType = sniffContentType(bytes, claimedType || headerType);
+
+      console.log(
+        "Downloaded attachment:",
+        name,
+        "type:",
+        contentType || headerType,
+        "size:",
+        bytes.length
+      );
+
+      // Save the attachment to the target directory with unique naming
+      const sanitizedName = name.replace(/[^a-z0-9._-]/gi, "_");
+      const uniqueName = `${att.id || Date.now()}-${sanitizedName}`;
+      const attachmentPath = path.join(targetDir, uniqueName);
+      await fs.writeFile(attachmentPath, bytes);
+      console.log("Saved attachment to:", attachmentPath);
+
+      results.push({
+        id: att.id,
+        name,
+        url: att.url,
+        contentType: contentType || headerType || claimedType || "",
+        bytes,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to download attachment '${name}': ${msg}`);
+    }
+  }
+
+  return results;
+}
+
 // Render a list of downloaded attachments into a single PDF and return its bytes
 export async function renderAttachmentsToPdf(
   attachments: DownloadedAttachment[]
