@@ -327,6 +327,16 @@ export const canvasRouter = createTRPCRouter({
       );
       ensureDir(submissionDir);
 
+      // Check if preview PDF already exists
+      const previewPdfPath = path.join(submissionDir, "preview.pdf");
+      
+      if (fs.existsSync(previewPdfPath)) {
+        console.log("Found existing preview PDF at:", previewPdfPath);
+        const existingPdfBytes = fs.readFileSync(previewPdfPath);
+        const pdfBase64 = existingPdfBytes.toString("base64");
+        return { pdfBase64 };
+      }
+
       // Download attachments and store them in the structured folder
       const downloaded = await downloadSubmissionAttachmentsToFolder(submission, submissionDir);
       
@@ -335,9 +345,8 @@ export const canvasRouter = createTRPCRouter({
       const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
       
       // Save the preview PDF to the same folder
-      const previewPdfPath = path.join(submissionDir, "preview.pdf");
       fs.writeFileSync(previewPdfPath, pdfBytes);
-      console.log("Saved preview PDF to:", previewPdfPath);
+      console.log("Generated and saved new preview PDF to:", previewPdfPath);
       
       return { pdfBase64 };
     }),

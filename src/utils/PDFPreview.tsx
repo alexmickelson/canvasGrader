@@ -6,9 +6,6 @@ import 'react-pdf/dist/Page/TextLayer.css';
 // Set up PDF.js worker - use a more reliable approach
 // This ensures version compatibility by using the worker bundled with the current pdfjs-dist version
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-// Log version info for debugging
-console.log('PDF.js version:', pdfjs.version);
-console.log('Worker source:', pdfjs.GlobalWorkerOptions.workerSrc);
 
 interface PDFPreviewProps {
   pdfDataUrl: string;
@@ -24,6 +21,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [pdfData, setPdfData] = useState<string | { data: Uint8Array } | null>(null);
+  const [isFocused, setIsFocused] = useState<boolean>(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -89,9 +87,13 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
     setIsLoading(false);
   };
 
-  // Handle wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
+  // Handle wheel zoom - only when focused
+  const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isFocused) return;
+    
     const zoomFactor = 0.1;
     const newScale = e.deltaY > 0 
       ? Math.max(0.5, scale - zoomFactor)
@@ -103,41 +105,96 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
     if (newScale === 1.0) {
       setPosition({ x: 0, y: 0 });
     }
-  }, [scale]);
+  }, [scale, isFocused]);
 
-  // Handle mouse drag
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (scale > 1.0) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
-    }
-  }, [scale, position]);
+  // Add global mouse event listeners when dragging
+  useEffect(() => {
+    if (!isDragging) return;
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging && scale > 1.0) {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
       setPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
       });
-    }
-  }, [isDragging, dragStart, scale]);
+    };
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, dragStart]);
+
+  // Add wheel event listener when focused
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !isFocused) return;
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel, isFocused]);
+
+  // Handle mouse drag - allow at all zoom levels
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    e.preventDefault();
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Mouse move is now handled by global listeners when dragging
+    e.preventDefault();
   }, []);
 
-  // Handle keyboard navigation
+  const handleMouseUp = useCallback(() => {
+    // Mouse up is now handled by global listeners
+  }, []);
+
+  // Focus handlers
+  const handleFocus = useCallback(() => {
+    setIsFocused(true);
+  }, []);
+
+  const handleBlur = useCallback(() => {
+    setIsFocused(false);
+    setIsDragging(false); // Stop dragging when losing focus
+  }, []);
+
+  // Handle click to focus
+  const handleClick = useCallback(() => {
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, []);
+
+  // Handle keyboard navigation - only when focused
   useEffect(() => {
+    if (!isFocused) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && pageNumber > 1) {
+        e.preventDefault();
         setPageNumber(pageNumber - 1);
       } else if (e.key === 'ArrowRight' && pageNumber < numPages) {
+        e.preventDefault();
         setPageNumber(pageNumber + 1);
       } else if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
         setScale(prev => Math.min(3.0, prev + 0.1));
       } else if (e.key === '-') {
+        e.preventDefault();
         setScale(prev => Math.max(0.5, prev - 0.1));
       } else if (e.key === '0') {
+        e.preventDefault();
         setScale(1.0);
         setPosition({ x: 0, y: 0 });
       }
@@ -145,7 +202,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pageNumber, numPages]);
+  }, [pageNumber, numPages, isFocused]);
 
   const zoomIn = () => setScale(prev => Math.min(3.0, prev + 0.2));
   const zoomOut = () => setScale(prev => Math.max(0.5, prev - 0.2));
@@ -157,7 +214,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
   return (
     <div className={`relative bg-gray-900 border border-gray-700 rounded overflow-hidden ${className}`}>
       {/* Controls */}
-      <div className="absolute top-2 left-2 right-2 z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-black bg-opacity-75 rounded p-3 backdrop-blur-sm">
+      <div className="absolute top-2 left-2 right-2 z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-black bg-opacity-40 rounded p-3 backdrop-blur-sm">
         <div className="flex items-center gap-2 order-2 sm:order-1">
           <button
             onClick={() => setPageNumber(prev => Math.max(1, prev - 1))}
@@ -213,12 +270,23 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
       {/* PDF Container */}
       <div
         ref={containerRef}
-        className="w-full h-[520px] overflow-hidden cursor-grab active:cursor-grabbing"
-        onWheel={handleWheel}
+        className={`w-full h-[520px] overflow-hidden transition-all duration-200 ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
+        tabIndex={0}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onClick={handleClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        style={{
+          // Ensure the border is always visible by using box-shadow when focused
+          ...(isFocused && {
+            boxShadow: 'inset 0 0 0 2px rgb(99 102 241)', // indigo-500
+          })
+        }}
       >
         <div
           ref={pdfRef}
@@ -274,14 +342,25 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({ pdfDataUrl, className = 
 
       {/* Instructions */}
       <div className="absolute bottom-2 left-2 right-2">
-        <div className="bg-black bg-opacity-75 rounded px-3 py-2 backdrop-blur-sm">
+        <div className="bg-black bg-opacity-40 rounded px-3 py-2 backdrop-blur-sm">
           <div className="text-center">
-            <p className="text-white text-xs leading-relaxed">
-              <span className="inline-block mr-3">🖱️ Scroll to zoom</span>
-              <span className="inline-block mr-3">👆 Click & drag to pan</span>
-              <span className="inline-block mr-3">⌨️ Arrow keys for pages</span>
-              <span className="inline-block">0️⃣ Press 0 to reset</span>
-            </p>
+            {!isFocused ? (
+              <p className="text-white text-xs leading-relaxed">
+                👆 Click to focus for controls
+              </p>
+            ) : (
+              <>
+                <p className="text-white text-xs leading-relaxed">
+                  <span className="inline-block mr-3">🖱️ Scroll to zoom</span>
+                  <span className="inline-block mr-3">👆 Click & drag to pan</span>
+                  <span className="inline-block mr-3">⌨️ Arrow keys for pages</span>
+                  <span className="inline-block">0️⃣ Press 0 to reset</span>
+                </p>
+                <p className="text-indigo-300 text-xs mt-1">
+                  📌 PDF viewer is focused - keyboard shortcuts active
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
