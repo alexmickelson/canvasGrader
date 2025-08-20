@@ -431,3 +431,103 @@ export async function renderAttachmentsToPdf(
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;
 }
+
+// Render text submission content into a PDF and return its bytes
+export async function renderTextSubmissionToPdf(
+  submissionText: string,
+  studentName: string,
+  assignmentName: string
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const pageSize: [number, number] = [612, 792]; // Letter size
+  const margin = 50;
+  const fontSize = 12;
+  const lineHeight = 16;
+  const maxWidth = pageSize[0] - margin * 2;
+
+  let page = pdfDoc.addPage(pageSize);
+  let y = pageSize[1] - margin;
+
+  // Header with student name and assignment
+  page.drawText(`Student: ${studentName}`, {
+    x: margin,
+    y,
+    size: 14,
+    font,
+    color: rgb(0, 0, 0),
+  });
+  y -= lineHeight * 1.5;
+
+  page.drawText(`Assignment: ${assignmentName}`, {
+    x: margin,
+    y,
+    size: 14,
+    font,
+    color: rgb(0, 0, 0),
+  });
+  y -= lineHeight * 2;
+
+  // Parse HTML content and extract text (simple approach)
+  const textContent = submissionText
+    .replace(/<[^>]*>/g, " ") // Remove HTML tags
+    .replace(/&nbsp;/g, " ") // Replace HTML entities
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ") // Normalize whitespace
+    .trim();
+
+  // Simple text wrapping
+  const approxCharWidth = fontSize * 0.6;
+  const charsPerLine = Math.max(10, Math.floor(maxWidth / approxCharWidth));
+
+  const words = textContent.split(" ");
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine + (currentLine ? " " : "") + word;
+
+    if (testLine.length > charsPerLine && currentLine) {
+      // Draw current line and start new one
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage(pageSize);
+        y = pageSize[1] - margin;
+      }
+
+      page.drawText(currentLine, {
+        x: margin,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      y -= lineHeight;
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+
+  // Draw final line
+  if (currentLine) {
+    if (y < margin + lineHeight) {
+      page = pdfDoc.addPage(pageSize);
+      y = pageSize[1] - margin;
+    }
+
+    page.drawText(currentLine, {
+      x: margin,
+      y,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
+
+  return await pdfDoc.save();
+}

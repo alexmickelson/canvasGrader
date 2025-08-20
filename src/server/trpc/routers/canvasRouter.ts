@@ -4,10 +4,11 @@ import {
   paginatedRequest,
   canvasRequestOptions,
   downloadSubmissionAttachmentsToFolder,
+  renderAttachmentsToPdf,
+  renderTextSubmissionToPdf,
 } from "./canvasServiceUtils";
 import { parseSchema } from "./parseSchema";
 import { axiosClient } from "../../../utils/axiosUtils";
-import { renderAttachmentsToPdf } from "./canvasServiceUtils";
 import fs from "fs";
 import path from "path";
 
@@ -146,6 +147,30 @@ async function persistAssignmentsToStorage(
   }
 }
 
+async function persistCoursesToStorage(courses: CanvasCourse[]): Promise<void> {
+  await Promise.all(
+    courses.map(async (course) => {
+      try {
+        const courseName = course.name;
+        const rawTerm = course.term?.name;
+        const termName = rawTerm && rawTerm !== "The End of Time" ? rawTerm : "Unknown Term";
+        
+        const courseDir = path.join(
+          storageDirectory,
+          sanitizeName(termName),
+          sanitizeName(courseName)
+        );
+        ensureDir(courseDir);
+        
+        const courseJsonPath = path.join(courseDir, "course.json");
+        fs.writeFileSync(courseJsonPath, JSON.stringify(course, null, 2), "utf8");
+      } catch (err) {
+        console.warn("Failed to write course.json for", course.id, err);
+      }
+    })
+  );
+}
+
 export const CanvasSubmissionSchema = z.object({
   // Base identifiers
   id: z.number().optional(),
@@ -207,6 +232,48 @@ export const CanvasSubmissionSchema = z.object({
 });
 export type CanvasSubmission = z.infer<typeof CanvasSubmissionSchema>;
 
+
+// Persist submission metadata to storage under Term/Course/Assignment/StudentName/submission.json
+async function persistSubmissionsToStorage(
+  courseId: number,
+  assignmentId: number,
+  submissions: CanvasSubmission[]
+): Promise<void> {
+  try {
+    const { courseName, termName } = await getCourseMeta(courseId);
+    const { data: assignment } = await axiosClient.get(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+      {
+        headers: canvasRequestOptions.headers,
+      }
+    );
+    const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
+
+    await Promise.all(
+      submissions.map(async (submission) => {
+        try {
+          const userName = (typeof submission.user === 'object' && submission.user?.name) || `User ${submission.user_id}`;
+          const submissionDir = path.join(
+            storageDirectory,
+            sanitizeName(termName),
+            sanitizeName(courseName),
+            sanitizeName(`${assignmentId} - ${assignmentName}`),
+            sanitizeName(userName)
+          );
+          ensureDir(submissionDir);
+          
+          const submissionJsonPath = path.join(submissionDir, "submission.json");
+          fs.writeFileSync(submissionJsonPath, JSON.stringify(submission, null, 2), "utf8");
+        } catch (err) {
+          console.warn("Failed to write submission.json for user", submission.user_id, err);
+        }
+      })
+    );
+  } catch (err) {
+    console.warn("Failed to persist submissions to storage", err);
+  }
+}
+
 export const canvasRouter = createTRPCRouter({
   getCourses: publicProcedure.query(async () => {
     const url = `${canvasBaseUrl}/api/v1/courses?per_page=100`;
@@ -214,9 +281,14 @@ export const canvasRouter = createTRPCRouter({
       url,
       params: { include: "term" },
     });
-    return courses
+    const filteredCourses = courses
       .filter((course) => !course.access_restricted_by_date)
       .map((course) => parseSchema(CanvasCourseSchema, course, "CanvasCourse"));
+
+    // Store each course's JSON data in storage/term/courseName/course.json
+    await persistCoursesToStorage(filteredCourses);
+
+    return filteredCourses;
   }),
   getAssignmentsInCourse: publicProcedure
     .input(z.object({ courseId: z.coerce.number() }))
@@ -248,7 +320,7 @@ export const canvasRouter = createTRPCRouter({
         url,
         params: { include: "user" },
       });
-      return submissions.map((submission) => ({
+      const normalizedSubmissions = submissions.map((submission) => ({
         ...submission,
         user:
           submission && submission.user
@@ -259,6 +331,11 @@ export const canvasRouter = createTRPCRouter({
               )
             : null,
       }));
+
+      // Persist submission metadata to storage
+      await persistSubmissionsToStorage(input.courseId, input.assignmentId, normalizedSubmissions);
+
+      return normalizedSubmissions;
     }),
   // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.
 
@@ -283,6 +360,8 @@ export const canvasRouter = createTRPCRouter({
       type SubmissionWithAttachments = {
         id?: number;
         attachments?: CanvasAttachment[];
+        body?: string; // Text entry content
+        submission_type?: string;
         user?: {
           id: number;
           name: string;
@@ -300,8 +379,10 @@ export const canvasRouter = createTRPCRouter({
       console.log("Submission data:", submission);
 
       const attachments = submission.attachments ?? [];
-      if (!attachments.length) {
-        console.log("No attachments found for this submission, returning null");
+      const hasTextEntry = submission.body && submission.body.trim();
+      
+      if (!attachments.length && !hasTextEntry) {
+        console.log("No attachments or text entry found for this submission, returning null");
         return null;
       }
 
@@ -327,6 +408,12 @@ export const canvasRouter = createTRPCRouter({
       );
       ensureDir(submissionDir);
 
+      // Save submission metadata
+      const submissionJsonPath = path.join(submissionDir, "submission.json");
+      if (!fs.existsSync(submissionJsonPath)) {
+        fs.writeFileSync(submissionJsonPath, JSON.stringify(submission, null, 2), "utf8");
+      }
+
       // Check if preview PDF already exists
       const previewPdfPath = path.join(submissionDir, "preview.pdf");
       
@@ -337,11 +424,49 @@ export const canvasRouter = createTRPCRouter({
         return { pdfBase64 };
       }
 
-      // Download attachments and store them in the structured folder
-      const downloaded = await downloadSubmissionAttachmentsToFolder(submission, submissionDir);
+      // Download attachments and store them in the structured folder (if any)
+      let pdfBytes: Uint8Array;
       
-      // Generate PDF preview and save it
-      const pdfBytes = await renderAttachmentsToPdf(downloaded);
+      if (hasTextEntry && !attachments.length) {
+        // Text-only submission - generate PDF from text content
+        console.log("Generating PDF from text entry submission");
+        pdfBytes = await renderTextSubmissionToPdf(
+          submission.body!,
+          userName,
+          assignmentName
+        );
+      } else if (attachments.length > 0 && !hasTextEntry) {
+        // Attachment-only submission
+        console.log("Generating PDF from attachments");
+        const downloaded = await downloadSubmissionAttachmentsToFolder(submission, submissionDir);
+        pdfBytes = await renderAttachmentsToPdf(downloaded);
+      } else if (attachments.length > 0 && hasTextEntry) {
+        // Combined submission - create text PDF and merge with attachments
+        console.log("Generating PDF from both text entry and attachments");
+        const downloaded = await downloadSubmissionAttachmentsToFolder(submission, submissionDir);
+        
+        // Create a combined array: text content first, then attachments
+        const textPdfBytes = await renderTextSubmissionToPdf(
+          submission.body!,
+          userName,
+          assignmentName
+        );
+        
+        // Create a "fake" attachment for the text content to merge with other attachments
+        const textAttachment = {
+          id: undefined,
+          name: "Text Entry",
+          url: "",
+          contentType: "application/pdf",
+          bytes: textPdfBytes
+        };
+        
+        pdfBytes = await renderAttachmentsToPdf([textAttachment, ...downloaded]);
+      } else {
+        // Fallback (shouldn't reach here due to earlier check)
+        throw new Error("No content to generate PDF from");
+      }
+      
       const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
       
       // Save the preview PDF to the same folder
