@@ -14,6 +14,7 @@ import {
   persistAssignmentsToStorage,
   persistCoursesToStorage,
   persistSubmissionsToStorage,
+  persistRubricToStorage,
 } from "./canvasStorageUtils";
 import { parseSchema } from "./parseSchema";
 import { axiosClient } from "../../../utils/axiosUtils";
@@ -144,6 +145,38 @@ export const CanvasSubmissionSchema = z.object({
     .optional(),
 });
 export type CanvasSubmission = z.infer<typeof CanvasSubmissionSchema>;
+
+export const CanvasRubricCriterionSchema = z.object({
+  id: z.string(),
+  description: z.string().optional(),
+  long_description: z.string().optional(),
+  points: z.number(),
+  criterion_use_range: z.boolean().optional(),
+  ratings: z.array(
+    z.object({
+      id: z.string(),
+      description: z.string().optional(),
+      long_description: z.string().optional(),
+      points: z.number(),
+    })
+  ),
+});
+
+export const CanvasRubricSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  context_id: z.number(),
+  context_type: z.string(),
+  points_possible: z.number(),
+  reusable: z.boolean().optional(),
+  read_only: z.boolean().optional(),
+  free_form_criterion_comments: z.boolean().optional(),
+  hide_score_total: z.boolean().optional(),
+  data: z.array(CanvasRubricCriterionSchema),
+});
+
+export type CanvasRubric = z.infer<typeof CanvasRubricSchema>;
+export type CanvasRubricCriterion = z.infer<typeof CanvasRubricCriterionSchema>;
 
 export const canvasRouter = createTRPCRouter({
   getCourses: publicProcedure.query(async () => {
@@ -364,5 +397,59 @@ export const canvasRouter = createTRPCRouter({
       console.log("Generated and saved new preview PDF to:", previewPdfPath);
 
       return { pdfBase64 };
+    }),
+
+  getAssignmentRubric: publicProcedure
+    .input(
+      z.object({
+        courseId: z.coerce.number(),
+        assignmentId: z.coerce.number(),
+      })
+    )
+    .query(async ({ input }): Promise<CanvasRubric | null> => {
+      try {
+        const { data: assignment } = await axiosClient.get(
+          `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}`,
+          {
+            headers: canvasRequestOptions.headers,
+          }
+        );
+
+        const rubricId = assignment?.rubric_settings?.id;
+        if (!rubricId) {
+          console.log("No rubric found for assignment", input.assignmentId);
+          return null;
+        }
+
+        const { data: rubric } = await axiosClient.get(
+          `${canvasBaseUrl}/api/v1/courses/${input.courseId}/rubrics/${rubricId}`,
+          {
+            headers: canvasRequestOptions.headers,
+          }
+        );
+
+        if (!rubric) {
+          console.log("Failed to fetch rubric data for ID", rubricId);
+          return null;
+        }
+
+        const normalizedRubric = parseSchema(
+          CanvasRubricSchema,
+          rubric,
+          "CanvasRubric"
+        );
+
+        // Persist rubric to storage
+        await persistRubricToStorage(
+          input.courseId,
+          input.assignmentId,
+          normalizedRubric
+        );
+
+        return normalizedRubric;
+      } catch (error) {
+        console.error("Error fetching rubric:", error);
+        return null;
+      }
     }),
 });

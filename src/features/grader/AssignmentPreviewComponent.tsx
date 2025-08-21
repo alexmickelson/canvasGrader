@@ -25,7 +25,12 @@ export const AssignmentPreviewComponent: FC<{
     ? `data:application/pdf;base64,${data.pdfBase64}`
     : null;
 
-  if (body) {
+  // Only show PDF preview for submissions with file attachments, not text entries
+  const isTextOnlySubmission =
+    body && submission.submission_type === "online_text_entry";
+  const shouldShowPdfPreview = previewUrl && !isTextOnlySubmission;
+
+  if (body && isTextOnlySubmission) {
     return (
       <section className="space-y-2">
         <div className="text-xs uppercase tracking-wide text-gray-400">
@@ -39,7 +44,7 @@ export const AssignmentPreviewComponent: FC<{
     );
   }
 
-  if (previewUrl) {
+  if (shouldShowPdfPreview) {
     return (
       <section className="space-y-2">
         <div className="text-xs uppercase tracking-wide text-gray-400">
@@ -66,15 +71,13 @@ export const AssignmentPreviewComponent: FC<{
 
         {!isLoading && !isError && !pdfDataUrl && data === null && (
           <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-yellow-300">
-            No attachments found for this submission - unable to generate PDF preview.
+            No attachments found for this submission - unable to generate PDF
+            preview.
           </div>
         )}
 
         {!isLoading && !isError && pdfDataUrl && (
-          <PDFPreview 
-            pdfDataUrl={pdfDataUrl} 
-            className="w-full"
-          />
+          <PDFPreview pdfDataUrl={pdfDataUrl} className="w-full" />
         )}
 
         <div className="text-[11px] text-gray-500">

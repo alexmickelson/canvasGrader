@@ -24,9 +24,19 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
   const navigate = useNavigate();
 
   const filtered = useMemo(() => {
+    if (!assignments) return assignments;
     const q = filter.trim().toLowerCase();
-    if (!q) return assignments;
-    return assignments.filter((a) => a.name.toLowerCase().includes(q));
+    let result = assignments;
+    if (q) {
+      result = result.filter((a) => a.name.toLowerCase().includes(q));
+    }
+    // Sort by due date: earliest first, null/undefined due_at last
+    return result.slice().sort((a, b) => {
+      if (!a.due_at && !b.due_at) return 0;
+      if (!a.due_at) return 1;
+      if (!b.due_at) return -1;
+      return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+    });
   }, [assignments, filter]);
 
   const fmt = (iso?: string | null) =>

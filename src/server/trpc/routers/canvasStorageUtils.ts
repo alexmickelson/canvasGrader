@@ -6,6 +6,7 @@ import type {
   CanvasCourse,
   CanvasAssignment,
   CanvasSubmission,
+  CanvasRubric,
 } from "./canvasRouter";
 
 const canvasBaseUrl =
@@ -162,5 +163,36 @@ export async function persistSubmissionsToStorage(
     );
   } catch (err) {
     console.warn("Failed to persist submissions to storage", err);
+  }
+}
+
+export async function persistRubricToStorage(
+  courseId: number,
+  assignmentId: number,
+  rubric: CanvasRubric
+): Promise<void> {
+  try {
+    const { courseName, termName } = await getCourseMeta(courseId);
+    const { data: assignment } = await axiosClient.get(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+      {
+        headers: canvasRequestOptions.headers,
+      }
+    );
+    const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
+
+    const assignmentDir = path.join(
+      storageDirectory,
+      sanitizeName(termName),
+      sanitizeName(courseName),
+      sanitizeName(`${assignmentId} - ${assignmentName}`)
+    );
+    ensureDir(assignmentDir);
+
+    const rubricJsonPath = path.join(assignmentDir, "rubric.json");
+    fs.writeFileSync(rubricJsonPath, JSON.stringify(rubric, null, 2), "utf8");
+    console.log("Saved rubric to:", rubricJsonPath);
+  } catch (err) {
+    console.warn("Failed to persist rubric to storage", err);
   }
 }

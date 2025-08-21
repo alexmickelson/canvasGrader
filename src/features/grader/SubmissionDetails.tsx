@@ -2,11 +2,16 @@ import type { FC } from "react";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
 import { userName, initials } from "./userUtils";
 import { AssignmentPreviewComponent } from "./AssignmentPreviewComponent";
+import { RubricDisplay } from "./RubricDisplay";
+import { useRubricQuery } from "./graderHooks";
+import Spinner from "../../utils/Spinner";
 
 export const SubmissionDetails: FC<{
   submission: CanvasSubmission;
   courseId: number;
 }> = ({ submission, courseId }) => {
+  const rubricQuery = useRubricQuery(courseId, submission.assignment_id);
+
   const fmt = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleString() : "—";
   const name = userName(submission);
@@ -166,6 +171,45 @@ export const SubmissionDetails: FC<{
 
       {/* Content/Links */}
       <AssignmentPreviewComponent submission={submission} courseId={courseId} />
+
+      {/* Rubric */}
+      {rubricQuery.isLoading && (
+        <section className="space-y-2">
+          <div className="text-xs uppercase tracking-wide text-gray-400">
+            Rubric
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Spinner size={16} className="text-gray-400" />
+            Loading rubric...
+          </div>
+        </section>
+      )}
+
+      {rubricQuery.isError && (
+        <section className="space-y-2">
+          <div className="text-xs uppercase tracking-wide text-gray-400">
+            Rubric
+          </div>
+          <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-red-300">
+            Failed to load rubric
+          </div>
+        </section>
+      )}
+
+      {rubricQuery.data && rubricQuery.data !== null && (
+        <RubricDisplay rubric={rubricQuery.data} />
+      )}
+
+      {!rubricQuery.isLoading && !rubricQuery.isError && !rubricQuery.data && (
+        <section className="space-y-2">
+          <div className="text-xs uppercase tracking-wide text-gray-400">
+            Rubric
+          </div>
+          <div className="rounded border border-dashed border-gray-700 bg-gray-900/50 p-3 text-sm text-gray-400">
+            No rubric found for this assignment
+          </div>
+        </section>
+      )}
     </div>
   );
 };

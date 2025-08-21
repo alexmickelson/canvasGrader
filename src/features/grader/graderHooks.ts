@@ -29,3 +29,13 @@ export const usePreviewPdfQuery = ({
     })
   );
 };
+
+export const useRubricQuery = (courseId: number, assignmentId: number) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.canvas.getAssignmentRubric.queryOptions({
+      courseId,
+      assignmentId,
+    })
+  );
+};
