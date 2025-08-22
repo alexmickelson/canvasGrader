@@ -6,6 +6,7 @@ import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
 import { SubmissionDetails } from "./SubmissionDetails";
 import { userName, initials } from "./userUtils";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
+import { getSubmissionStatusChips } from "./submissionUtils";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -59,14 +60,11 @@ export const AssignmentGraderPage = () => {
           aria-hidden={selected ? undefined : true}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2
-              id="submission-details-title"
-              className="text-lg font-semibold truncate"
-            >
+            <div id="submission-details-title" className="text-xl truncate">
               {selected ? userName(selected) : ""}
-            </h2>
+            </div>
             <button
-              className="text-gray-400 hover:text-gray-200 rounded p-1"
+              className="unstyled text-gray-400 hover:text-gray-200 rounded cursor-pointer "
               onClick={() => setSelected(null)}
               aria-label="Close"
             >
@@ -142,24 +140,7 @@ const SubmissionsList: FC<{
             const submittedAt = s.submitted_at
               ? new Date(s.submitted_at)
               : null;
-            const statusChips: Array<{ label: string; color: string }> = [];
-            if (s.missing)
-              statusChips.push({
-                label: "Missing",
-                color:
-                  "bg-amber-500/15 text-amber-400 ring-1 ring-amber-400/30",
-              });
-            if (s.late)
-              statusChips.push({
-                label: "Late",
-                color: "bg-rose-500/15 text-rose-400 ring-1 ring-rose-400/30",
-              });
-            if (s.workflow_state)
-              statusChips.push({
-                label: s.workflow_state,
-                color:
-                  "bg-indigo-500/10 text-indigo-300 ring-1 ring-indigo-400/20",
-              });
+            const statusChips = getSubmissionStatusChips(s);
             const gradeDisplay =
               s.grade ?? (s.score != null ? `${s.score}` : null);
 
@@ -200,7 +181,7 @@ const SubmissionsList: FC<{
                             {statusChips.map((c, i) => (
                               <span
                                 key={i}
-                                className={`px-1.5 py-0.5 text-[10px] rounded-full ${c.color}`}
+                                className={`px-1.5 py-0.5 text-[10px] rounded-full ${c.className}`}
                               >
                                 {c.label}
                               </span>

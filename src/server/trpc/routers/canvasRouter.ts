@@ -85,6 +85,33 @@ export const CanvasAssignmentSchema = z.object({
 
 export type CanvasAssignment = z.infer<typeof CanvasAssignmentSchema>;
 
+export const CanvasSubmissionCommentSchema = z.object({
+  id: z.number(),
+  author_id: z.number(),
+  author_name: z.string().optional(),
+  comment: z.string(),
+  created_at: z.string(),
+  edited_at: z.string().nullable().optional(),
+  media_comment: z.any().nullable().optional(),
+});
+
+export const CanvasRubricAssessmentSchema = z.object({
+  id: z.number().optional(),
+  rubric_id: z.number().optional(),
+  rubric_association_id: z.number().optional(),
+  score: z.number().nullable().optional(),
+  data: z
+    .array(
+      z.object({
+        criterion_id: z.string(),
+        points: z.number().nullable().optional(),
+        comments: z.string().nullable().optional(),
+        rating_id: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
+});
+
 export const CanvasSubmissionSchema = z.object({
   // Base identifiers
   id: z.number().optional(),
@@ -112,8 +139,14 @@ export const CanvasSubmissionSchema = z.object({
   url: z.string().nullable().optional(),
 
   // Comments & type
-  submission_comments: z.any().nullable().optional(),
+  submission_comments: z
+    .array(CanvasSubmissionCommentSchema)
+    .nullable()
+    .optional(),
   submission_type: z.string().nullable().optional(),
+
+  // Rubric assessment
+  rubric_assessment: CanvasRubricAssessmentSchema.nullable().optional(),
 
   // Timestamps & status
   submitted_at: z.string().nullable().optional(),
@@ -170,13 +203,19 @@ export const CanvasRubricSchema = z.object({
   points_possible: z.number(),
   reusable: z.boolean().optional(),
   read_only: z.boolean().optional(),
-  free_form_criterion_comments: z.boolean().optional(),
-  hide_score_total: z.boolean().optional(),
+  free_form_criterion_comments: z.boolean().nullable().optional(),
+  hide_score_total: z.boolean().nullable().optional(),
   data: z.array(CanvasRubricCriterionSchema),
 });
 
 export type CanvasRubric = z.infer<typeof CanvasRubricSchema>;
 export type CanvasRubricCriterion = z.infer<typeof CanvasRubricCriterionSchema>;
+export type CanvasSubmissionComment = z.infer<
+  typeof CanvasSubmissionCommentSchema
+>;
+export type CanvasRubricAssessment = z.infer<
+  typeof CanvasRubricAssessmentSchema
+>;
 
 export const canvasRouter = createTRPCRouter({
   getCourses: publicProcedure.query(async () => {
@@ -222,28 +261,22 @@ export const canvasRouter = createTRPCRouter({
       const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions?per_page=100`;
       const submissions = await paginatedRequest<CanvasSubmission[]>({
         url,
-        params: { include: "user" },
+        params: {
+          include: ["user", "submission_comments", "rubric_assessment"],
+        },
       });
-      const normalizedSubmissions = submissions.map((submission) => ({
-        ...submission,
-        user:
-          submission && submission.user
-            ? parseSchema(
-                z.object({ id: z.number(), name: z.string() }),
-                submission.user,
-                "CanvasUser"
-              )
-            : null,
-      }));
+      const parsedSubmissions = submissions.map((submission) =>
+        parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
+      );
+      // console.log(parsedSubmissions);
 
-      // Persist submission metadata to storage
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
-        normalizedSubmissions
+        parsedSubmissions
       );
 
-      return normalizedSubmissions;
+      return parsedSubmissions;
     }),
   // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.
 

@@ -1,11 +1,29 @@
-export function userName(s: { user?: unknown }): string {
-  const u: unknown = s.user;
-  if (!u) return "Unknown student";
-  if (typeof u === "string") return u || "Unknown student";
-  if (typeof u === "object" && u !== null && "name" in u) {
-    const name = (u as { name?: unknown }).name;
-    if (typeof name === "string" && name.length > 0) return name;
+import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
+
+export function userName(submission: CanvasSubmission): string {
+  const user = submission.user;
+
+  // Handle null/undefined user
+  if (!user) {
+    return "Unknown student";
   }
+
+  // Handle string user (legacy case)
+  if (typeof user === "string") {
+    const trimmed = user.trim();
+    return trimmed.length > 0 ? trimmed : "Unknown student";
+  }
+
+  // Handle normalized user object with id and name
+  if (typeof user === "object" && user !== null && "name" in user) {
+    const name = user.name;
+    if (typeof name === "string") {
+      const trimmed = name.trim();
+      return trimmed.length > 0 ? trimmed : "Unknown student";
+    }
+  }
+
+  console.warn("Unexpected user structure:", user);
   return "Unknown student";
 }
 

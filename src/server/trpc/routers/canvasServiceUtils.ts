@@ -117,17 +117,27 @@ export async function paginatedRequest<T extends unknown[]>({
   params = {},
 }: {
   url: string;
-  params?: { [key: string]: string | number | boolean };
+  params?: { [key: string]: string | number | boolean | string[] };
 }): Promise<T> {
   let requestCount = 1;
   const url = new URL(urlParam);
   url.searchParams.set("per_page", "100");
   Object.entries(params ?? {}).forEach(([key, value]) => {
-    url.searchParams.set(key, value.toString());
+    if (Array.isArray(value)) {
+      // Handle array parameters like include[] for Canvas API
+      // Ensure the key has [] brackets for Canvas API array parameters
+      const arrayKey = key.endsWith("[]") ? key : `${key}[]`;
+      value.forEach((item) => {
+        url.searchParams.append(arrayKey, item.toString());
+      });
+    } else {
+      url.searchParams.set(key, value.toString());
+    }
   });
 
   const returnData: unknown[] = [];
   let nextUrl: string | undefined = url.toString();
+  console.log(nextUrl);
 
   while (nextUrl) {
     const { data, headers } = await rateLimitGet<T>(
