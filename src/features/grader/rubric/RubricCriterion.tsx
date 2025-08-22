@@ -16,9 +16,9 @@ export const RubricCriterion: FC<{
     : null;
 
   return (
-    <div className=" overflow-hidden">
+    <div className=" overflow-hidden border-2 p-1 border-slate-900 rounded">
       {/* Criterion Header */}
-      <div className="bg-gray-800/50 px-1 py-1 rounded flex justify-between">
+      <div className=" px-1 pb-1 flex justify-between">
         <div>
           <div className="font-medium text-gray-300">
             {criterion.description || `Criterion ${criterion.id}`}

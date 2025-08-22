@@ -27,7 +27,6 @@ export const SubmissionGradingInfo: FC<SubmissionGradingInfoProps> = ({
 
   // Build natural sentences about the submission
   const submissionParts = [];
-  const gradingParts = [];
   const attemptParts = [];
 
   // Submission timing
@@ -39,31 +38,6 @@ export const SubmissionGradingInfo: FC<SubmissionGradingInfoProps> = ({
     if (lateBy) submissionParts.push(`${lateBy} late`);
   }
 
-  // Grading info
-  if (submission.grade || submission.score != null) {
-    if (submission.grade && submission.score != null) {
-      gradingParts.push(`Grade: ${submission.grade} (${submission.score} pts)`);
-    } else if (submission.grade) {
-      gradingParts.push(`Grade: ${submission.grade}`);
-    } else if (submission.score != null) {
-      gradingParts.push(`Score: ${submission.score} points`);
-    }
-  }
-
-  if (submission.points_deducted != null && submission.points_deducted > 0) {
-    gradingParts.push(`${submission.points_deducted} points deducted`);
-  }
-
-  if (submission.graded_at || submission.grader_id != null) {
-    let gradedInfo = "Graded";
-    if (submission.graded_at) {
-      gradedInfo += ` ${fmt(submission.graded_at)}`;
-    }
-    if (submission.grader_id != null) {
-      gradedInfo += ` by grader #${submission.grader_id}`;
-    }
-    gradingParts.push(gradedInfo);
-  }
 
   // Attempt info
   if (submission.attempt != null) {
@@ -77,17 +51,15 @@ export const SubmissionGradingInfo: FC<SubmissionGradingInfoProps> = ({
   // Combine into compact display
   const allParts = [
     ...submissionParts,
-    ...gradingParts,
     ...attemptParts,
   ].filter(Boolean);
 
   if (allParts.length === 0) return null;
 
   return (
-    <div className="text-sm text-gray-300 space-y-1">
+    <div className="text-sm text-gray-500 space-y-1">
       {allParts.map((part, index) => (
         <div key={index} className="flex items-center gap-2">
-          <span className="h-1 w-1 rounded-full bg-gray-600 flex-shrink-0" />
           <span>{part}</span>
         </div>
       ))}

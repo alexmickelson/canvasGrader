@@ -65,9 +65,9 @@ export const RubricDisplay: FC<{
   const rubric = rubricQuery.data;
 
   return (
-    <section className="space-y-4 p-3 bg-slate-950 rounded">
+    <section className="px-1 pb-1 bg-slate-950 rounded">
       <div className="flex items-center justify-end">
-        <div className="text-sm text-gray-400">
+        <div className="text-sm text-gray-400 pe-3">
           {totalScore != null ? (
             <span>
               <span className="font-bold text-green-400">{totalScore}</span>/
