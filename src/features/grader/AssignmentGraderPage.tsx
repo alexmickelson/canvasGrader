@@ -3,10 +3,10 @@ import { Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { useSubmissionsQuery } from "./graderHooks";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
-import { SubmissionDetails } from "./SubmissionDetails";
 import { userName, initials } from "./userUtils";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
-import { getSubmissionStatusChips } from "./submissionUtils";
+import { SubmissionDetails } from "./submission/SubmissionDetails";
+import { getSubmissionStatusChips } from "./submission/submissionUtils";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{

@@ -1,7 +1,7 @@
 import type { FC } from "react";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvasRouter";
 import { SubmissionGradingInfo } from "./SubmissionGradingInfo";
-import { getSubmissionStatusChips } from "./submissionUtils";
+import { getSubmissionStatusChips, type StatusChip } from "./submissionUtils";
 
 interface SubmissionHeaderProps {
   submission: CanvasSubmission;
@@ -27,7 +27,7 @@ export const SubmissionMetadata: FC<SubmissionHeaderProps> = ({
       <div>
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {chips.map((c, i) => (
+            {chips.map((c: StatusChip, i: number) => (
               <span
                 key={i}
                 className={`px-1.5 py-0.5 text-[10px] rounded-full ring-1 ${c.className}`}

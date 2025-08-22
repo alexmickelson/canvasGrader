@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import type { CanvasSubmissionComment } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmissionComment } from "../../../server/trpc/routers/canvasRouter";
 
 interface SubmissionCommentsProps {
   comments: CanvasSubmissionComment[];

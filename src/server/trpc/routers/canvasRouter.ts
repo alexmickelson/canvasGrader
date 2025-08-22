@@ -103,7 +103,7 @@ export const CanvasSubmissionCommentSchema = z.object({
 export const CanvasRubricAssessmentSchema = z.record(
   z.string(), // criterion ID keys like "_1688", "_6165"
   z.object({
-    rating_id: z.string().optional(),
+    rating_id: z.string().nullable().optional(),
     comments: z.string().optional(),
     points: z.number().optional(),
   })

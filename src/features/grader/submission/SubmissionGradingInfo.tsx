@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvasRouter";
 
 interface SubmissionGradingInfoProps {
   submission: CanvasSubmission;
@@ -38,7 +38,6 @@ export const SubmissionGradingInfo: FC<SubmissionGradingInfoProps> = ({
     if (lateBy) submissionParts.push(`${lateBy} late`);
   }
 
-
   // Attempt info
   if (submission.attempt != null) {
     let attemptInfo = `Attempt #${submission.attempt}`;
@@ -49,10 +48,7 @@ export const SubmissionGradingInfo: FC<SubmissionGradingInfoProps> = ({
   }
 
   // Combine into compact display
-  const allParts = [
-    ...submissionParts,
-    ...attemptParts,
-  ].filter(Boolean);
+  const allParts = [...submissionParts, ...attemptParts].filter(Boolean);
 
   if (allParts.length === 0) return null;
 

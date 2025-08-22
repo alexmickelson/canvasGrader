@@ -1,7 +1,7 @@
 import type { FC } from "react";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
-import { AssignmentPreviewComponent } from "./AssignmentPreviewComponent";
-import { RubricDisplay } from "./rubric/RubricDisplay";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvasRouter";
+import { AssignmentPreviewComponent } from "../AssignmentPreviewComponent";
+import { RubricDisplay } from "../rubric/RubricDisplay";
 import { SubmissionMetadata } from "./SubmissionMetadata";
 import { SubmissionComments } from "./SubmissionComments";
 

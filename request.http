@@ -4,3 +4,9 @@ Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
 ###
 GET https://snow.instructure.com/api/v1/courses/1154759/assignments/16571735/submissions?per_page=100&include%5B%5D=user&include%5B%5D=submission_comments&include%5B%5D=rubric_assessment
 Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
+
+
+###
+
+GET https://snow.instructure.com/api/v1/courses/1013710
+Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
