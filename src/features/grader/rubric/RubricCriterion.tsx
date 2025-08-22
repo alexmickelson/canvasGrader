@@ -3,6 +3,7 @@ import type {
   CanvasRubricCriterion,
   CanvasRubricAssessment,
 } from "../../../server/trpc/routers/canvasRouter";
+import { RubricRatings } from "./RubricRatings";
 
 export const RubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
@@ -10,15 +11,14 @@ export const RubricCriterion: FC<{
 }> = ({ criterion, assessment }) => {
   const criterionAssessment = assessment?.[criterion.id];
 
-  
   const selectedRating = criterionAssessment?.rating_id
     ? criterion.ratings.find((r) => r.id === criterionAssessment.rating_id)
     : null;
 
   return (
-    <div className="border border-gray-700 overflow-hidden">
+    <div className=" overflow-hidden">
       {/* Criterion Header */}
-      <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700 flex justify-between">
+      <div className="bg-gray-800/50 px-1 py-1 rounded flex justify-between">
         <div>
           <div className="font-medium text-gray-300">
             {criterion.description || `Criterion ${criterion.id}`}
@@ -35,7 +35,11 @@ export const RubricCriterion: FC<{
               <span className="font-bold text-green-300">
                 {criterionAssessment.points ?? 0}
               </span>
-              /<span className="font-bold text-slate-200">{criterion.points}</span> pts
+              /
+              <span className="font-bold text-slate-200">
+                {criterion.points}
+              </span>{" "}
+              pts
             </span>
           ) : (
             <span>
@@ -59,46 +63,19 @@ export const RubricCriterion: FC<{
       )}
 
       {/* Ratings */}
-      <div className="p-4">
-        <div className="grid gap-2">
-          {criterion.ratings.map((rating) => {
-            const isSelected = selectedRating?.id === rating.id;
-            return (
-              <div
-                key={rating.id}
-                className={`flex items-center justify-between p-3 rounded-md ${
-                  isSelected
-                    ? "bg-green-500/20 border border-green-500/40"
-                    : "bg-gray-800/30"
-                }`}
-              >
-                <div className="flex-1">
-                  <div
-                    className={`font-medium ${
-                      isSelected ? "text-green-200" : "text-gray-200"
-                    }`}
-                  >
-                    {isSelected && "✓ "}
-                    {rating.description || `Rating ${rating.id}`}
-                  </div>
-                  {rating.long_description && (
-                    <div className="mt-1 text-sm text-gray-400">
-                      {rating.long_description}
-                    </div>
-                  )}
-                </div>
-                <div
-                  className={`ml-4 text-sm font-medium px-2 py-1 rounded ${
-                    isSelected
-                      ? "text-green-100 bg-green-700"
-                      : "text-gray-100 bg-gray-700"
-                  }`}
-                >
-                  {rating.points} pts
-                </div>
-              </div>
-            );
-          })}
+      <div className="ps-3 pt-1">
+        <div className=" flex flex-row gap-3">
+          {criterion.ratings
+            .sort((a, b) => a.points - b.points)
+            .map((rating) => {
+              return (
+                <RubricRatings
+                  key={rating.id}
+                  rating={rating}
+                  selectedRating={selectedRating}
+                />
+              );
+            })}
         </div>
       </div>
     </div>

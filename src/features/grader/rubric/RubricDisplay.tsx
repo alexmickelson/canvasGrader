@@ -66,12 +66,17 @@ export const RubricDisplay: FC<{
 
   return (
     <section className="space-y-4 p-3 bg-slate-950 rounded">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-400 space-x-4">
-          <span>Total: {rubric.points_possible} points</span>
-          {totalScore != null && (
-            <span className="text-green-400 font-medium">
-              Score: {totalScore} pts
+      <div className="flex items-center justify-end">
+        <div className="text-sm text-gray-400">
+          {totalScore != null ? (
+            <span>
+              <span className="font-bold text-green-400">{totalScore}</span>/
+              <span className="font-bold">{rubric.points_possible}</span> pts
+            </span>
+          ) : (
+            <span>
+              Total: <span className="font-bold">{rubric.points_possible}</span>{" "}
+              pts available
             </span>
           )}
         </div>
