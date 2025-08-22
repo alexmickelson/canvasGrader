@@ -7,11 +7,13 @@ interface SubmissionHeaderProps {
   submission: CanvasSubmission;
 }
 
-export const SubmissionHeader: FC<SubmissionHeaderProps> = ({ submission }) => {
+export const SubmissionMetadata: FC<SubmissionHeaderProps> = ({
+  submission,
+}) => {
   const chips = getSubmissionStatusChips(submission);
 
   return (
-    <div className="flex justify-around gap-4">
+    <div className="flex flex-col gap-4 p-3 bg-slate-950 rounded">
       {/* Submission Type */}
       <div>
         {submission.submission_type && (

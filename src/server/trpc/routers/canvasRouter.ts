@@ -32,6 +32,11 @@ if (!canvasToken) {
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
+// Helper function to check if a submission should be ignored
+const isTestStudentSubmission = (submission: { user?: { name?: string } }) => {
+  return submission.user?.name === "Test Student";
+};
+
 export const CanvasTermSchema = z.object({
   id: z.coerce.number(),
   name: z.string(),
@@ -260,15 +265,33 @@ export const canvasRouter = createTRPCRouter({
       const parsedSubmissions = submissions.map((submission) =>
         parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
       );
-      // console.log(parsedSubmissions);
+
+      // Filter out submissions from Test Student
+      const filteredSubmissions = parsedSubmissions.filter((submission) => {
+        if (isTestStudentSubmission(submission)) {
+          console.log(
+            `Filtering out Test Student submission (ID: ${submission.id})`
+          );
+          return false;
+        }
+        return true;
+      });
+
+      const filteredCount =
+        parsedSubmissions.length - filteredSubmissions.length;
+      if (filteredCount > 0) {
+        console.log(`Filtered out ${filteredCount} Test Student submission(s)`);
+      }
+
+      // console.log(filteredSubmissions);
 
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
-        parsedSubmissions
+        filteredSubmissions
       );
 
-      return parsedSubmissions;
+      return filteredSubmissions;
     }),
   // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.
 
@@ -310,6 +333,12 @@ export const canvasRouter = createTRPCRouter({
         );
 
       console.log("Submission data:", submission);
+
+      // Skip processing for Test Student submissions
+      if (isTestStudentSubmission(submission)) {
+        console.log("Skipping Test Student submission");
+        return null;
+      }
 
       const attachments = submission.attachments ?? [];
       const hasTextEntry = submission.body && submission.body.trim();

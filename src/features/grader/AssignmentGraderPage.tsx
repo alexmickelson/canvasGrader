@@ -26,8 +26,8 @@ export const AssignmentGraderPage = () => {
   }
 
   return (
-    <div className="p-4 text-gray-200">
-      <h1 className="text-xl font-semibold mb-4">
+    <div className="p-4 text-gray-200 h-screen flex flex-col">
+      <h1 className="text-xl font-semibold mb-4 flex-shrink-0">
         Grade{" "}
         <AssignmentName
           assignmentId={parsedAssignmentId}
@@ -36,7 +36,7 @@ export const AssignmentGraderPage = () => {
       </h1>
 
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
-      <div className="flex gap-4 items-stretch">
+      <div className="flex gap-4 items-stretch flex-1 min-h-0 flex-nowrap w-full">
         <div className="flex-1 min-w-0">
           <Suspense
             fallback={<div className="text-gray-400">Loading submissions…</div>}
@@ -52,14 +52,14 @@ export const AssignmentGraderPage = () => {
 
         {/* Slide-in side panel that shares UI space */}
         <aside
-          className={`relative bg-gray-900 border-l border-gray-800 shadow-xl overflow-hidden transition-all duration-300 ease-out ${
-            selected ? "w-3/4 " : "w-0"
+          className={`bg-gray-900 border-l border-gray-800 shadow-xl transition-all duration-300 ease-out flex flex-col ${
+            selected ? "w-3/4 " : "w-auto"
           }`}
           role="complementary"
           aria-labelledby="submission-details-title"
           aria-hidden={selected ? undefined : true}
         >
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
             <div id="submission-details-title" className="text-xl truncate">
               {selected ? userName(selected) : ""}
             </div>
@@ -84,14 +84,12 @@ export const AssignmentGraderPage = () => {
               </svg>
             </button>
           </div>
-          <div className="p-4 space-y-3 text-sm">
-            {selected && courseId ? (
+          <div className="p-4 space-y-3 text-sm flex-1 min-h-0">
+            {selected && courseId && (
               <SubmissionDetails
                 submission={selected}
                 courseId={Number(courseId)}
               />
-            ) : (
-              <div className="text-gray-400">No submission selected</div>
             )}
           </div>
         </aside>

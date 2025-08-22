@@ -8,31 +8,39 @@ export const RubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
   assessment?: CanvasRubricAssessment | null;
 }> = ({ criterion, assessment }) => {
-  // Find the assessment data for this criterion using the criterion ID as key
   const criterionAssessment = assessment?.[criterion.id];
 
-  // Find which rating was selected based on the assessment
+  
   const selectedRating = criterionAssessment?.rating_id
     ? criterion.ratings.find((r) => r.id === criterionAssessment.rating_id)
     : null;
 
   return (
-    <div className="border border-gray-700 rounded-lg overflow-hidden">
+    <div className="border border-gray-700 overflow-hidden">
       {/* Criterion Header */}
-      <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700">
-        <div className="font-medium text-gray-300">
-          {criterion.description || `Criterion ${criterion.id}`}
+      <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700 flex justify-between">
+        <div>
+          <div className="font-medium text-gray-300">
+            {criterion.description || `Criterion ${criterion.id}`}
+          </div>
+          {criterion.long_description && (
+            <p className="mt-1 text-sm text-gray-400">
+              {criterion.long_description}
+            </p>
+          )}
         </div>
-        {criterion.long_description && (
-          <p className="mt-1 text-sm text-gray-400">
-            {criterion.long_description}
-          </p>
-        )}
-        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-          <span>Max Points: {criterion.points}</span>
-          {criterionAssessment && (
-            <span className="text-green-400 font-medium">
-              Scored: {criterionAssessment.points ?? 0} pts
+        <div className=" text-gray-500">
+          {criterionAssessment ? (
+            <span>
+              <span className="font-bold text-green-300">
+                {criterionAssessment.points ?? 0}
+              </span>
+              /<span className="font-bold text-slate-200">{criterion.points}</span> pts
+            </span>
+          ) : (
+            <span>
+              <span className="font-bold">{criterion.points}</span> pts
+              available
             </span>
           )}
         </div>

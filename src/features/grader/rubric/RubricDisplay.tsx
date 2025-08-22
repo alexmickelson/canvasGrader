@@ -65,7 +65,7 @@ export const RubricDisplay: FC<{
   const rubric = rubricQuery.data;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 p-3 bg-slate-950 rounded">
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-400 space-x-4">
           <span>Total: {rubric.points_possible} points</span>
