@@ -95,22 +95,14 @@ export const CanvasSubmissionCommentSchema = z.object({
   media_comment: z.any().nullable().optional(),
 });
 
-export const CanvasRubricAssessmentSchema = z.object({
-  id: z.number().optional(),
-  rubric_id: z.number().optional(),
-  rubric_association_id: z.number().optional(),
-  score: z.number().nullable().optional(),
-  data: z
-    .array(
-      z.object({
-        criterion_id: z.string(),
-        points: z.number().nullable().optional(),
-        comments: z.string().nullable().optional(),
-        rating_id: z.string().nullable().optional(),
-      })
-    )
-    .optional(),
-});
+export const CanvasRubricAssessmentSchema = z.record(
+  z.string(), // criterion ID keys like "_1688", "_6165"
+  z.object({
+    rating_id: z.string().optional(),
+    comments: z.string().optional(),
+    points: z.number().optional(),
+  })
+);
 
 export const CanvasSubmissionSchema = z.object({
   // Base identifiers
@@ -258,7 +250,7 @@ export const canvasRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
-      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions?per_page=100`;
+      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions`;
       const submissions = await paginatedRequest<CanvasSubmission[]>({
         url,
         params: {

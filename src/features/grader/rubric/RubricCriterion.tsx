@@ -2,24 +2,14 @@ import type { FC } from "react";
 import type {
   CanvasRubricCriterion,
   CanvasRubricAssessment,
-} from "../../server/trpc/routers/canvasRouter";
-import { useRubricQuery } from "./graderHooks";
-import Spinner from "../../utils/Spinner";
+} from "../../../server/trpc/routers/canvasRouter";
 
-interface RubricDisplayProps {
-  courseId: number;
-  assignmentId: number;
-  rubricAssessment?: CanvasRubricAssessment | null;
-}
-
-const RubricCriterion: FC<{
+export const RubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
   assessment?: CanvasRubricAssessment | null;
 }> = ({ criterion, assessment }) => {
-  // Find the assessment data for this criterion
-  const criterionAssessment = assessment?.data?.find(
-    (data) => data.criterion_id === criterion.id
-  );
+  // Find the assessment data for this criterion using the criterion ID as key
+  const criterionAssessment = assessment?.[criterion.id];
 
   // Find which rating was selected based on the assessment
   const selectedRating = criterionAssessment?.rating_id
@@ -30,9 +20,9 @@ const RubricCriterion: FC<{
     <div className="border border-gray-700 rounded-lg overflow-hidden">
       {/* Criterion Header */}
       <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700">
-        <h4 className="font-medium text-gray-100">
+        <div className="font-medium text-gray-300">
           {criterion.description || `Criterion ${criterion.id}`}
-        </h4>
+        </div>
         {criterion.long_description && (
           <p className="mt-1 text-sm text-gray-400">
             {criterion.long_description}
@@ -104,92 +94,5 @@ const RubricCriterion: FC<{
         </div>
       </div>
     </div>
-  );
-};
-
-export const RubricDisplay: FC<RubricDisplayProps> = ({
-  courseId,
-  assignmentId,
-  rubricAssessment,
-}) => {
-  const rubricQuery = useRubricQuery(courseId, assignmentId);
-
-  if (rubricQuery.isLoading) {
-    return (
-      <section className="space-y-2">
-        <div className="text-xs uppercase tracking-wide text-gray-400">
-          Rubric
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <Spinner size={16} className="text-gray-400" />
-          Loading rubric...
-        </div>
-      </section>
-    );
-  }
-
-  if (rubricQuery.isError) {
-    return (
-      <section className="space-y-2">
-        <div className="text-xs uppercase tracking-wide text-gray-400">
-          Rubric
-        </div>
-        <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-red-300">
-          Failed to load rubric
-        </div>
-      </section>
-    );
-  }
-
-  if (!rubricQuery.data) {
-    return (
-      <section className="space-y-2">
-        <div className="text-xs uppercase tracking-wide text-gray-400">
-          Rubric
-        </div>
-        <div className="rounded border border-dashed border-gray-700 bg-gray-900/50 p-3 text-sm text-gray-400">
-          No rubric found for this assignment
-        </div>
-      </section>
-    );
-  }
-
-  const rubric = rubricQuery.data;
-
-  return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-gray-400">
-            Rubric
-          </div>
-          <h3 className="font-semibold text-gray-100">{rubric.title}</h3>
-        </div>
-        <div className="text-sm text-gray-400 space-x-4">
-          <span>Total: {rubric.points_possible} points</span>
-          {rubricAssessment?.score != null && (
-            <span className="text-green-400 font-medium">
-              Score: {rubricAssessment.score} pts
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {rubric.data.map((criterion: CanvasRubricCriterion) => (
-          <RubricCriterion
-            key={criterion.id}
-            criterion={criterion}
-            assessment={rubricAssessment}
-          />
-        ))}
-      </div>
-
-      {rubric.free_form_criterion_comments && (
-        <div className="text-xs text-gray-500 italic">
-          This rubric allows free-form comments
-        </div>
-      )}
-    </section>
   );
 };
