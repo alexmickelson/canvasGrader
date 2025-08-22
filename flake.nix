@@ -16,7 +16,7 @@
         pkgs = import nixpkgs { inherit system; };
         startScript = pkgs.writeShellApplication {
           name = "run-canvasgrader";
-          runtimeInputs = with pkgs; [ nodejs_20 pnpm ];
+          runtimeInputs = with pkgs; [ nodejs_20 pnpm gh-classroom ];
           text = ''
             set -euo pipefail
 
@@ -51,9 +51,10 @@
         };
       in {
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.nodejs_20 pkgs.pnpm ];
+          packages = [ pkgs.nodejs_20 pkgs.pnpm pkgs.gh-classroom ];
           shellHook = ''
             echo "Dev shell ready. Start both services with: nix run"
+            echo "GitHub Classroom CLI available as 'gh classroom'"
           '';
         };
 
@@ -66,7 +67,7 @@
         apps.production = let
           prodScript = pkgs.writeShellApplication {
             name = "run-canvasgrader-prod";
-            runtimeInputs = with pkgs; [ nodejs_20 pnpm ];
+            runtimeInputs = with pkgs; [ nodejs_20 pnpm gh-classroom ];
             text = ''
               set -euo pipefail
 
