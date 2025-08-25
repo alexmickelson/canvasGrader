@@ -46,7 +46,7 @@ export const AssignmentPreviewComponent: FC<{
 
   if (shouldShowPdfPreview) {
     return (
-      <section className="space-y-2">
+      <section className="space-y-2 h-full flex flex-col">
         <div className="text-xs uppercase tracking-wide text-gray-400">
           Preview PDF
         </div>
@@ -77,13 +77,15 @@ export const AssignmentPreviewComponent: FC<{
         )}
 
         {!isLoading && !isError && pdfDataUrl && (
-          <PDFPreview pdfDataUrl={pdfDataUrl} className="w-full" />
+          <div className="flex-1 min-h-0">
+            <PDFPreview pdfDataUrl={pdfDataUrl} className="w-full h-full" />
+          </div>
         )}
 
-        <div className="text-[11px] text-gray-500">
+        <div className="text-[11px] text-gray-500 flex-shrink-0">
           If the PDF fails to load, open the original preview below.
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <a
             href={previewUrl}
             target="_blank"

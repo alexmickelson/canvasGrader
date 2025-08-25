@@ -42,8 +42,11 @@ export const RubricDisplay: FC<{
         <div className="text-xs uppercase tracking-wide text-gray-400">
           Rubric
         </div>
-        <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-red-300">
-          Failed to load rubric
+        <div className="rounded border border-red-700 bg-red-900/20 p-3 text-sm text-red-300">
+          <div className="font-medium">Failed to load rubric</div>
+          <div className="mt-1 text-xs text-red-400">
+            {rubricQuery.error?.message || "Unknown error occurred"}
+          </div>
         </div>
       </section>
     );

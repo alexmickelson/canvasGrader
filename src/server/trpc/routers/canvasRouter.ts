@@ -41,6 +41,96 @@ const isTestStudentSubmission = (submission: { user?: { name?: string } }) => {
   return submission.user?.name === "Test Student";
 };
 
+// Utility function to fetch assignment rubric with proper error handling
+const fetchAssignmentRubric = async (
+  courseId: number,
+  assignmentId: number
+): Promise<CanvasRubric> => {
+  console.log(
+    `Fetching rubric for assignment ${assignmentId} in course ${courseId}`
+  );
+
+  try {
+    // First, get the assignment to find the rubric association ID
+    const { data: assignment } = await axiosClient.get(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+      {
+        headers: canvasRequestOptions.headers,
+      }
+    );
+
+    const rubricId = assignment?.rubric_settings?.id;
+    if (!rubricId) {
+      throw new Error(
+        `No rubric found for assignment ${assignmentId}. Please ensure the assignment has a rubric attached.`
+      );
+    }
+
+    console.log(`Found rubric ID ${rubricId} for assignment ${assignmentId}`);
+
+    // Fetch the actual rubric data
+    const { data: rubric } = await axiosClient.get(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}/rubrics/${rubricId}`,
+      {
+        headers: canvasRequestOptions.headers,
+      }
+    );
+
+    if (!rubric) {
+      throw new Error(
+        `Failed to fetch rubric data for rubric ID ${rubricId}. The rubric may have been deleted or access permissions may be insufficient.`
+      );
+    }
+
+    console.log(`Successfully fetched rubric data for ID ${rubricId}`);
+
+    // Parse and validate the rubric data
+    const normalizedRubric = parseSchema(
+      CanvasRubricSchema,
+      rubric,
+      "CanvasRubric"
+    );
+
+    // Persist rubric to storage
+    await persistRubricToStorage(courseId, assignmentId, normalizedRubric);
+
+    console.log(`Rubric persisted to storage for assignment ${assignmentId}`);
+
+    return normalizedRubric;
+  } catch (error) {
+    console.error(
+      `Error fetching rubric for assignment ${assignmentId}:`,
+      error
+    );
+
+    // Re-throw with more context if it's our custom error
+    if (error instanceof Error && error.message.includes("No rubric found")) {
+      throw error;
+    }
+
+    // Handle axios errors
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as {
+        response: { status?: number; data?: unknown };
+      };
+      throw new Error(
+        `Canvas API error (${
+          axiosError.response.status
+        }): Failed to fetch rubric for assignment ${assignmentId}. ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+
+    // Generic error handling
+    throw new Error(
+      `Unexpected error fetching rubric for assignment ${assignmentId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+};
+
 export const CanvasTermSchema = z.object({
   id: z.coerce.number(),
   name: z.string(),
@@ -108,7 +198,7 @@ export const CanvasRubricAssessmentSchema = z.record(
   z.string(), // criterion ID keys like "_1688", "_6165"
   z.object({
     rating_id: z.string().nullable().optional(),
-    comments: z.string().optional(),
+    comments: z.string().nullable().optional(),
     points: z.number().optional(),
   })
 );
@@ -240,7 +330,7 @@ export const canvasRouter = createTRPCRouter({
       const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments?per_page=100`;
       const assignments = await paginatedRequest<CanvasAssignment[]>({
         url,
-        params: { include: "submission" },
+        params: { include: ["submission"] },
       });
       const normalized = assignments.map((assignment) =>
         parseSchema(CanvasAssignmentSchema, assignment, "CanvasAssignment")
@@ -464,51 +554,8 @@ export const canvasRouter = createTRPCRouter({
         assignmentId: z.coerce.number(),
       })
     )
-    .query(async ({ input }): Promise<CanvasRubric | null> => {
-      try {
-        const { data: assignment } = await axiosClient.get(
-          `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}`,
-          {
-            headers: canvasRequestOptions.headers,
-          }
-        );
-
-        const rubricId = assignment?.rubric_settings?.id;
-        if (!rubricId) {
-          console.log("No rubric found for assignment", input.assignmentId);
-          return null;
-        }
-
-        const { data: rubric } = await axiosClient.get(
-          `${canvasBaseUrl}/api/v1/courses/${input.courseId}/rubrics/${rubricId}`,
-          {
-            headers: canvasRequestOptions.headers,
-          }
-        );
-
-        if (!rubric) {
-          console.log("Failed to fetch rubric data for ID", rubricId);
-          return null;
-        }
-
-        const normalizedRubric = parseSchema(
-          CanvasRubricSchema,
-          rubric,
-          "CanvasRubric"
-        );
-
-        // Persist rubric to storage
-        await persistRubricToStorage(
-          input.courseId,
-          input.assignmentId,
-          normalizedRubric
-        );
-
-        return normalizedRubric;
-      } catch (error) {
-        console.error("Error fetching rubric:", error);
-        return null;
-      }
+    .query(async ({ input }): Promise<CanvasRubric> => {
+      return await fetchAssignmentRubric(input.courseId, input.assignmentId);
     }),
 
   downloadAndOrganizeRepositories: publicProcedure
@@ -786,6 +833,148 @@ export const canvasRouter = createTRPCRouter({
 
         throw new Error(
           `Failed to download and organize GitHub Classroom repositories: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }),
+
+  gradeSubmissionWithRubric: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        assignmentId: z.number(),
+        userId: z.number(),
+        rubricAssessment: z.record(
+          z.string(), // criterion ID
+          z.object({
+            rating_id: z.string().optional(),
+            points: z.number().optional(),
+            comments: z.string().optional(),
+          })
+        ),
+        comment: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { courseId, assignmentId, userId, rubricAssessment, comment } =
+        input;
+
+      console.log("=== Grading Submission with Rubric ===");
+      console.log(`Course ID: ${courseId}`);
+      console.log(`Assignment ID: ${assignmentId}`);
+      console.log(`User ID: ${userId}`);
+      console.log(`Rubric Assessment:`, rubricAssessment);
+      if (comment) {
+        console.log(`Comment: ${comment}`);
+      }
+
+      try {
+        // Validate required parameters
+        if (!userId) {
+          throw new Error("User ID is required for grading");
+        }
+
+        console.log(`\n1. Using provided user_id: ${userId}`);
+
+        // Calculate total points from rubric assessment
+        const totalPoints = Object.values(rubricAssessment).reduce(
+          (sum, criterion) => sum + (criterion.points || 0),
+          0
+        );
+
+        console.log(`Calculated total points: ${totalPoints}`);
+
+        // Prepare the submission data according to Canvas API documentation
+        // Using the PUT /api/v1/courses/:course_id/assignments/:assignment_id/submissions/:user_id endpoint
+        const submissionData = {
+          // Submission parameters
+          submission: {
+            posted_grade: totalPoints.toString(), // Convert to string as per API docs
+          },
+          // Comment parameters (if provided)
+          ...(comment && {
+            comment: {
+              text_comment: comment,
+            },
+          }),
+          // Rubric assessment parameters
+          rubric_assessment: Object.fromEntries(
+            Object.entries(rubricAssessment).map(
+              ([criterionId, assessment]) => [
+                criterionId, // Use the criterion ID directly (e.g., "crit1", "_1688")
+                {
+                  ...(assessment.points !== undefined && {
+                    points: assessment.points,
+                  }),
+                  ...(assessment.rating_id && {
+                    rating_id: assessment.rating_id,
+                  }),
+                  ...(assessment.comments && { comments: assessment.comments }),
+                },
+              ]
+            )
+          ),
+        };
+
+        console.log(
+          "Sending combined submission and rubric data to Canvas API:",
+          JSON.stringify(submissionData, null, 2)
+        );
+
+        // Use the correct Canvas API endpoint: PUT /courses/:course_id/assignments/:assignment_id/submissions/:user_id
+        // This endpoint handles both grading and rubric assessment in a single call
+        const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+        const submissionResponse = await axiosClient.put(
+          submissionUrl,
+          submissionData,
+          canvasRequestOptions
+        );
+
+        console.log(
+          "Canvas submission API response status:",
+          submissionResponse.status
+        );
+        console.log(
+          "Canvas submission API response data:",
+          JSON.stringify(submissionResponse.data, null, 2)
+        );
+
+        // Parse and return the updated submission
+        const updatedSubmission = parseSchema(
+          CanvasSubmissionSchema,
+          submissionResponse.data,
+          "CanvasSubmission"
+        );
+
+        console.log("✅ Successfully graded submission");
+        console.log(`Final grade: ${updatedSubmission.score}`);
+
+        return {
+          success: true,
+          submission: updatedSubmission,
+          message: `Successfully graded submission with ${totalPoints} points`,
+        };
+      } catch (error) {
+        console.error("❌ Failed to grade submission:", error);
+
+        if (error instanceof Error) {
+          console.error("Error message:", error.message);
+          // Check if it's an axios error with response data
+          if ("response" in error && error.response) {
+            const axiosError = error as {
+              response: { status?: number; data?: unknown };
+            };
+            console.error(
+              "Canvas API error status:",
+              axiosError.response.status
+            );
+            console.error("Canvas API error data:", axiosError.response.data);
+          }
+        }
+
+        throw new Error(
+          `Failed to grade submission: ${
             error instanceof Error ? error.message : String(error)
           }`
         );

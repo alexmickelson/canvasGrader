@@ -1,14 +1,12 @@
 import type { FC } from "react";
 import { Suspense, useState } from "react";
 import { useParams } from "react-router";
-import { useSubmissionsQuery } from "./graderHooks";
+import { useSubmissionsQuery, useGitHubClassroomMutation } from "./graderHooks";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
 import { userName, initials } from "./userUtils";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { SubmissionDetails } from "./submission/SubmissionDetails";
 import { getSubmissionStatusChips } from "./submission/submissionUtils";
-import { useTRPC } from "../../server/trpc/trpcClient";
-import { useMutation } from "@tanstack/react-query";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -25,44 +23,7 @@ export const AssignmentGraderPage = () => {
   const [gitHubClassroomInput, setGitHubClassroomInput] = useState("");
   const [isGitHubPanelOpen, setIsGitHubPanelOpen] = useState(false);
 
-  const trpc = useTRPC();
-  const gitHubClassroomMutation = useMutation(
-    trpc.canvas.downloadAndOrganizeRepositories.mutationOptions({
-      onSuccess: (result) => {
-        console.log("=== GitHub Classroom Download Success ===");
-        console.log("Result:", result);
-        console.log(
-          `Successfully organized ${result.successCount} repositories`
-        );
-        if (result.errorCount > 0) {
-          console.log(
-            `${result.errorCount} repositories had errors:`,
-            result.errors
-          );
-        }
-        if (result.processedRepositories) {
-          console.log("Processed repositories:", result.processedRepositories);
-        }
-
-        // Show success message
-        alert(
-          `✅ GitHub Classroom Download Complete!\n\n${result.message}\n\nThe page will refresh to show the new submissions.`
-        );
-
-        // Refresh submissions after successful download
-        window.location.reload();
-      },
-      onError: (error) => {
-        console.error("=== GitHub Classroom Download Failed ===");
-        console.error("Error details:", error);
-
-        // Show error message
-        alert(
-          `❌ GitHub Classroom Download Failed!\n\n${error.message}\n\nCheck the console for more details.`
-        );
-      },
-    })
-  );
+  const gitHubClassroomMutation = useGitHubClassroomMutation();
 
   const handleGitHubDownload = () => {
     if (!gitHubClassroomInput.trim()) return;
