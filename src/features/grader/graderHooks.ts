@@ -80,3 +80,28 @@ export const useGitHubClassroomMutation = () => {
     })
   );
 };
+
+export const useAiAnalysisQuery = ({
+  courseId,
+  assignmentId,
+  studentName,
+  criterionDescription,
+  criterionPoints,
+}: {
+  courseId: number;
+  assignmentId: number;
+  studentName: string;
+  criterionDescription: string;
+  criterionPoints: number;
+}) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.rubricAiReport.analyzeRubricCriterion.queryOptions({
+      courseId,
+      assignmentId,
+      studentName,
+      criterionDescription,
+      criterionPoints,
+    })
+  );
+};

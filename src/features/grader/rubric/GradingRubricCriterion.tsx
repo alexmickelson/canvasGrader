@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import { useState } from "react";
 import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvasRouter";
+import { AICriterionAnalysis } from "./AICriterionAnalysis";
 
 interface GradingRubricCriterionProps {
   criterion: CanvasRubricCriterion;
@@ -14,16 +15,23 @@ interface GradingRubricCriterionProps {
     points?: number;
     comments?: string;
   }) => void;
+  courseId: number;
+  assignmentId: number;
+  studentName: string;
 }
 
 export const GradingRubricCriterion: FC<GradingRubricCriterionProps> = ({
   criterion,
   assessment,
   onChange,
+  courseId,
+  assignmentId,
+  studentName,
 }) => {
   const [localComments, setLocalComments] = useState(
     assessment?.comments || ""
   );
+  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
 
   const selectedRating = assessment?.rating_id
     ? criterion.ratings.find((r) => r.id === assessment.rating_id)
@@ -144,12 +152,9 @@ export const GradingRubricCriterion: FC<GradingRubricCriterionProps> = ({
         </div>
       </div>
 
-
       {/* Comments */}
       <div className="px-3 pb-2">
-        <label className="block text-xs text-gray-400 mb-1">
-          Comments:
-        </label>
+        <label className="block text-xs text-gray-400 mb-1">Comments:</label>
         <textarea
           value={localComments}
           onChange={(e) => handleCommentsChange(e.target.value)}
@@ -168,6 +173,41 @@ export const GradingRubricCriterion: FC<GradingRubricCriterionProps> = ({
           </div>
         </div>
       )}
+
+      {/* AI Analysis Section */}
+      <div className="px-3 pb-2">
+        {!showAiAnalysis ? (
+          <button
+            onClick={() => setShowAiAnalysis(true)}
+            className="w-full px-3 py-2 bg-purple-800 hover:bg-purple-700 text-purple-200 text-sm font-medium rounded transition-colors"
+          >
+            🤖 Get AI Analysis
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-medium text-purple-300">
+                AI Analysis
+              </h4>
+              <button
+                onClick={() => setShowAiAnalysis(false)}
+                className="text-xs text-gray-400 hover:text-gray-300"
+              >
+                Hide
+              </button>
+            </div>
+            <AICriterionAnalysis
+              courseId={courseId}
+              assignmentId={assignmentId}
+              studentName={studentName}
+              criterionDescription={
+                criterion.description || `Criterion ${criterion.id}`
+              }
+              criterionPoints={criterion.points}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

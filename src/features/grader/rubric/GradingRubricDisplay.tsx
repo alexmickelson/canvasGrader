@@ -172,6 +172,13 @@ export const GradingRubricDisplay: FC<{
               points?: number;
               comments?: string;
             }) => handleCriterionChange(criterion.id, assessment)}
+            courseId={courseId}
+            assignmentId={assignmentId}
+            studentName={
+              typeof submission.user === "object" && submission.user?.name
+                ? submission.user.name
+                : `User ${submission.user_id}`
+            }
           />
         ))}
       </div>

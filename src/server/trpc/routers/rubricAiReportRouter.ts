@@ -1,18 +1,20 @@
 import z from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
 import { getCourseMeta, sanitizeName } from "./canvasStorageUtils";
 import { createAiTool } from "../../../utils/createAiTool";
-import * as pdfParse from "pdfjs-dist";
-import type { TextItem } from "pdfjs-dist/types/src/display/api";
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
 // Initialize OpenAI client
 const aiUrl = process.env.AI_URL;
 const aiToken = process.env.AI_TOKEN;
+
+// const model = "claude-sonnet-4";
+const model = "gpt-5";
 
 if (!aiUrl || !aiToken) {
   console.warn(
@@ -28,27 +30,72 @@ const openai =
       })
     : null;
 
-// Helper function to extract text from PDF files
+// Helper function to extract text from PDF files using OpenAI vision
 async function extractTextFromPdf(pdfPath: string): Promise<string> {
   try {
-    const data = new Uint8Array(fs.readFileSync(pdfPath));
-    const pdf = await pdfParse.getDocument({ data }).promise;
-    let fullText = "";
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .filter((item): item is TextItem => "str" in item)
-        .map((item, index) => `[line ${index + 1}] ${item.str}`)
-        .join(" ");
-      fullText += `=== Page ${pageNum} ===\n${pageText}\n\n`;
+    if (!openai) {
+      return `[PDF analysis unavailable: AI service not configured]`;
     }
 
-    return fullText;
+    // Read PDF file as base64
+    const pdfBuffer = fs.readFileSync(pdfPath);
+    const base64Pdf = pdfBuffer.toString("base64");
+    console.log("got base64", base64Pdf.length);
+
+    // Use OpenAI to transcribe the PDF to markdown
+    const response = await openai.chat.completions.create({
+      model: model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Please transcribe this PDF document to clean, well-formatted Markdown. Include all text content, preserve structure with headers, lists, code blocks, tables, etc. Add line numbers to help with referencing specific content. If there are images or diagrams, describe them briefly in [brackets].",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${base64Pdf}`,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const transcription = response.choices[0]?.message?.content;
+    if (!transcription) {
+      return `[Error: No transcription received from AI service for PDF: ${path.basename(
+        pdfPath
+      )}]`;
+    }
+
+    // Add line numbers to the transcription for better referencing
+    const lines = transcription.split("\n");
+    const numberedText = lines
+      .map((line: string, index: number) => `${index + 1}: ${line}`)
+      .join("\n");
+
+    return `=== PDF Transcription (${path.basename(
+      pdfPath
+    )}) ===\n${numberedText}`;
   } catch (error) {
-    console.error(`Error extracting text from PDF ${pdfPath}:`, error);
-    return `[Error reading PDF: ${pdfPath}]`;
+    console.error(`Error transcribing PDF ${pdfPath}:`, error);
+
+    // If it's a vision-related error, provide a more helpful message
+    if (
+      error instanceof Error &&
+      error.message.includes("invalid_request_body")
+    ) {
+      return `[PDF transcription unavailable: Current AI model (${model}) may not support vision capabilities for PDF analysis. PDF file: ${path.basename(
+        pdfPath
+      )}]`;
+    }
+
+    return `[Error transcribing PDF: ${path.basename(pdfPath)} - ${
+      error instanceof Error ? error.message : String(error)
+    }]`;
   }
 }
 
@@ -111,7 +158,7 @@ function generateFileSystemTree(dirPath: string, prefix: string = ""): string {
 async function getSubmissionDir(
   courseId: number,
   assignmentId: number,
-  userId: number
+  studentName: string
 ): Promise<string> {
   const { courseName, termName } = await getCourseMeta(courseId);
 
@@ -143,13 +190,42 @@ async function getSubmissionDir(
     return fs.statSync(dirPath).isDirectory();
   });
 
-  // Try to find the user's folder - this might need adjustment based on actual folder naming
-  const userDir =
-    userDirs.find((dir) => dir.includes(userId.toString())) || userDirs[0];
+  console.log(`Looking for student '${studentName}' in directories:`, userDirs);
+
+  // Try to find the student's folder by exact name match
+  let userDir = userDirs.find((dir) => dir === studentName);
+
+  // If exact match not found, try case-insensitive match
+  if (!userDir) {
+    userDir = userDirs.find(
+      (dir) => dir.toLowerCase() === studentName.toLowerCase()
+    );
+  }
+
+  // If still not found, try partial match
+  if (!userDir) {
+    userDir = userDirs.find(
+      (dir) =>
+        dir.toLowerCase().includes(studentName.toLowerCase()) ||
+        studentName.toLowerCase().includes(dir.toLowerCase())
+    );
+  }
 
   if (!userDir) {
-    throw new Error(`User submission folder not found for user ${userId}`);
+    console.error(
+      `Student directory not found for '${studentName}' in directories:`,
+      userDirs
+    );
+    throw new Error(
+      `Student submission folder not found for '${studentName}'. Available directories: ${userDirs.join(
+        ", "
+      )}`
+    );
   }
+
+  console.log(
+    `Found student directory: '${userDir}' for student '${studentName}'`
+  );
 
   const submissionDir = path.join(assignmentDir, userDir);
 
@@ -238,28 +314,18 @@ export const rubricAiReportRouter = createTRPCRouter({
       z.object({
         courseId: z.number(),
         assignmentId: z.number(),
-        userId: z.number(),
-        criterionId: z.string(),
+        studentName: z.string(),
         criterionDescription: z.string(),
         criterionPoints: z.number(),
-        criterionRatings: z.array(
-          z.object({
-            id: z.string(),
-            description: z.string().optional(),
-            points: z.number(),
-          })
-        ),
       })
     )
     .query(async ({ input }) => {
       const {
         courseId,
         assignmentId,
-        userId,
-        criterionId,
+        studentName,
         criterionDescription,
         criterionPoints,
-        criterionRatings,
       } = input;
 
       if (!openai) {
@@ -273,7 +339,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         const submissionDir = await getSubmissionDir(
           courseId,
           assignmentId,
-          userId
+          studentName
         );
 
         // Get text submission if available
@@ -325,19 +391,23 @@ export const rubricAiReportRouter = createTRPCRouter({
             }
           },
         });
+        const toolsSchema = [getFileSystemTreeTool, readFileTool].map(
+          (tool) => ({
+            type: "function" as const,
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: zodToJsonSchema(tool.paramsSchema),
+            },
+          })
+        );
 
         // Prepare initial system prompt with file system overview
         const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
 
 RUBRIC CRITERION TO EVALUATE:
-- ID: ${criterionId}
 - Description: ${criterionDescription}
 - Maximum Points: ${criterionPoints}
-- Available Ratings: ${criterionRatings
-          .map(
-            (r) => `${r.points} points: ${r.description || "No description"}`
-          )
-          .join(", ")}
 
 STUDENT SUBMISSION OVERVIEW:
 File System Structure:
@@ -356,180 +426,148 @@ AVAILABLE TOOLS:
 - get_file_system_tree: Get the complete file system structure
 - read_file: Read specific files from the submission
 
-INSTRUCTIONS:
-1. First examine the file system structure and any text submission provided
+EVALUATION PROCESS:
+1. Start by examining the file system structure and any text submission provided
 2. Use the read_file tool to examine relevant files that might contain evidence for the criterion
-3. For text files, pay attention to line numbers when referencing specific content
-4. For PDFs, reference specific pages when citing evidence
-5. For images, note their presence and relevance even though content can't be analyzed
-6. Provide a structured analysis with specific references to files, line numbers, and page numbers
-7. If you need to examine additional files beyond what's initially provided, use the read_file tool
+3. You can call tools multiple times to explore different files as needed
+4. For text files, pay attention to line numbers when referencing specific content
+5. For PDFs, reference specific pages when citing evidence
+6. For images, note their presence and relevance even though content can't be analyzed
+7. Once you have gathered sufficient evidence, respond with "READY_FOR_STRUCTURED_OUTPUT" to indicate you're ready for the final assessment
 8. Focus on concrete evidence and provide confidence levels for your assessments
 
-Your final response must use structured output format with detailed evidence references.`;
+Take your time to thoroughly explore the submission before providing your final structured analysis.`;
 
         const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `Please analyze this student submission against the rubric criterion. Start by examining the file system structure and any provided text submission, then use the available tools to read additional files as needed. Provide a comprehensive analysis with specific evidence references.`,
+            content: `Please analyze this student submission against the rubric criterion. Start by examining the file system structure and any provided text submission, then use the available tools to read additional files as needed. Provide a comprehensive analysis with specific evidence references. When you're ready to provide your final assessment, respond with "READY_FOR_STRUCTURED_OUTPUT" and I'll ask for your structured analysis.`,
           },
         ];
 
-        // First, let the AI explore and gather information with tools
-        const explorationResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages,
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: getFileSystemTreeTool.name,
-                description: getFileSystemTreeTool.description,
-                parameters: { type: "object", properties: {}, required: [] },
-              },
-            },
-            {
-              type: "function",
-              function: {
-                name: readFileTool.name,
-                description: readFileTool.description,
-                parameters: {
-                  type: "object",
-                  properties: {
-                    fileName: {
-                      type: "string",
-                      description: "Name of the file to read",
-                    },
-                  },
-                  required: ["fileName"],
-                },
-              },
-            },
-          ],
-          tool_choice: "auto",
-          temperature: 0.1,
-        });
-
-        // Process tool calls
-        const updatedMessages = [
+        // Tool exploration loop - allow multiple rounds of tool usage
+        const conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
           ...messages,
-          explorationResponse.choices[0].message,
         ];
+        const maxRounds = 10; // Prevent infinite loops
+        let round = 0;
+        let readyForStructuredOutput = false;
 
-        if (explorationResponse.choices[0].message.tool_calls) {
-          for (const toolCall of explorationResponse.choices[0].message
-            .tool_calls) {
-            if (toolCall.type === "function") {
-              let result = "";
+        while (!readyForStructuredOutput && round < maxRounds) {
+          round++;
+          console.log(`AI exploration round ${round}`);
 
-              if (toolCall.function.name === getFileSystemTreeTool.name) {
-                result = await getFileSystemTreeTool.fn("{}");
-              } else if (toolCall.function.name === readFileTool.name) {
-                result = await readFileTool.fn(toolCall.function.arguments);
+          const explorationResponse = await openai.chat.completions.create({
+            model: model,
+            messages: conversationMessages,
+            tools: toolsSchema,
+            tool_choice: "auto",
+            temperature: 0.1,
+          });
+
+          const assistantMessage = explorationResponse.choices[0]?.message;
+          if (!assistantMessage) {
+            throw new Error("No response from AI service");
+          }
+
+          conversationMessages.push(assistantMessage);
+
+          // Check if AI is ready for structured output
+          if (
+            assistantMessage.content?.includes("READY_FOR_STRUCTURED_OUTPUT")
+          ) {
+            readyForStructuredOutput = true;
+            break;
+          }
+
+          // Process any tool calls
+          if (
+            assistantMessage.tool_calls &&
+            assistantMessage.tool_calls.length > 0
+          ) {
+            console.log(
+              `Processing ${assistantMessage.tool_calls.length} tool calls in round ${round}`
+            );
+
+            for (const toolCall of assistantMessage.tool_calls) {
+              if (toolCall.type === "function") {
+                console.log(`  Tool call: ${toolCall.function.name}`);
+                console.log(`  Parameters: ${toolCall.function.arguments}`);
+
+                let result = "";
+
+                if (toolCall.function.name === getFileSystemTreeTool.name) {
+                  result = await getFileSystemTreeTool.fn("{}");
+                } else if (toolCall.function.name === readFileTool.name) {
+                  result = await readFileTool.fn(toolCall.function.arguments);
+                }
+
+                console.log(`  Result length: ${result.length} characters`);
+
+                conversationMessages.push({
+                  role: "tool",
+                  tool_call_id: toolCall.id,
+                  content: result,
+                });
               }
+            }
 
-              updatedMessages.push({
-                role: "tool",
-                tool_call_id: toolCall.id,
-                content: result,
-              });
+            // Add a message encouraging the AI to continue or finish
+            conversationMessages.push({
+              role: "user",
+              content: `Continue your analysis if you need more information, or respond with "READY_FOR_STRUCTURED_OUTPUT" when you have gathered enough evidence to provide a comprehensive assessment.`,
+            });
+          } else {
+            // If no tool calls and not ready, prompt for structured output
+            console.log(
+              "AI response without tool calls or ready signal:",
+              assistantMessage.content
+            );
+
+            // Add a direct request for structured output
+            conversationMessages.push({
+              role: "user",
+              content: `I need you to provide your final structured analysis now. Based on the information you have, please respond with "READY_FOR_STRUCTURED_OUTPUT" so I can request your structured JSON analysis.`,
+            });
+
+            // Give it one more chance, but if it still doesn't respond properly, force exit
+            if (round >= 2) {
+              readyForStructuredOutput = true; // Force exit after giving it a chance
             }
           }
         }
 
-        // Now get the final structured analysis
-        updatedMessages.push({
+        if (round >= maxRounds) {
+          console.warn(
+            `Reached maximum exploration rounds (${maxRounds}), proceeding to structured output`
+          );
+        }
+
+        // Now get the final structured analysis using Zod schema
+        conversationMessages.push({
           role: "user",
-          content: `Based on your exploration of the submission files, please provide your final structured analysis of how well this submission meets the rubric criterion. Include specific file references, line numbers for text files, page numbers for PDFs, and confidence levels for each piece of evidence.`,
+          content: `Now please provide your final analysis in the required JSON format. Based on your exploration of the submission files, analyze how well this submission meets the rubric criterion. 
+
+IMPORTANT: Your response must be valid JSON that matches the required schema. Include:
+- satisfied: boolean indicating if criterion is met
+- confidence: number 0-100 for your confidence level
+- recommendedPoints: number of points to award
+- explanation: detailed explanation of your assessment
+- evidence: array of evidence objects with fileName, fileType, relevantContent, meetsRequirement, confidence, and reasoning
+- additionalFilesNeeded: array of any additional files you'd like to examine (optional)
+
+Provide specific file references, line numbers for text files, page numbers for PDFs, and confidence levels for each piece of evidence.`,
         });
 
         const finalResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: updatedMessages,
+          model: model,
+          messages: conversationMessages,
           response_format: {
             type: "json_schema",
             json_schema: {
               name: "rubric_analysis",
-              schema: {
-                type: "object",
-                properties: {
-                  satisfied: {
-                    type: "boolean",
-                    description: "Whether the rubric criterion is satisfied",
-                  },
-                  confidence: {
-                    type: "number",
-                    minimum: 0,
-                    maximum: 100,
-                    description: "Confidence level (0-100) in this assessment",
-                  },
-                  recommendedPoints: {
-                    type: "number",
-                    minimum: 0,
-                    description:
-                      "Recommended points to award for this criterion",
-                  },
-                  explanation: {
-                    type: "string",
-                    description: "Detailed explanation of the assessment",
-                  },
-                  evidence: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        fileName: { type: "string" },
-                        fileType: {
-                          type: "string",
-                          enum: ["text", "pdf", "image", "other"],
-                        },
-                        lineNumbers: {
-                          type: "array",
-                          items: { type: "number" },
-                          description:
-                            "Specific line numbers referenced (for text files)",
-                        },
-                        pageNumbers: {
-                          type: "array",
-                          items: { type: "number" },
-                          description:
-                            "Specific page numbers referenced (for PDFs)",
-                        },
-                        relevantContent: { type: "string" },
-                        meetsRequirement: { type: "boolean" },
-                        confidence: {
-                          type: "number",
-                          minimum: 0,
-                          maximum: 100,
-                        },
-                        reasoning: { type: "string" },
-                      },
-                      required: [
-                        "fileName",
-                        "fileType",
-                        "relevantContent",
-                        "meetsRequirement",
-                        "confidence",
-                        "reasoning",
-                      ],
-                    },
-                  },
-                  additionalFilesNeeded: {
-                    type: "array",
-                    items: { type: "string" },
-                    description:
-                      "List of additional files that should be examined",
-                  },
-                },
-                required: [
-                  "satisfied",
-                  "confidence",
-                  "recommendedPoints",
-                  "explanation",
-                  "evidence",
-                ],
-              },
+              schema: zodToJsonSchema(AnalysisResultSchema),
             },
           },
           temperature: 0.1,
@@ -540,27 +578,48 @@ Your final response must use structured output format with detailed evidence ref
           throw new Error("No analysis response from AI service");
         }
 
+        console.log(
+          "Raw AI response content:",
+          analysisContent.substring(0, 500) + "..."
+        );
+
+        // Clean up the response content - remove markdown code blocks if present
+        let cleanContent = analysisContent.trim();
+
+        // Remove markdown json code blocks
+        if (
+          cleanContent.startsWith("```json") &&
+          cleanContent.endsWith("```")
+        ) {
+          cleanContent = cleanContent.slice(7, -3).trim();
+          console.log("Removed markdown json code blocks");
+        } else if (
+          cleanContent.startsWith("```") &&
+          cleanContent.endsWith("```")
+        ) {
+          cleanContent = cleanContent.slice(3, -3).trim();
+          console.log("Removed markdown code blocks");
+        }
+
         let analysis: AnalysisResult;
         try {
-          analysis = AnalysisResultSchema.parse(JSON.parse(analysisContent));
+          const parsedJson = JSON.parse(cleanContent);
+          analysis = AnalysisResultSchema.parse(parsedJson);
         } catch (parseError) {
-          console.error("Failed to parse AI analysis:", parseError);
+          console.error(
+            "Failed to parse AI analysis. Raw content:",
+            analysisContent
+          );
+          console.error("Cleaned content:", cleanContent);
+          console.error("Parse error:", parseError);
           throw new Error("Invalid analysis format from AI service");
         }
 
-        // Find recommended rating based on points
-        const recommendedRating =
-          criterionRatings.find(
-            (r) => r.points === analysis.recommendedPoints
-          ) || criterionRatings[criterionRatings.length - 1];
-
         return {
-          criterionId,
           satisfied: analysis.satisfied,
           confidence: analysis.confidence,
           evidence: analysis.evidence,
           explanation: analysis.explanation,
-          recommendedRating,
           recommendedPoints: analysis.recommendedPoints,
           submissionPath: submissionDir,
           fileSystemTree,
