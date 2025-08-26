@@ -4,7 +4,11 @@ import fs from "fs";
 import path from "path";
 import yaml from "yaml";
 import axios from "axios";
-import { canvasApi, canvasRequestOptions } from "./canvasServiceUtils";
+import { canvasApi, canvasRequestOptions } from "./canvas/canvasServiceUtils";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
@@ -30,8 +34,11 @@ async function getCourseTermName(courseId: number): Promise<string> {
       ...canvasRequestOptions,
       params: { include: "term" },
     });
-    const termName: string | undefined = (data?.term?.name as string) || undefined;
-    return termName && termName !== "The End of Time" ? termName : "Unknown Term";
+    const termName: string | undefined =
+      (data?.term?.name as string) || undefined;
+    return termName && termName !== "The End of Time"
+      ? termName
+      : "Unknown Term";
   } catch {
     return "Unknown Term";
   }
@@ -53,6 +60,11 @@ const settingsSchema = z.object({
       z.object({
         name: z.string(),
         canvasId: z.number(),
+        githubUserMap: z
+          .array(
+            z.object({ studentName: z.string(), githubUsername: z.string() })
+          )
+          .optional(),
       })
     )
     .default([]),
@@ -80,6 +92,105 @@ export const settingsRouter = createTRPCRouter({
 
     return settings;
   }),
+
+  // Return mappings for a specific course
+  getCourseGithubMapping: publicProcedure
+    .input(z.object({ canvasId: z.number() }))
+    .query(async ({ input }) => {
+      const settingsPath = path.join(storageDirectory, "settings.yml");
+      ensureStorageDirExists();
+      if (!fs.existsSync(settingsPath)) return {};
+      const fileContents = fs.readFileSync(settingsPath, "utf8");
+      const settings = settingsSchema.parse(yaml.parse(fileContents) || {});
+      const course = settings.courses.find(
+        (c) => c.canvasId === input.canvasId
+      );
+      return course?.githubUserMap || [];
+    }),
+
+  updateCourseGithubMapping: publicProcedure
+    .input(
+      z.object({
+        canvasId: z.number(),
+        mapping: z.array(
+          z.object({ studentName: z.string(), githubUsername: z.string() })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const settingsPath = path.join(storageDirectory, "settings.yml");
+      ensureStorageDirExists();
+      let settings: Settings = { courses: [] };
+      if (fs.existsSync(settingsPath)) {
+        try {
+          settings = settingsSchema.parse(
+            yaml.parse(fs.readFileSync(settingsPath, "utf8")) || {}
+          );
+        } catch {
+          settings = { courses: [] };
+        }
+      }
+
+      const idx = settings.courses.findIndex(
+        (c) => c.canvasId === input.canvasId
+      );
+      if (idx === -1) {
+        // create new entry
+        settings.courses.push({
+          name: `Course ${input.canvasId}`,
+          canvasId: input.canvasId,
+          githubUserMap: input.mapping,
+        });
+      } else {
+        settings.courses[idx].githubUserMap = input.mapping;
+      }
+
+      fs.writeFileSync(settingsPath, yaml.stringify(settings), "utf8");
+      return input.mapping;
+    }),
+
+  // Scan GitHub Classroom by cloning to temp folder and returning repo usernames
+  scanGithubClassroom: publicProcedure
+    .input(z.object({ classroomAssignmentId: z.string() }))
+    .query(async ({ input }) => {
+      const tempDir = path.join(process.cwd(), "temp", "github-classroom-scan");
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+      // run a dry clone into tempDir
+      const cloneCmd = `gh classroom clone student-repos -a ${input.classroomAssignmentId}`;
+      try {
+        const { stderr } = await execAsync(cloneCmd, { cwd: tempDir });
+        if (stderr) console.warn("gh warnings:", stderr);
+        // find first subdir containing repos
+        const dirs = fs
+          .readdirSync(tempDir)
+          .filter((d) => fs.statSync(path.join(tempDir, d)).isDirectory());
+        if (dirs.length === 0) return [];
+        const reposBase = path.join(tempDir, dirs[0]);
+        const studentRepos = fs
+          .readdirSync(reposBase)
+          .filter((d) => fs.statSync(path.join(reposBase, d)).isDirectory());
+        // parse github usernames from repo names (assume assignment-username)
+        const usernames = studentRepos.map((r) => {
+          const parts = r.split("-");
+          return parts.length > 1 ? parts.slice(1).join("-") : r;
+        });
+        // cleanup
+        try {
+          await execAsync(`rm -rf "${tempDir}"`);
+        } catch (cleanupErr) {
+          console.warn("Failed to cleanup tempDir:", cleanupErr);
+        }
+        return usernames;
+      } catch (err) {
+        console.error("Failed to scan GitHub Classroom:", err);
+        try {
+          await execAsync(`rm -rf "${tempDir}"`);
+        } catch (cleanupErr) {
+          console.warn("Failed to cleanup tempDir after error:", cleanupErr);
+        }
+        throw err;
+      }
+    }),
 
   updateSettings: publicProcedure
     .input(settingsSchema)

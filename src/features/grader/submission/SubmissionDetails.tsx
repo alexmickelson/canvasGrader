@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import { useState } from "react";
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasRouter";
 import { AssignmentPreviewComponent } from "../AssignmentPreviewComponent";
 import { RubricDisplay } from "../rubric/RubricDisplay";
 import { GradingRubricDisplay } from "../rubric/GradingRubricDisplay";

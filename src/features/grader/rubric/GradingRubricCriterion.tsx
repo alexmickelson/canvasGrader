@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import { useState } from "react";
-import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvasRouter";
+import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasRouter";
 import { AICriterionAnalysis } from "./AICriterionAnalysis";
 
 interface GradingRubricCriterionProps {

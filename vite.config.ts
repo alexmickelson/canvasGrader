@@ -11,6 +11,9 @@ export default defineConfig({
         target: process.env.TRPC_TARGET || "http://localhost:3334",
       },
     },
+    watch: {
+      ignored: ["**/temp/**", "**/storage/**"],
+    },
   },
   clearScreen: false,
 });

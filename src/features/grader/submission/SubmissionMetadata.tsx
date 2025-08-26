@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasRouter";
 import { SubmissionGradingInfo } from "./SubmissionGradingInfo";
 import { getSubmissionStatusChips, type StatusChip } from "./submissionUtils";
 

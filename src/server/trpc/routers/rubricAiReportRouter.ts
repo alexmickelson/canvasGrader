@@ -4,7 +4,7 @@ import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
-import { getCourseMeta, sanitizeName } from "./canvasStorageUtils";
+import { getCourseMeta, sanitizeName } from "./canvas/canvasStorageUtils";
 import { createAiTool } from "../../../utils/createAiTool";
 import pdf2pic from "pdf2pic";
 
@@ -45,7 +45,7 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
       saveFilename: `${pdfBasename}-page`,
       savePath: path.dirname(pdfPath),
       format: "png",
-      height: 1024
+      height: 1024,
     });
 
     const results = await convert.bulk(-1, { responseType: "image" });

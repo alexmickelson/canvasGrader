@@ -1,4 +1,4 @@
-import { canvasRouter } from "../routers/canvasRouter.js";
+import { canvasRouter } from "../routers/canvas/canvasRouter.js";
 import { settingsRouter } from "../routers/settingsRouter.js";
 import { rubricAiReportRouter } from "../routers/rubricAiReportRouter.js";
 import { createTRPCRouter } from "./trpc.js";

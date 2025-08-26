@@ -2,7 +2,7 @@ import type { FC } from "react";
 import type {
   CanvasRubricCriterion,
   CanvasRubricAssessment,
-} from "../../../server/trpc/routers/canvasRouter";
+} from "../../../server/trpc/routers/canvas/canvasRouter";
 import { useRubricQuery } from "../graderHooks";
 import Spinner from "../../../utils/Spinner";
 import { RubricCriterion } from "./RubricCriterion";

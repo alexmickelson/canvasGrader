@@ -1,4 +1,4 @@
-import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasRouter";
 
 export function userName(submission: CanvasSubmission): string {
   const user = submission.user;

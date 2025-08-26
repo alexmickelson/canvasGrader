@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import DOMPurify from "dompurify";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasRouter";
 import { usePreviewPdfQuery } from "./graderHooks";
 import Spinner from "../../utils/Spinner";
 import { PDFPreview } from "../../utils/PDFPreview";

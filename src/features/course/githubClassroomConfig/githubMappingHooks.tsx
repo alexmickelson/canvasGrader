@@ -1,0 +1,29 @@
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "../../../server/trpc/trpcClient";
+import {
+  useSettingsQuery,
+  useUpdateSettingsMutation,
+} from "../../home/settingsHooks";
+
+export type CourseGithubMappingItem = {
+  studentName: string;
+  githubUsername: string;
+};
+
+export const useCourseGithubMapping = (canvasId: number) => {
+  const { data: settings } = useSettingsQuery();
+  const course = settings?.courses?.find((c) => c.canvasId === canvasId);
+  return course?.githubUserMap as CourseGithubMappingItem[] | undefined;
+};
+
+export const useUpdateCourseGithubMapping = () => {
+  const updateSettings = useUpdateSettingsMutation();
+  return updateSettings;
+};
+
+export const useScanGithubClassroomQuery = (classroomAssignmentId: string) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.settings.scanGithubClassroom.queryOptions({ classroomAssignmentId })
+  );
+};

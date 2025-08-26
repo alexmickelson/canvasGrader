@@ -2,6 +2,7 @@ import type { FC } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useAssignmentsQuery } from "./canvasAssignmentHooks";
+import { GitHubMappingPanelWithClassroomId } from "./githubClassroomConfig/GitHubMappingPanelWithClassroomId";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -49,6 +50,8 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
 
   return (
     <div className="mt-4">
+      <GitHubMappingPanelWithClassroomId courseId={courseId} />
+
       <div className="mb-3">
         <input
           value={filter}

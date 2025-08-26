@@ -1,4 +1,4 @@
-import type { CanvasCourse } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasRouter";
 import Spinner from "../../utils/Spinner";
 import { useSettingsQuery, useUpdateSettingsMutation } from "./settingsHooks";
 
@@ -28,7 +28,7 @@ const CanvasCourseItem = ({ course }: { course: CanvasCourse }) => {
   const updateSettingsMutation = useUpdateSettingsMutation();
   const isSelected = settings?.courses.some((c) => c.canvasId === course.id);
   const isPending = isLoadingSettings || updateSettingsMutation.isPending;
-  
+
   return (
     <li className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 transition-all border border-gray-600">
       <span className="font-medium truncate text-gray-200">{course.name}</span>

@@ -4,7 +4,7 @@ import type {
   CanvasRubricCriterion,
   CanvasRubricAssessment,
   CanvasSubmission,
-} from "../../../server/trpc/routers/canvasRouter";
+} from "../../../server/trpc/routers/canvas/canvasRouter.js";
 import { useRubricQuery } from "../graderHooks";
 import { useGradeSubmissionMutation } from "../gradeSubmissionHooks";
 import Spinner from "../../../utils/Spinner";

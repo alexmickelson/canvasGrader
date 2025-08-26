@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
-import { axiosClient } from "../../../utils/axiosUtils";
+import { axiosClient } from "../../../../utils/axiosUtils";
 import { canvasRequestOptions } from "./canvasServiceUtils";
 import type {
-  CanvasCourse,
   CanvasAssignment,
+  CanvasCourse,
   CanvasSubmission,
   CanvasRubric,
-} from "./canvasRouter";
+} from "./canvasModels";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";

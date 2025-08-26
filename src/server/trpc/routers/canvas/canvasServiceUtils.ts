@@ -4,7 +4,7 @@ import type {
   AxiosResponseHeaders,
   RawAxiosResponseHeaders,
 } from "axios";
-import { axiosClient } from "../../../utils/axiosUtils";
+import { axiosClient } from "../../../../utils/axiosUtils";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 import path from "path";

@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { useSubmissionsQuery, useGitHubClassroomMutation } from "./graderHooks";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvasRouter";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasRouter";
 import { userName, initials } from "./userUtils";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { SubmissionDetails } from "./submission/SubmissionDetails";
