@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import { getCourseMeta, sanitizeName } from "./canvasStorageUtils";
 import { createAiTool } from "../../../utils/createAiTool";
+import pdf2pic from "pdf2pic";
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
@@ -37,42 +38,80 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
       return `[PDF analysis unavailable: AI service not configured]`;
     }
 
-    // Read PDF file as base64
-    const pdfBuffer = fs.readFileSync(pdfPath);
-    const base64Pdf = pdfBuffer.toString("base64");
-    console.log("got base64", base64Pdf.length);
-
-    // Use OpenAI to transcribe the PDF to markdown
-    const response = await openai.chat.completions.create({
-      model: model,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Please transcribe this PDF document to clean, well-formatted Markdown. Include all text content, preserve structure with headers, lists, code blocks, tables, etc. Add line numbers to help with referencing specific content. If there are images or diagrams, describe them briefly in [brackets].",
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:application/pdf;base64,${base64Pdf}`,
-              },
-            },
-          ],
-        },
-      ],
+    // Convert PDF to PNG images using pdf2pic
+    const convert = pdf2pic.fromPath(pdfPath, {
+      density: 150, // Reduced from 200 to 150 DPI
+      saveFilename: "page",
+      savePath: path.dirname(pdfPath),
+      format: "png",
+      width: 1024, // Reduced from 2048 to 1024
+      height: 1024, // Reduced from 2048 to 1024
     });
 
-    const transcription = response.choices[0]?.message?.content;
-    if (!transcription) {
+    const results = await convert.bulk(-1, { responseType: "image" });
+
+    // Process each page image
+    const pageTranscriptions: string[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (!result.path) continue;
+
+      // Read the generated PNG file as base64
+      const pngBuffer = fs.readFileSync(result.path);
+      const base64Png = pngBuffer.toString("base64");
+
+      // Use OpenAI to transcribe the PNG image
+      const response = await openai.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Please transcribe this page (${
+                  i + 1
+                }) from a PDF document to clean, well-formatted Markdown. Include all text content, preserve structure with headers, lists, code blocks, tables, etc. If there are images or diagrams, describe them briefly in [brackets].`,
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/png;base64,${base64Png}`,
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      const pageTranscription = response.choices[0]?.message?.content;
+      if (pageTranscription) {
+        pageTranscriptions.push(`=== Page ${i + 1} ===\n${pageTranscription}`);
+      }
+
+      // Clean up the temporary PNG file
+      try {
+        fs.unlinkSync(result.path);
+      } catch (cleanupError) {
+        console.warn(
+          `Could not clean up temp file ${result.path}:`,
+          cleanupError
+        );
+      }
+    }
+
+    if (pageTranscriptions.length === 0) {
       return `[Error: No transcription received from AI service for PDF: ${path.basename(
         pdfPath
       )}]`;
     }
 
+    // Combine all page transcriptions
+    const fullTranscription = pageTranscriptions.join("\n\n");
+
     // Add line numbers to the transcription for better referencing
-    const lines = transcription.split("\n");
+    const lines = fullTranscription.split("\n");
     const numberedText = lines
       .map((line: string, index: number) => `${index + 1}: ${line}`)
       .join("\n");
