@@ -32,6 +32,7 @@ import {
   type CanvasSubmission,
   CanvasSubmissionSchema,
   type CanvasRubric,
+  type CanvasEnrollment,
 } from "./canvasModels";
 
 const execAsync = promisify(exec);
@@ -172,7 +173,7 @@ export const canvasRouter = createTRPCRouter({
   // List enrollments from enrollments.json
   listCourseEnrollments: publicProcedure
     .input(z.object({ courseId: z.coerce.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input }): Promise<CanvasEnrollment[]> => {
       const { courseName, termName } = await getCourseMeta(input.courseId);
       const enrollmentsPath = path.join(
         storageDirectory,
@@ -181,10 +182,21 @@ export const canvasRouter = createTRPCRouter({
         "enrollments.json"
       );
       if (!fs.existsSync(enrollmentsPath)) {
-        throw new Error(
-          "enrollments.json not found. Run getCourseEnrollments first."
+        // File not present: fetch from Canvas and persist to storage, then return
+        const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/enrollments?per_page=100`;
+        const enrollments = await paginatedRequest<unknown[]>({ url });
+        const parsed = enrollments.map((e) =>
+          parseSchema(CanvasEnrollmentSchema, e, "CanvasEnrollment")
         );
+        await ensureDir(path.dirname(enrollmentsPath));
+        fs.writeFileSync(
+          enrollmentsPath,
+          JSON.stringify(parsed, null, 2),
+          "utf8"
+        );
+        return parsed;
       }
+
       const data = fs.readFileSync(enrollmentsPath, "utf8");
       return JSON.parse(data);
     }),

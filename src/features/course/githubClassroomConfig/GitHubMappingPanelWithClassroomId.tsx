@@ -1,5 +1,7 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { GitHubMappingPanel } from "./GitHubMappingPanel";
+import { SuspenseAndError } from "../../../utils/SuspenseAndError";
 
 export const GitHubMappingPanelWithClassroomId = ({
   courseId,
@@ -8,11 +10,19 @@ export const GitHubMappingPanelWithClassroomId = ({
 }) => {
   const [classroomAssignmentId, setClassroomAssignmentId] = useState("");
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  console.log("Submitted ID:", submittedId);
 
   return (
     <div className="mb-4">
       {!submittedId ? (
-        <div className="flex items-center gap-2 p-3 bg-gray-900 rounded">
+        <form
+          className="flex items-center gap-2 p-3 bg-gray-900 rounded"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            if (!classroomAssignmentId) return;
+            setSubmittedId(classroomAssignmentId);
+          }}
+        >
           <input
             value={classroomAssignmentId}
             onChange={(e) => setClassroomAssignmentId(e.target.value)}
@@ -20,18 +30,22 @@ export const GitHubMappingPanelWithClassroomId = ({
             className="p-2 bg-gray-800 text-gray-200 rounded"
           />
           <button
+            type="submit"
             className="px-3 py-1 bg-blue-700 rounded"
             disabled={!classroomAssignmentId}
-            onClick={() => setSubmittedId(classroomAssignmentId)}
           >
             Continue
           </button>
-        </div>
+        </form>
       ) : (
-        <GitHubMappingPanel
-          courseId={courseId}
-          classroomAssignmentId={submittedId || ""}
-        />
+        <SuspenseAndError>
+          {submittedId && (
+            <GitHubMappingPanel
+              courseId={courseId}
+              classroomAssignmentId={submittedId}
+            />
+          )}
+        </SuspenseAndError>
       )}
     </div>
   );
