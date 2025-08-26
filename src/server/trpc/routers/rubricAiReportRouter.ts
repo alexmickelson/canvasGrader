@@ -38,14 +38,14 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
       return `[PDF analysis unavailable: AI service not configured]`;
     }
 
-    // Convert PDF to PNG images using pdf2pic
+    // Convert PDF to PNG images using pdf2pic with aspect ratio preservation
+    const pdfBasename = path.basename(pdfPath, ".pdf");
     const convert = pdf2pic.fromPath(pdfPath, {
-      density: 150, // Reduced from 200 to 150 DPI
-      saveFilename: "page",
+      density: 150,
+      saveFilename: `${pdfBasename}-page`,
       savePath: path.dirname(pdfPath),
       format: "png",
-      width: 1024, // Reduced from 2048 to 1024
-      height: 1024, // Reduced from 2048 to 1024
+      height: 1024
     });
 
     const results = await convert.bulk(-1, { responseType: "image" });
@@ -62,6 +62,7 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
       const base64Png = pngBuffer.toString("base64");
 
       // Use OpenAI to transcribe the PNG image
+      console.log(`Transcribing page ${i + 1} of PDF: ${pdfPath}`);
       const response = await openai.chat.completions.create({
         model: model,
         messages: [
@@ -87,18 +88,29 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
 
       const pageTranscription = response.choices[0]?.message?.content;
       if (pageTranscription) {
-        pageTranscriptions.push(`=== Page ${i + 1} ===\n${pageTranscription}`);
-      }
+        // Save the markdown transcription to a file
+        const markdownFileName = `${pdfBasename}-page${i + 1}.md`;
+        const markdownPath = path.join(path.dirname(pdfPath), markdownFileName);
 
-      // Clean up the temporary PNG file
-      try {
-        fs.unlinkSync(result.path);
-      } catch (cleanupError) {
-        console.warn(
-          `Could not clean up temp file ${result.path}:`,
-          cleanupError
+        try {
+          fs.writeFileSync(markdownPath, pageTranscription, "utf-8");
+          console.log(`Saved transcription to: ${markdownFileName}`);
+        } catch (writeError) {
+          console.warn(
+            `Could not save markdown file ${markdownFileName}:`,
+            writeError
+          );
+        }
+
+        pageTranscriptions.push(
+          `=== Page ${i + 1} (${pdfBasename}-page${
+            i + 1
+          }.png) ===\n${pageTranscription}`
         );
       }
+
+      // Keep the PNG file instead of deleting it
+      console.log(`Converted page ${i + 1} to: ${path.basename(result.path)}`);
     }
 
     if (pageTranscriptions.length === 0) {
