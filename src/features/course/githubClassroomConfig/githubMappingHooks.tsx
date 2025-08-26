@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "../../../server/trpc/trpcClient";
 import {
   useSettingsQuery,
@@ -23,7 +23,7 @@ export const useUpdateCourseGithubMapping = () => {
 
 export const useScanGithubClassroomQuery = (classroomAssignmentId: string) => {
   const trpc = useTRPC();
-  return useQuery(
+  return useSuspenseQuery(
     trpc.settings.scanGithubClassroom.queryOptions({ classroomAssignmentId })
   );
 };

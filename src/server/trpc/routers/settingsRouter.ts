@@ -95,7 +95,7 @@ export const settingsRouter = createTRPCRouter({
 
   scanGithubClassroom: publicProcedure
     .input(z.object({ classroomAssignmentId: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input }): Promise<string[]> => {
       console.log("Scanning GitHub Classroom for assignment:", input);
       const tempDir = path.join(process.cwd(), "temp", "github-classroom-scan");
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
