@@ -20,7 +20,7 @@ export const GitHubMappingPanel: FC<{
   const enrollmentsQuery = useSuspenseQuery(
     trpc.canvas.listCourseEnrollments.queryOptions({ courseId })
   );
-  const enrollments = enrollmentsQuery.data;
+  const studentEnrollments = enrollmentsQuery.data.filter(e => e.type === "StudentEnrollment");
 
   const { data: scanUsernames } = useScanGithubClassroomQuery(
     classroomAssignmentId
@@ -30,7 +30,7 @@ export const GitHubMappingPanel: FC<{
   const [mapping, setMapping] = useState<
     { studentName: string; githubUsername: string }[]
   >(course?.githubUserMap ?? []);
-  console.log("Current mapping:", mapping);
+  // console.log("Current mapping:", mapping);
 
   const assignedUsernames = new Set(
     mapping.map((m) => m.githubUsername.toLowerCase())
@@ -82,9 +82,9 @@ export const GitHubMappingPanel: FC<{
       </p>
       <div>
         <div className="font-medium text-sm text-gray-300 mb-2">Students</div>
-        <ul className="divide-y divide-gray-800 max-h-64 overflow-auto">
+        <ul className="divide-y divide-gray-800 max-h-200 overflow-auto">
           {/* Replace student list rendering */}
-          {enrollments.map((en) => {
+          {studentEnrollments.map((en) => {
             const name = en.user?.name || `User ${en.user_id}`;
             const assigned =
               (mapping.find((m) => m.studentName === name) || {})
@@ -117,14 +117,6 @@ export const GitHubMappingPanel: FC<{
         <button onClick={save} className="px-3 py-1 bg-blue-700 rounded">
           Save mappings
         </button>
-      </div>
-      <div className="mt-2 text-sm text-gray-300">
-        <div className="font-medium">Scan Results (usernames)</div>
-        <ul className="list-disc list-inside">
-          {scanUsernames.map((u) => (
-            <li key={u}>{u}</li>
-          ))}
-        </ul>
       </div>
     </div>
   );

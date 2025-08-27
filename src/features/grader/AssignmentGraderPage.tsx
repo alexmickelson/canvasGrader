@@ -2,19 +2,22 @@ import type { FC } from "react";
 import { Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { useSubmissionsQuery, useGitHubClassroomMutation } from "./graderHooks";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasRouter";
 import { userName, initials } from "./userUtils";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { SubmissionDetails } from "./submission/SubmissionDetails";
 import { getSubmissionStatusChips } from "./submission/submissionUtils";
+import { useSettingsQuery } from "../home/settingsHooks";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
     courseId: string;
     assignmentId: string;
   }>();
+  const { data: settings } = useSettingsQuery();
   const parsedCourseId = courseId ? Number(courseId) : undefined;
   const parsedAssignmentId = assignmentId ? Number(assignmentId) : undefined;
+  const course = settings?.courses?.find((c) => c.canvasId === parsedCourseId);
 
   // Selected submission for slide-over panel
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
@@ -56,6 +59,7 @@ export const AssignmentGraderPage = () => {
       classroomAssignmentId,
       assignmentId: parsedAssignmentId!,
       courseId: parsedCourseId!,
+      githubUserMap: course?.githubUserMap || [],
     });
 
     // Close the panel immediately to show progress

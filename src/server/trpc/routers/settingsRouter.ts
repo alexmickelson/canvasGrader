@@ -113,13 +113,42 @@ export const settingsRouter = createTRPCRouter({
         const studentRepos = fs
           .readdirSync(reposBase)
           .filter((d) => fs.statSync(path.join(reposBase, d)).isDirectory());
-        // parse github usernames from repo names (assume assignment-username)
-        // Username is typically the last hyphen-separated segment, so take that
-        const rawUsernames = studentRepos.map((r) => {
-          const name = String(r || "").trim();
-          if (!name) return "";
-          const lastHyphen = name.lastIndexOf("-");
-          return lastHyphen === -1 ? name : name.substring(lastHyphen + 1);
+        // parse github usernames from repo names
+        // Many classroom repo folders share a common prefix (e.g. "assignmentX-" or "prefix_")
+        // Instead of always taking the last hyphen segment, compute the longest common
+        // prefix across folder names and strip it. Then trim leading separators.
+        const rawNames = studentRepos
+          .map((r) => String(r || "").trim())
+          .filter(Boolean);
+
+        const longestCommonPrefix = (arr: string[]) => {
+          if (arr.length === 0) return "";
+          return arr.reduce((prefix, s) => {
+            let i = 0;
+            const max = Math.min(prefix.length, s.length);
+            while (i < max && prefix[i] === s[i]) i++;
+            return prefix.slice(0, i);
+          }, arr[0]);
+        };
+
+        const common = longestCommonPrefix(rawNames);
+        // remove trailing separators from the common prefix (hyphens/underscores/spaces)
+        const cleanedPrefix = common.replace(/[-_\s]+$/, "");
+
+        const rawUsernames = rawNames.map((name) => {
+          let remainder =
+            cleanedPrefix && name.startsWith(cleanedPrefix)
+              ? name.slice(cleanedPrefix.length)
+              : name;
+          // strip leading separators after removing prefix
+          remainder = remainder.replace(/^[-_\s]+/, "");
+          // fallback: if nothing left, use last-hyphen logic
+          if (!remainder) {
+            const lastHyphen = name.lastIndexOf("-");
+            remainder =
+              lastHyphen === -1 ? name : name.substring(lastHyphen + 1);
+          }
+          return remainder;
         });
         // Clean and deduplicate
         const usernames = Array.from(

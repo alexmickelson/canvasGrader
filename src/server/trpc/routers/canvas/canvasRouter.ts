@@ -455,10 +455,14 @@ export const canvasRouter = createTRPCRouter({
         classroomAssignmentId: z.string(),
         assignmentId: z.number(),
         courseId: z.number(),
+        githubUserMap: z.array(
+          z.object({ studentName: z.string(), githubUsername: z.string() })
+        ),
       })
     )
     .mutation(async ({ input }) => {
-      const { classroomAssignmentId, assignmentId, courseId } = input;
+      const { classroomAssignmentId, assignmentId, courseId, githubUserMap } =
+        input;
 
       console.log("=== GitHub Classroom Download Started ===");
       console.log(`Input parameters:`);
@@ -473,9 +477,7 @@ export const canvasRouter = createTRPCRouter({
         if (!courseMeta) {
           throw new Error(`Course with ID ${courseId} not found`);
         }
-        console.log(
-          `   ✓ Course found: ${courseMeta.courseName} (Term: ${courseMeta.termName})`
-        );
+        // Continue with download and discovery of repos
 
         // Create temporary directory for GitHub Classroom downloads
         const tempDir = path.join(process.cwd(), "temp", "github-classroom");
@@ -531,6 +533,29 @@ export const canvasRouter = createTRPCRouter({
           console.log(`     ${index + 1}. ${repo}`);
         });
 
+        // Build a lookup from github username -> studentName for accurate mapping
+        const githubLookup = new Map<string, string>();
+        (githubUserMap || []).forEach((m) => {
+          if (m.githubUsername)
+            githubLookup.set(m.githubUsername.toLowerCase(), m.studentName);
+        });
+
+        // Compute common prefix among repo names to more reliably extract usernames
+        const rawNames = studentRepos
+          .map((r) => String(r || "").trim())
+          .filter(Boolean);
+        const longestCommonPrefix = (arr: string[]) => {
+          if (arr.length === 0) return "";
+          return arr.reduce((prefix, s) => {
+            let i = 0;
+            const max = Math.min(prefix.length, s.length);
+            while (i < max && prefix[i] === s[i]) i++;
+            return prefix.slice(0, i);
+          }, arr[0]);
+        };
+        const common = longestCommonPrefix(rawNames);
+        const cleanedPrefix = common.replace(/[-_\s]+$/, "");
+
         // Get assignment name for folder structure (use consistent storage layout)
         console.log(
           `\n5. Fetching assignment metadata for assignmentId: ${assignmentId}`
@@ -576,19 +601,43 @@ export const canvasRouter = createTRPCRouter({
           );
 
           try {
-            // Extract student name from repository name (GitHub format is usually assignment-username)
-            const parts = repoName.split("-");
-            const studentName =
-              parts.length > 1 ? parts.slice(1).join("-") : repoName;
-            const sanitizedStudentName = sanitizeName(studentName);
+            // Extract student name from repository name, using githubUserMap when available
+            let studentNameCandidate = repoName;
+            // Remove common prefix if present
+            if (cleanedPrefix && repoName.startsWith(cleanedPrefix)) {
+              studentNameCandidate = repoName
+                .slice(cleanedPrefix.length)
+                .replace(/^[-_\s]+/, "");
+            } else {
+              // fallback to everything after first hyphen
+              const parts = repoName.split("-");
+              if (parts.length > 1)
+                studentNameCandidate = parts.slice(1).join("-");
+            }
 
-            console.log(`     → Raw student name extracted: "${studentName}"`);
+            // Try to map github username -> studentName using lookup
+            const usernameCandidate = studentNameCandidate.toLowerCase();
+            const resolvedStudentName =
+              githubLookup.get(usernameCandidate) || studentNameCandidate;
+
+            const sanitizedStudentName = sanitizeName(resolvedStudentName);
+
+            console.log(
+              `     → Raw student name extracted: "${studentNameCandidate}"`
+            );
             console.log(
               `     → Sanitized student name: "${sanitizedStudentName}"`
             );
 
             const sourceDir = path.join(reposDir, repoName);
-            const targetDir = path.join(assignmentDir, sanitizedStudentName);
+            // Previously we copied into .../<assignment>/submissions/<studentName>
+            // Now place repo contents under: <assignmentBase>/<studentName>/githubClassroom
+            const assignmentBase = path.dirname(assignmentDir);
+            const targetDir = path.join(
+              assignmentBase,
+              sanitizedStudentName,
+              "githubClassroom"
+            );
 
             console.log(`     → Source directory: ${sourceDir}`);
             console.log(`     → Target directory: ${targetDir}`);
