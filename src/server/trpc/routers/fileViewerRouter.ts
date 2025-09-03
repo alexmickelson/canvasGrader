@@ -31,16 +31,107 @@ function getMimeType(filePath: string): string {
     case ".css":
       return "text/css";
     case ".js":
+    case ".jsx":
       return "text/javascript";
+    case ".ts":
+    case ".tsx":
+      return "text/typescript";
     case ".json":
       return "application/json";
     case ".xml":
       return "application/xml";
     case ".md":
       return "text/markdown";
+    case ".yml":
+    case ".yaml":
+      return "text/yaml";
+    case ".py":
+      return "text/x-python";
+    case ".java":
+      return "text/x-java";
+    case ".c":
+    case ".h":
+      return "text/x-c";
+    case ".cpp":
+    case ".hpp":
+      return "text/x-c++";
+    case ".cs":
+      return "text/x-csharp";
+    case ".php":
+      return "text/x-php";
+    case ".rb":
+      return "text/x-ruby";
+    case ".go":
+      return "text/x-go";
+    case ".rs":
+      return "text/x-rust";
+    case ".sh":
+      return "text/x-shellscript";
+    case ".sql":
+      return "text/x-sql";
     default:
-      return "application/octet-stream";
+      return "text/plain"; // Default to text instead of binary
   }
+}
+
+// Folders to ignore during file listing
+const IGNORED_FOLDERS = new Set([
+  "bin",
+  "obj",
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "out",
+  "target",
+  ".next",
+  "coverage",
+  ".nuxt",
+  ".cache",
+  "temp",
+  "tmp",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+]);
+
+// Helper function to recursively get all file paths
+function getAllFilePaths(
+  dirPath: string,
+  basePath: string,
+  relativePath = ""
+): string[] {
+  const files: string[] = [];
+
+  if (!fs.existsSync(dirPath)) {
+    return files;
+  }
+
+  const items = fs.readdirSync(dirPath);
+
+  for (const item of items) {
+    const itemPath = path.join(dirPath, item);
+    const itemRelativePath = relativePath
+      ? path.join(relativePath, item)
+      : item;
+
+    try {
+      const stats = fs.statSync(itemPath);
+
+      if (stats.isDirectory()) {
+        // Skip ignored folders
+        if (!IGNORED_FOLDERS.has(item)) {
+          files.push(...getAllFilePaths(itemPath, basePath, itemRelativePath));
+        }
+      } else {
+        files.push(itemRelativePath);
+      }
+    } catch (error) {
+      console.warn(`Error accessing ${itemPath}:`, error);
+    }
+  }
+
+  return files;
 }
 
 export const fileViewerRouter = createTRPCRouter({
@@ -78,25 +169,38 @@ export const fileViewerRouter = createTRPCRouter({
 
         const mimeType = getMimeType(fullFilePath);
 
-        // For text files, return the content directly
-        if (mimeType.startsWith("text/") || mimeType === "application/json") {
-          const content = fs.readFileSync(fullFilePath, "utf-8");
-          return {
-            type: "text",
-            content,
-            mimeType,
-            fileName: path.basename(fullFilePath),
-          };
+        // For text files and unknown files, try to load as text first
+        if (
+          mimeType.startsWith("text/") ||
+          mimeType === "application/json" ||
+          mimeType === "application/xml"
+        ) {
+          try {
+            const content = fs.readFileSync(fullFilePath, "utf-8");
+            return {
+              type: "text",
+              content,
+              mimeType,
+              fileName: path.basename(fullFilePath),
+            };
+          } catch (error) {
+            // If text reading fails, fall back to binary
+            console.warn(
+              `Failed to read ${fullFilePath} as text, falling back to binary:`,
+              error
+            );
+          }
         }
 
-        // For binary files, return base64 encoded content
+        // For binary files (images, PDFs) or fallback from failed text reading
         const content = fs.readFileSync(fullFilePath);
         const base64Content = content.toString("base64");
 
         return {
           type: "binary",
           content: base64Content,
-          mimeType,
+          mimeType:
+            mimeType === "text/plain" ? "application/octet-stream" : mimeType, // Use binary mime type if we fell back
           fileName: path.basename(fullFilePath),
         };
       } catch (error) {
@@ -117,11 +221,10 @@ export const fileViewerRouter = createTRPCRouter({
         studentName: z.string(),
         termName: z.string(),
         courseName: z.string(),
-        directoryInSubmission: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
-      const { studentName, directoryInSubmission: directory = "" } = input;
+      const { studentName } = input;
 
       try {
         const basePath = getSubmissionDirectory({
@@ -129,46 +232,14 @@ export const fileViewerRouter = createTRPCRouter({
         });
 
         if (!fs.existsSync(basePath)) {
-          return { files: [], directories: [] };
+          return [];
         }
 
-        const items = fs.readdirSync(basePath);
-        const files: Array<{
-          name: string;
-          path: string;
-          size: number;
-          mimeType: string;
-        }> = [];
-        const directories: Array<{ name: string; path: string }> = [];
+        const allFiles = getAllFilePaths(basePath, basePath);
 
-        for (const item of items) {
-          const itemPath = path.join(basePath, item);
-          const stats = fs.statSync(itemPath);
-          const relativePath = directory ? path.join(directory, item) : item;
+        console.log("files for student ", studentName, allFiles);
 
-          if (stats.isDirectory()) {
-            directories.push({
-              name: item,
-              path: relativePath,
-            });
-          } else {
-            files.push({
-              name: item,
-              path: relativePath,
-              size: stats.size,
-              mimeType: getMimeType(itemPath),
-            });
-          }
-        }
-
-        const res = {
-          files: files.sort((a, b) => a.name.localeCompare(b.name)),
-          directories: directories.sort((a, b) => a.name.localeCompare(b.name)),
-        };
-
-        console.log("files for student ", studentName, res);
-
-        return res;
+        return allFiles.sort();
       } catch (error) {
         console.error("Error listing files:", error);
         throw new Error(

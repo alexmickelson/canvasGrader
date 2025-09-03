@@ -9,7 +9,6 @@ export const useFileContentQuery = ({
   termName,
   courseName,
   filePath,
-  enabled = true,
 }: {
   assignmentId: number;
   assignmentName: string;
@@ -20,19 +19,17 @@ export const useFileContentQuery = ({
   enabled?: boolean;
 }) => {
   const trpc = useTRPC();
-  const fileContentQuery = trpc.fileViewer.getFileContent.queryOptions({
-    assignmentId,
-    assignmentName,
-    studentName,
-    termName,
-    courseName,
-    filePath,
-  });
 
-  return useQuery({
-    ...fileContentQuery,
-    enabled,
-  });
+  return useQuery(
+    trpc.fileViewer.getFileContent.queryOptions({
+      assignmentId,
+      assignmentName,
+      studentName,
+      termName,
+      courseName,
+      filePath,
+    })
+  );
 };
 
 export const useListStudentFilesQuery = ({
@@ -41,14 +38,12 @@ export const useListStudentFilesQuery = ({
   studentName,
   termName,
   courseName,
-  directoryInSubmission = "",
 }: {
   assignmentId: number;
   assignmentName: string;
   studentName: string;
   termName: string;
   courseName: string;
-  directoryInSubmission?: string;
 }) => {
   const trpc = useTRPC();
   return useQuery(
@@ -58,7 +53,6 @@ export const useListStudentFilesQuery = ({
       studentName,
       termName,
       courseName,
-      directoryInSubmission,
     })
   );
 };

@@ -1,8 +1,6 @@
 import type { FC } from "react";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useTRPC } from "../server/trpc/trpcClient";
 import Spinner from "./Spinner";
+import { useFileContentQuery } from "./fileViewerHooks";
 
 interface ViewFileComponentProps {
   assignmentId: number;
@@ -63,49 +61,56 @@ const getFileType = (path: string): "pdf" | "image" | "text" | "unknown" => {
       "dart",
       "vue",
       "svelte",
+      "toml",
+      "ini",
+      "cfg",
+      "conf",
+      "log",
+      "gitignore",
+      "dockerfile",
+      "makefile",
     ].includes(ext)
   ) {
     return "text";
   }
 
-  return "unknown";
+  // For unknown extensions, default to text to attempt loading as text
+  return "text";
 };
 
 // Get syntax highlighting class based on file extension
 const getSyntaxClass = (path: string): string => {
   const ext = getFileExtension(path);
 
-  switch (ext) {
-    case "js":
-    case "jsx":
-      return "language-javascript";
-    case "ts":
-    case "tsx":
-      return "language-typescript";
-    case "html":
-      return "language-html";
-    case "css":
-      return "language-css";
-    case "json":
-      return "language-json";
-    case "py":
-      return "language-python";
-    case "java":
-      return "language-java";
-    case "c":
-    case "cpp":
-    case "h":
-    case "hpp":
-      return "language-cpp";
-    case "cs":
-      return "language-csharp";
-    case "xml":
-      return "language-xml";
-    case "md":
-      return "language-markdown";
-    default:
-      return "language-text";
-  }
+  const syntaxMap: Record<string, string> = {
+    js: "language-javascript",
+    jsx: "language-javascript",
+    ts: "language-typescript",
+    tsx: "language-typescript",
+    html: "language-html",
+    css: "language-css",
+    json: "language-json",
+    py: "language-python",
+    java: "language-java",
+    c: "language-cpp",
+    cpp: "language-cpp",
+    h: "language-cpp",
+    hpp: "language-cpp",
+    cs: "language-csharp",
+    xml: "language-xml",
+    md: "language-markdown",
+    yml: "language-yaml",
+    yaml: "language-yaml",
+    php: "language-php",
+    rb: "language-ruby",
+    go: "language-go",
+    rs: "language-rust",
+    sh: "language-bash",
+    bat: "language-bash",
+    sql: "language-sql",
+  };
+
+  return syntaxMap[ext] || "language-text";
 };
 
 export const ViewFileComponent: FC<ViewFileComponentProps> = ({
@@ -117,29 +122,20 @@ export const ViewFileComponent: FC<ViewFileComponentProps> = ({
   filePath,
   className = "",
 }) => {
-  const [shouldLoadContent, setShouldLoadContent] = useState(false);
-  const trpc = useTRPC();
-
   const fileType = getFileType(filePath);
   const fileName = filePath.split("/").pop() || "Unknown file";
 
-  // Use tRPC query to get file content
-  const fileContentQuery = trpc.fileViewer.getFileContent.queryOptions({
+  const {
+    data: fileData,
+    isLoading,
+    error,
+  } = useFileContentQuery({
     assignmentId,
     assignmentName,
     studentName,
     termName,
     courseName,
     filePath,
-  });
-
-  const {
-    data: fileData,
-    isLoading,
-    error,
-  } = useQuery({
-    ...fileContentQuery,
-    enabled: shouldLoadContent || fileType !== "text",
   });
 
   const renderFileContent = () => {
@@ -169,9 +165,6 @@ export const ViewFileComponent: FC<ViewFileComponentProps> = ({
                 src={`data:${fileData.mimeType};base64,${fileData.content}`}
                 alt={fileName}
                 className="max-w-full max-h-96 mx-auto rounded border border-gray-700"
-                onError={() => {
-                  // Handle image load error
-                }}
               />
             </div>
           );
@@ -202,17 +195,6 @@ export const ViewFileComponent: FC<ViewFileComponentProps> = ({
         break;
 
       case "text":
-        if (!shouldLoadContent) {
-          return (
-            <button
-              onClick={() => setShouldLoadContent(true)}
-              className="w-full py-3 px-4 border border-gray-700 rounded bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors"
-            >
-              Load file content
-            </button>
-          );
-        }
-
         if (isLoading) {
           return (
             <div className="flex items-center justify-center py-8">
@@ -244,6 +226,15 @@ export const ViewFileComponent: FC<ViewFileComponentProps> = ({
 
       case "unknown":
       default:
+        if (isLoading) {
+          return (
+            <div className="flex items-center justify-center py-8">
+              <Spinner size={24} className="text-gray-400" />
+              <span className="ml-2 text-gray-400">Loading file...</span>
+            </div>
+          );
+        }
+
         return (
           <div className="p-4 border border-gray-700 bg-gray-800 rounded text-center">
             <div className="text-gray-400 mb-2">
@@ -252,13 +243,6 @@ export const ViewFileComponent: FC<ViewFileComponentProps> = ({
             <div className="text-sm text-gray-500">
               {fileName} ({getFileExtension(filePath).toUpperCase()})
             </div>
-            <button
-              onClick={() => setShouldLoadContent(true)}
-              disabled={isLoading}
-              className="inline-flex items-center mt-3 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
-            >
-              {isLoading ? "Loading..." : "Download file"}
-            </button>
           </div>
         );
     }

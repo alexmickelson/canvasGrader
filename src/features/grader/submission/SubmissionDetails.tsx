@@ -15,7 +15,7 @@ export const SubmissionDetailsWrapper: FC<{
   courseId: number;
 }> = ({ submission, courseId }) => {
   const { data: courses } = useCanvasCoursesQuery();
-  console.log("courses data:", courses, "courseId:", courseId);
+  // console.log("courses data:", courses, "courseId:", courseId);
   const course = courses.find((c) => Number(c.id) === Number(courseId));
   const { data: assignments } = useAssignmentsQuery(courseId);
   const assignment = assignments?.find(

@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ViewFileComponent } from "./ViewFileComponent";
 import { useListStudentFilesQuery } from "./fileViewerHooks";
 import Spinner from "./Spinner";
@@ -38,6 +38,141 @@ const isLikelyMainFile = (fileName: string): boolean => {
   );
 };
 
+// Helper function to build tree structure from file paths
+interface TreeNode {
+  name: string;
+  path: string;
+  isFile: boolean;
+  children: TreeNode[];
+  level: number;
+}
+
+const buildFileTree = (filePaths: string[]): TreeNode[] => {
+  const root: TreeNode[] = [];
+
+  filePaths.forEach((filePath) => {
+    const parts = filePath.split("/");
+    let currentLevel = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isFile = i === parts.length - 1;
+      const currentPath = parts.slice(0, i + 1).join("/");
+
+      let existingNode = currentLevel.find((node) => node.name === part);
+
+      if (!existingNode) {
+        existingNode = {
+          name: part,
+          path: currentPath,
+          isFile,
+          children: [],
+          level: i,
+        };
+        currentLevel.push(existingNode);
+      }
+
+      if (!isFile) {
+        currentLevel = existingNode.children;
+      }
+    }
+  });
+
+  // Sort directories first, then files
+  const sortNodes = (nodes: TreeNode[]): TreeNode[] => {
+    return nodes
+      .sort((a, b) => {
+        if (a.isFile !== b.isFile) {
+          return a.isFile ? 1 : -1; // directories first
+        }
+        if (a.isFile) {
+          // For files, prioritize main files
+          const aIsMain = isLikelyMainFile(a.name);
+          const bIsMain = isLikelyMainFile(b.name);
+          if (aIsMain !== bIsMain) {
+            return aIsMain ? -1 : 1;
+          }
+        }
+        return a.name.localeCompare(b.name);
+      })
+      .map((node) => ({
+        ...node,
+        children: sortNodes(node.children),
+      }));
+  };
+
+  return sortNodes(root);
+};
+
+// Tree node component
+const TreeNodeComponent: FC<{
+  node: TreeNode;
+  expandedNodes: Set<string>;
+  selectedFile: string | null;
+  onToggleExpand: (path: string) => void;
+  onSelectFile: (path: string) => void;
+}> = ({ node, expandedNodes, selectedFile, onToggleExpand, onSelectFile }) => {
+  const isExpanded = expandedNodes.has(node.path);
+  const hasChildren = node.children.length > 0;
+
+  if (node.isFile) {
+    return (
+      <div
+        className={`flex items-center gap-2 py-1 px-2 rounded text-sm cursor-pointer hover:bg-gray-800 transition-colors ${
+          selectedFile === node.path
+            ? "bg-gray-800 text-indigo-300"
+            : "text-gray-200"
+        } ${isLikelyMainFile(node.name) ? "border-l-2 border-yellow-500" : ""}`}
+        style={{ paddingLeft: `${node.level * 20 + 8}px` }}
+        onClick={() => onSelectFile(node.path)}
+      >
+        <span>{getFileIcon(node.name)}</span>
+        <span>{node.name}</span>
+        {isLikelyMainFile(node.name) && (
+          <span className="text-xs bg-yellow-500 text-black px-1 rounded">
+            main
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-2 py-1 px-2 rounded text-sm cursor-pointer hover:bg-gray-800 transition-colors text-gray-200"
+        style={{ paddingLeft: `${node.level * 20 + 8}px` }}
+        onClick={() => hasChildren && onToggleExpand(node.path)}
+      >
+        {hasChildren && (
+          <span className="text-xs text-gray-400">
+            {isExpanded ? "▼" : "▶"}
+          </span>
+        )}
+        <span>📁</span>
+        <span>{node.name}</span>
+        <span className="text-xs text-gray-400">
+          ({node.children.filter((c) => c.isFile).length} files)
+        </span>
+      </div>
+      {hasChildren && isExpanded && (
+        <div>
+          {node.children.map((child) => (
+            <TreeNodeComponent
+              key={child.path}
+              node={child}
+              expandedNodes={expandedNodes}
+              selectedFile={selectedFile}
+              onToggleExpand={onToggleExpand}
+              onSelectFile={onSelectFile}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SubmissionFileExplorer: FC<{
   assignmentId: number;
   assignmentName: string;
@@ -54,10 +189,10 @@ export const SubmissionFileExplorer: FC<{
   className = "",
 }) => {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [currentDirectory, setCurrentDirectory] = useState("");
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   const {
-    data: fileList,
+    data: allFilePaths,
     isLoading,
     error,
   } = useListStudentFilesQuery({
@@ -66,8 +201,26 @@ export const SubmissionFileExplorer: FC<{
     studentName,
     termName,
     courseName,
-    directoryInSubmission: currentDirectory,
   });
+
+  const fileTree = useMemo(() => {
+    if (!allFilePaths) return [];
+    return buildFileTree(allFilePaths);
+  }, [allFilePaths]);
+
+  const handleToggleExpand = (path: string) => {
+    const newExpanded = new Set(expandedNodes);
+    if (newExpanded.has(path)) {
+      newExpanded.delete(path);
+    } else {
+      newExpanded.add(path);
+    }
+    setExpandedNodes(newExpanded);
+  };
+
+  const handleSelectFile = (path: string) => {
+    setSelectedFile(path);
+  };
 
   if (isLoading) {
     return (
@@ -101,106 +254,55 @@ export const SubmissionFileExplorer: FC<{
         </div>
 
         {/* Quick stats */}
-        {fileList && (
+        {allFilePaths && (
           <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span>📁 {fileList.directories?.length || 0} folders</span>
-            <span>📄 {fileList.files?.length || 0} files</span>
-            {fileList.files && fileList.files.length > 0 && (
-              <span>
-                💾{" "}
-                {(
-                  fileList.files.reduce((acc, f) => acc + f.size, 0) / 1024
-                ).toFixed(1)}{" "}
-                KB total
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Breadcrumb navigation */}
-        {currentDirectory && (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span> {allFilePaths.length} files</span>
             <button
-              onClick={() => setCurrentDirectory("")}
+              onClick={() => setExpandedNodes(new Set())}
               className="text-indigo-400 hover:text-indigo-300"
             >
-              📁 Root
+              Collapse All
             </button>
-            <span>/</span>
-            <span>{currentDirectory}</span>
+            <button
+              onClick={() => {
+                const allDirs = new Set<string>();
+                const findAllDirs = (nodes: TreeNode[]) => {
+                  nodes.forEach((node) => {
+                    if (!node.isFile && node.children.length > 0) {
+                      allDirs.add(node.path);
+                      findAllDirs(node.children);
+                    }
+                  });
+                };
+                findAllDirs(fileTree);
+                setExpandedNodes(allDirs);
+              }}
+              className="text-indigo-400 hover:text-indigo-300"
+            >
+              Expand All
+            </button>
           </div>
         )}
 
-        {/* File and directory listing */}
+        {/* File tree */}
         <div className="border border-gray-700 rounded bg-gray-900">
-          {fileList?.directories && fileList.directories.length > 0 && (
-            <div className="p-3 border-b border-gray-700">
-              <div className="text-xs text-gray-400 mb-2">Directories:</div>
-              <div className="space-y-1">
-                {fileList.directories.map((dir) => (
-                  <button
-                    key={dir.path}
-                    onClick={() => setCurrentDirectory(dir.path)}
-                    className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300"
-                  >
-                    📁 {dir.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {fileList?.files && fileList.files.length > 0 ? (
-            <div className="p-3">
-              <div className="text-xs text-gray-400 mb-2">
-                Files ({fileList.files.length}):
-              </div>
-              <div className="space-y-1">
-                {fileList.files
-                  .sort((a, b) => {
-                    // Sort main files first, then alphabetically
-                    const aIsMain = isLikelyMainFile(a.name);
-                    const bIsMain = isLikelyMainFile(b.name);
-                    if (aIsMain && !bIsMain) return -1;
-                    if (!aIsMain && bIsMain) return 1;
-                    return a.name.localeCompare(b.name);
-                  })
-                  .map((file) => (
-                    <button
-                      key={file.path}
-                      onClick={() => setSelectedFile(file.path)}
-                      className={`flex items-center justify-between w-full text-left p-2 rounded text-sm hover:bg-gray-800 transition-colors ${
-                        selectedFile === file.path
-                          ? "bg-gray-800 text-indigo-300"
-                          : "text-gray-200"
-                      } ${
-                        isLikelyMainFile(file.name)
-                          ? "border-l-2 border-yellow-500"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{getFileIcon(file.name)}</span>
-                        <span>{file.name}</span>
-                        {isLikelyMainFile(file.name) && (
-                          <span className="text-xs bg-yellow-500 text-black px-1 rounded">
-                            main
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {(file.size / 1024).toFixed(1)} KB
-                      </span>
-                    </button>
-                  ))}
-              </div>
+          {fileTree.length > 0 ? (
+            <div className="p-2">
+              {fileTree.map((node) => (
+                <TreeNodeComponent
+                  key={node.path}
+                  node={node}
+                  expandedNodes={expandedNodes}
+                  selectedFile={selectedFile}
+                  onToggleExpand={handleToggleExpand}
+                  onSelectFile={handleSelectFile}
+                />
+              ))}
             </div>
           ) : (
-            !fileList?.directories?.length && (
-              <div className="p-3 text-center text-gray-400 text-sm">
-                No files found in this directory
-              </div>
-            )
+            <div className="p-3 text-center text-gray-400 text-sm">
+              No files found
+            </div>
           )}
         </div>
       </div>
