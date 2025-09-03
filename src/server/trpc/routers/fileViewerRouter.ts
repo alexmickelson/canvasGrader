@@ -2,9 +2,7 @@ import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import z from "zod";
 import fs from "fs";
 import path from "path";
-import {
-  getSubmissionDirectory,
-} from "./canvas/canvasStorageUtils";
+import { getSubmissionDirectory } from "./canvas/canvasStorageUtils";
 
 // Helper function to get MIME type based on file extension
 function getMimeType(filePath: string): string {
@@ -53,7 +51,6 @@ export const fileViewerRouter = createTRPCRouter({
         assignmentName: z.string(),
         studentName: z.string(),
         termName: z.string(),
-
         courseName: z.string(),
         filePath: z.string(),
       })
@@ -62,13 +59,11 @@ export const fileViewerRouter = createTRPCRouter({
       const { filePath } = input;
 
       try {
-
         const basePath = getSubmissionDirectory({
           ...input,
         });
 
         const fullFilePath = path.join(basePath, filePath);
-
 
         // Check if file exists
         if (!fs.existsSync(fullFilePath)) {
@@ -121,7 +116,6 @@ export const fileViewerRouter = createTRPCRouter({
         assignmentName: z.string(),
         studentName: z.string(),
         termName: z.string(),
-
         courseName: z.string(),
         directoryInSubmission: z.string().optional(),
       })

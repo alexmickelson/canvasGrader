@@ -210,7 +210,7 @@ export const canvasRouter = createTRPCRouter({
       const data = fs.readFileSync(enrollmentsPath, "utf8");
       return JSON.parse(data);
     }),
-  getCourses: publicProcedure.query(async () => {
+  getCourses: publicProcedure.query(async (): Promise<CanvasCourse[]> => {
     // Check if courses are already persisted locally
     const persistedCourses = loadPersistedCourses();
 

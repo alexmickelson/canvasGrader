@@ -16,7 +16,7 @@ export const SubmissionDetailsWrapper: FC<{
 }> = ({ submission, courseId }) => {
   const { data: courses } = useCanvasCoursesQuery();
   console.log("courses data:", courses, "courseId:", courseId);
-  const course = courses.find((c) => Number(c.canvasId) === Number(courseId));
+  const course = courses.find((c) => Number(c.id) === Number(courseId));
   const { data: assignments } = useAssignmentsQuery(courseId);
   const assignment = assignments?.find(
     (a) => a.id === submission.assignment_id
@@ -32,6 +32,7 @@ export const SubmissionDetailsWrapper: FC<{
     <SubmissionDetails
       submission={submission}
       courseId={courseId}
+      assignmentName={assignment.name}
       termName={course.term.name}
       courseName={course.name}
     />
@@ -41,9 +42,10 @@ export const SubmissionDetailsWrapper: FC<{
 export const SubmissionDetails: FC<{
   submission: CanvasSubmission;
   courseId: number;
+  assignmentName: string;
   termName: string;
   courseName: string;
-}> = ({ submission, courseId, termName, courseName }) => {
+}> = ({ submission, courseId, assignmentName, termName, courseName }) => {
   const [isGrading, setIsGrading] = useState(false);
 
   return (
@@ -59,7 +61,7 @@ export const SubmissionDetails: FC<{
             {/* Add the submission file explorer */}
             <SubmissionFileExplorerComponent
               assignmentId={submission.assignment_id}
-              assignmentName={submission.assignment}
+              assignmentName={assignmentName}
               studentName={submission.user.name}
               termName={termName}
               courseName={courseName}
