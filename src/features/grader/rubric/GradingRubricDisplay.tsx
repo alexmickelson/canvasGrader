@@ -1,14 +1,10 @@
 import type { FC } from "react";
 import { useState } from "react";
-import type {
-  CanvasRubricCriterion,
-  CanvasRubricAssessment,
-  CanvasSubmission,
-} from "../../../server/trpc/routers/canvas/canvasRouter.js";
 import { useRubricQuery } from "../graderHooks";
 import { useGradeSubmissionMutation } from "../gradeSubmissionHooks";
 import Spinner from "../../../utils/Spinner";
 import { GradingRubricCriterion } from "./GradingRubricCriterion.js";
+import type { CanvasSubmission, CanvasRubricAssessment, CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels.js";
 
 export const GradingRubricDisplay: FC<{
   courseId: number;

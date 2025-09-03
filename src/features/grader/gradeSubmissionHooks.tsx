@@ -17,11 +17,6 @@ export const useGradeSubmissionMutation = () => {
             assignmentId: variables.assignmentId,
           }),
         });
-
-        // Show success message
-        alert(
-          `✅ Grade Submitted Successfully!\n\n${result.message}\n\nFinal Score: ${result.submission.score} points`
-        );
       },
       onError: (error) => {
         console.error("❌ Failed to grade submission:", error);

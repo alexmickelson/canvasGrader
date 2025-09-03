@@ -304,6 +304,101 @@ function getTextSubmission(submissionDir: string): string | null {
   return null;
 }
 
+// Save the evaluation results to a JSON file
+async function saveEvaluationResults(
+  courseId: number,
+  assignmentId: number,
+  studentName: string,
+  criterionId: string | undefined,
+  criterionDescription: string,
+  conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[],
+  analysis: Record<string, unknown>,
+  usedFallbackSchema: boolean
+): Promise<void> {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const sanitizedStudentName = sanitizeName(studentName);
+    const criterionIdSafe =
+      criterionId || sanitizeName(criterionDescription).slice(0, 20);
+
+    // Create filename: <student-name>.rubric.<rubriccriterionid>-<timestamp>.json
+    const fileName = `${sanitizedStudentName}.rubric.${criterionIdSafe}-${timestamp}.json`;
+
+    // Get the student submission directory to place the file next to it
+    const submissionDir = await getSubmissionDir(
+      courseId,
+      assignmentId,
+      studentName
+    );
+    const parentDir = path.dirname(submissionDir); // Go up one level from the submission folder
+    const evaluationFilePath = path.join(parentDir, fileName);
+
+    const evaluationData = {
+      metadata: {
+        courseId,
+        assignmentId,
+        studentName,
+        criterionId,
+        criterionDescription,
+        timestamp: new Date().toISOString(),
+        usedFallbackSchema,
+        model,
+      },
+      conversation: conversationMessages,
+      evaluation: analysis,
+      submissionPath: submissionDir,
+    };
+
+    // Ensure the directory exists
+    fs.mkdirSync(path.dirname(evaluationFilePath), { recursive: true });
+
+    // Write the evaluation results
+    fs.writeFileSync(
+      evaluationFilePath,
+      JSON.stringify(evaluationData, null, 2),
+      "utf-8"
+    );
+
+    console.log(`Saved evaluation results to: ${evaluationFilePath}`);
+  } catch (error) {
+    console.error("Error saving evaluation results:", error);
+    // Don't throw - this shouldn't break the main analysis
+  }
+}
+
+// Get existing evaluation files for a student
+async function getExistingEvaluations(
+  courseId: number,
+  assignmentId: number,
+  studentName: string
+): Promise<string[]> {
+  try {
+    const submissionDir = await getSubmissionDir(
+      courseId,
+      assignmentId,
+      studentName
+    );
+    const parentDir = path.dirname(submissionDir);
+    const sanitizedStudentName = sanitizeName(studentName);
+
+    if (!fs.existsSync(parentDir)) {
+      return [];
+    }
+
+    const files = fs.readdirSync(parentDir);
+    const evaluationFiles = files.filter(
+      (file) =>
+        file.startsWith(`${sanitizedStudentName}.rubric.`) &&
+        file.endsWith(".json")
+    );
+
+    return evaluationFiles.map((file) => path.join(parentDir, file));
+  } catch (error) {
+    console.error("Error getting existing evaluations:", error);
+    return [];
+  }
+}
+
 // Define structured output schema for AI analysis
 const AnalysisResultSchema = z.object({
   satisfied: z.boolean().describe("Whether the rubric criterion is satisfied"),
@@ -326,12 +421,14 @@ const AnalysisResultSchema = z.object({
           .describe("Type of file"),
         lineNumbers: z
           .array(z.number())
-          .optional()
-          .describe("Specific line numbers referenced (for text files)"),
+          .describe(
+            "Specific line numbers referenced (for text files, empty array if not applicable)"
+          ),
         pageNumbers: z
           .array(z.number())
-          .optional()
-          .describe("Specific page numbers referenced (for PDFs)"),
+          .describe(
+            "Specific page numbers referenced (for PDFs, empty array if not applicable)"
+          ),
         relevantContent: z
           .string()
           .describe("The specific content that provides evidence"),
@@ -353,8 +450,40 @@ const AnalysisResultSchema = z.object({
     .describe("Array of evidence found in the submission files"),
   additionalFilesNeeded: z
     .array(z.string())
-    .optional()
-    .describe("List of additional files that should be examined if available"),
+    .describe(
+      "List of additional files that should be examined if available (use empty array if none needed)"
+    ),
+});
+
+// Simplified fallback schema for when strict mode fails
+const SimplifiedAnalysisResultSchema = z.object({
+  satisfied: z.boolean().describe("Whether the rubric criterion is satisfied"),
+  confidence: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Confidence level (0-100) in this assessment"),
+  recommendedPoints: z
+    .number()
+    .min(0)
+    .describe("Recommended points to award for this criterion"),
+  explanation: z.string().describe("Detailed explanation of the assessment"),
+  evidence: z
+    .array(
+      z.object({
+        fileName: z.string().describe("Name of the file containing evidence"),
+        relevantContent: z
+          .string()
+          .describe("The specific content that provides evidence"),
+        meetsRequirement: z
+          .boolean()
+          .describe("Whether this evidence meets the requirement"),
+      })
+    )
+    .describe("Array of evidence found in the submission files"),
+  additionalFilesNeeded: z
+    .array(z.string())
+    .describe("List of additional files needed (empty array if none)"),
 });
 
 type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
@@ -368,6 +497,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         studentName: z.string(),
         criterionDescription: z.string(),
         criterionPoints: z.number(),
+        criterionId: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
@@ -377,6 +507,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         studentName,
         criterionDescription,
         criterionPoints,
+        criterionId,
       } = input;
 
       if (!openai) {
@@ -611,18 +742,87 @@ IMPORTANT: Your response must be valid JSON that matches the required schema. In
 Provide specific file references, line numbers for text files, page numbers for PDFs, and confidence levels for each piece of evidence.`,
         });
 
-        const finalResponse = await openai.chat.completions.create({
-          model: model,
-          messages: conversationMessages,
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "rubric_analysis",
-              schema: zodToJsonSchema(AnalysisResultSchema),
+        let finalResponse;
+        let usedFallbackSchema = false;
+
+        try {
+          finalResponse = await openai.chat.completions.create({
+            model: model,
+            messages: conversationMessages,
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "rubric_analysis",
+                schema: zodToJsonSchema(AnalysisResultSchema),
+                strict: true,
+              },
             },
-          },
-          temperature: 0.1,
-        });
+            temperature: 0.1,
+          });
+        } catch (openaiError) {
+          console.error("OpenAI API Error:", openaiError);
+
+          if (
+            openaiError instanceof Error &&
+            openaiError.message.includes("Invalid schema for response_format")
+          ) {
+            console.error("=== OPENAI SCHEMA VALIDATION ERROR ===");
+            console.error("OpenAI rejected our JSON schema for strict mode");
+            console.error("Attempting fallback to simplified schema...");
+            console.error("Error details:", openaiError.message);
+            console.error(
+              "Generated schema:",
+              JSON.stringify(zodToJsonSchema(AnalysisResultSchema), null, 2)
+            );
+
+            try {
+              // Retry with simplified schema
+              finalResponse = await openai.chat.completions.create({
+                model: model,
+                messages: conversationMessages,
+                response_format: {
+                  type: "json_schema",
+                  json_schema: {
+                    name: "simplified_rubric_analysis",
+                    schema: zodToJsonSchema(SimplifiedAnalysisResultSchema),
+                    strict: true,
+                  },
+                },
+                temperature: 0.1,
+              });
+              usedFallbackSchema = true;
+              console.log("Successfully used fallback simplified schema");
+            } catch (fallbackError) {
+              console.error("Fallback schema also failed:", fallbackError);
+
+              // Last resort: try without strict mode
+              try {
+                finalResponse = await openai.chat.completions.create({
+                  model: model,
+                  messages: [
+                    ...conversationMessages,
+                    {
+                      role: "user",
+                      content:
+                        "Please respond with valid JSON only. No markdown, no explanation, just the JSON object with: satisfied (boolean), confidence (number 0-100), recommendedPoints (number), explanation (string), evidence (array), additionalFilesNeeded (array).",
+                    },
+                  ],
+                  temperature: 0.1,
+                });
+                console.log("Using non-structured response as last resort");
+              } catch (lastResortError) {
+                console.error("All OpenAI attempts failed:", lastResortError);
+                throw new Error(
+                  "AI service schema validation failed and all fallback attempts failed: " +
+                    openaiError.message
+                );
+              }
+            }
+          } else {
+            // Re-throw with original error for other types
+            throw openaiError;
+          }
+        }
 
         const analysisContent = finalResponse.choices[0]?.message?.content;
         if (!analysisContent) {
@@ -655,32 +855,427 @@ Provide specific file references, line numbers for text files, page numbers for 
         let analysis: AnalysisResult;
         try {
           const parsedJson = JSON.parse(cleanContent);
-          analysis = AnalysisResultSchema.parse(parsedJson);
+
+          // Try parsing with the main schema first, then fallback if needed
+          if (usedFallbackSchema) {
+            const simplifiedAnalysis =
+              SimplifiedAnalysisResultSchema.parse(parsedJson);
+            // Convert simplified to full format
+            analysis = {
+              satisfied: simplifiedAnalysis.satisfied,
+              confidence: simplifiedAnalysis.confidence,
+              recommendedPoints: simplifiedAnalysis.recommendedPoints,
+              explanation: simplifiedAnalysis.explanation,
+              evidence: simplifiedAnalysis.evidence.map((e) => ({
+                fileName: e.fileName,
+                fileType: "other" as const,
+                lineNumbers: [],
+                pageNumbers: [],
+                relevantContent: e.relevantContent,
+                meetsRequirement: e.meetsRequirement,
+                confidence: 75, // Default confidence for simplified format
+                reasoning: "Evidence identified using simplified schema",
+              })),
+              additionalFilesNeeded: simplifiedAnalysis.additionalFilesNeeded,
+            };
+            console.log("Successfully parsed using simplified schema");
+          } else {
+            analysis = AnalysisResultSchema.parse(parsedJson);
+            console.log("Successfully parsed using full schema");
+          }
         } catch (parseError) {
-          console.error(
-            "Failed to parse AI analysis. Raw content:",
-            analysisContent
-          );
-          console.error("Cleaned content:", cleanContent);
+          // Enhanced logging to identify concatenated JSON issues
+          console.error("=== JSON PARSE ERROR ANALYSIS ===");
           console.error("Parse error:", parseError);
-          throw new Error("Invalid analysis format from AI service");
+          console.error("Raw content length:", analysisContent.length);
+          console.error("Cleaned content length:", cleanContent.length);
+
+          // Check for signs of concatenated JSON objects
+          const openBraces = (cleanContent.match(/\{/g) || []).length;
+          const closeBraces = (cleanContent.match(/\}/g) || []).length;
+          console.error("Open braces count:", openBraces);
+          console.error("Close braces count:", closeBraces);
+
+          // Look for patterns that suggest concatenated JSON
+          const hasMultipleRootObjects = cleanContent.match(/\}\s*\{/);
+          if (hasMultipleRootObjects) {
+            console.error(
+              "DETECTED: Concatenated JSON objects found at positions:",
+              [...cleanContent.matchAll(/\}\s*\{/g)].map((match) => match.index)
+            );
+
+            // Attempt to parse multiple JSON objects
+            try {
+              console.log("Attempting to parse multiple JSON objects...");
+              const jsonSeparatorMatches = [
+                ...cleanContent.matchAll(/\}\s*\{/g),
+              ];
+
+              if (jsonSeparatorMatches.length > 0) {
+                // Split on }{ pattern and reconstruct complete JSON objects
+                const parts = cleanContent.split(/\}\s*\{/);
+                const jsonObjects: string[] = [];
+
+                parts.forEach((part, index) => {
+                  const reconstructed =
+                    index === 0
+                      ? part + "}"
+                      : index === parts.length - 1
+                      ? "{" + part
+                      : "{" + part + "}";
+                  jsonObjects.push(reconstructed);
+                });
+
+                console.log(
+                  `Found ${jsonObjects.length} potential JSON objects`
+                );
+
+                // Try to parse each object and find the best one
+                const parsedObjects: Record<string, unknown>[] = [];
+
+                for (let i = 0; i < jsonObjects.length; i++) {
+                  try {
+                    const obj = JSON.parse(jsonObjects[i]);
+                    console.log(
+                      `Successfully parsed object ${i + 1}:`,
+                      Object.keys(obj)
+                    );
+                    parsedObjects.push(obj);
+                  } catch (objParseError) {
+                    console.error(
+                      `Failed to parse object ${i + 1}:`,
+                      objParseError
+                    );
+                  }
+                }
+
+                if (parsedObjects.length > 0) {
+                  // Try to find the most complete object that matches our schema
+                  let bestObject = null;
+                  let bestScore = -1;
+
+                  for (const obj of parsedObjects) {
+                    // Score based on how many expected fields are present
+                    let score = 0;
+                    if (obj.satisfied !== undefined) score++;
+                    if (obj.confidence !== undefined) score++;
+                    if (obj.recommendedPoints !== undefined) score++;
+                    if (obj.explanation !== undefined) score++;
+                    if (obj.evidence !== undefined) score++;
+                    if (obj.additionalFilesNeeded !== undefined) score++;
+
+                    console.log(
+                      `Object score: ${score}, keys:`,
+                      Object.keys(obj)
+                    );
+
+                    if (score > bestScore) {
+                      bestScore = score;
+                      bestObject = obj;
+                    }
+                  }
+
+                  if (bestObject) {
+                    console.log(
+                      "Using best scoring object with score:",
+                      bestScore
+                    );
+
+                    // Try parsing with appropriate schema
+                    if (usedFallbackSchema) {
+                      const simplifiedAnalysis =
+                        SimplifiedAnalysisResultSchema.parse(bestObject);
+                      analysis = {
+                        satisfied: simplifiedAnalysis.satisfied,
+                        confidence: simplifiedAnalysis.confidence,
+                        recommendedPoints: simplifiedAnalysis.recommendedPoints,
+                        explanation: simplifiedAnalysis.explanation,
+                        evidence: simplifiedAnalysis.evidence.map((e) => ({
+                          fileName: e.fileName,
+                          fileType: "other" as const,
+                          lineNumbers: [],
+                          pageNumbers: [],
+                          relevantContent: e.relevantContent,
+                          meetsRequirement: e.meetsRequirement,
+                          confidence: 75,
+                          reasoning: "Evidence from multi-object parsing",
+                        })),
+                        additionalFilesNeeded:
+                          simplifiedAnalysis.additionalFilesNeeded,
+                      };
+                    } else {
+                      analysis = AnalysisResultSchema.parse(bestObject);
+                    }
+
+                    console.log(
+                      "Successfully recovered from concatenated JSON"
+                    );
+                  } else {
+                    throw new Error(
+                      "No valid objects found in concatenated JSON"
+                    );
+                  }
+                } else {
+                  throw new Error(
+                    "Could not parse any objects from concatenated JSON"
+                  );
+                }
+              } else {
+                throw new Error("No concatenated objects detected");
+              }
+            } catch (multiParseError) {
+              console.error(
+                "Failed to parse multiple JSON objects:",
+                multiParseError
+              );
+
+              // Last resort: try to find a single valid JSON object from the start or end
+              console.log(
+                "Attempting last resort: single object extraction..."
+              );
+
+              try {
+                // Try to find the first complete JSON object
+                let braceCount = 0;
+                let startIndex = -1;
+                let endIndex = -1;
+
+                for (let i = 0; i < cleanContent.length; i++) {
+                  if (cleanContent[i] === "{") {
+                    if (braceCount === 0) {
+                      startIndex = i;
+                    }
+                    braceCount++;
+                  } else if (cleanContent[i] === "}") {
+                    braceCount--;
+                    if (braceCount === 0 && startIndex !== -1) {
+                      endIndex = i;
+                      break;
+                    }
+                  }
+                }
+
+                if (startIndex !== -1 && endIndex !== -1) {
+                  const extractedJson = cleanContent.slice(
+                    startIndex,
+                    endIndex + 1
+                  );
+                  console.log(
+                    "Extracted first complete JSON object:",
+                    extractedJson.substring(0, 200) + "..."
+                  );
+
+                  const parsedExtracted = JSON.parse(extractedJson);
+
+                  // Try parsing with appropriate schema
+                  if (usedFallbackSchema) {
+                    const simplifiedAnalysis =
+                      SimplifiedAnalysisResultSchema.parse(parsedExtracted);
+                    analysis = {
+                      satisfied: simplifiedAnalysis.satisfied,
+                      confidence: simplifiedAnalysis.confidence,
+                      recommendedPoints: simplifiedAnalysis.recommendedPoints,
+                      explanation: simplifiedAnalysis.explanation,
+                      evidence: simplifiedAnalysis.evidence.map((e) => ({
+                        fileName: e.fileName,
+                        fileType: "other" as const,
+                        lineNumbers: [],
+                        pageNumbers: [],
+                        relevantContent: e.relevantContent,
+                        meetsRequirement: e.meetsRequirement,
+                        confidence: 75,
+                        reasoning: "Evidence from extracted JSON",
+                      })),
+                      additionalFilesNeeded:
+                        simplifiedAnalysis.additionalFilesNeeded,
+                    };
+                  } else {
+                    analysis = AnalysisResultSchema.parse(parsedExtracted);
+                  }
+
+                  console.log("Successfully recovered using JSON extraction");
+                } else {
+                  throw new Error("Could not extract valid JSON object");
+                }
+              } catch (extractError) {
+                console.error("JSON extraction also failed:", extractError);
+                console.error("Full raw content:", analysisContent);
+                console.error("Full cleaned content:", cleanContent);
+                console.error("=== END JSON PARSE ERROR ANALYSIS ===");
+                throw new Error(
+                  "Invalid analysis format from AI service - all recovery attempts failed"
+                );
+              }
+            }
+          } else {
+            console.error("Full raw content:", analysisContent);
+            console.error("Full cleaned content:", cleanContent);
+            console.error("=== END JSON PARSE ERROR ANALYSIS ===");
+            throw new Error("Invalid analysis format from AI service");
+          }
         }
 
-        return {
-          satisfied: analysis.satisfied,
-          confidence: analysis.confidence,
-          evidence: analysis.evidence,
-          explanation: analysis.explanation,
-          recommendedPoints: analysis.recommendedPoints,
+        // Validate and prepare the response
+        const responseData = {
+          satisfied: analysis.satisfied ?? false,
+          confidence: analysis.confidence ?? 0,
+          evidence: analysis.evidence ?? [],
+          explanation: analysis.explanation ?? "No explanation provided",
+          recommendedPoints: analysis.recommendedPoints ?? 0,
           submissionPath: submissionDir,
           fileSystemTree,
           textSubmission,
-          additionalFilesNeeded: analysis.additionalFilesNeeded || [],
+          additionalFilesNeeded: analysis.additionalFilesNeeded ?? [],
         };
+
+        console.log("Analysis completed successfully:", {
+          satisfied: responseData.satisfied,
+          confidence: responseData.confidence,
+          evidenceCount: responseData.evidence.length,
+          usedFallback: usedFallbackSchema,
+        });
+
+        // Save the evaluation results to a JSON file
+        console.log("Saving evaluation results...");
+        await saveEvaluationResults(
+          courseId,
+          assignmentId,
+          studentName,
+          criterionId,
+          criterionDescription,
+          conversationMessages,
+          analysis,
+          usedFallbackSchema
+        );
+
+        return responseData;
       } catch (error) {
         console.error("Error analyzing rubric criterion:", error);
+
+        // Enhanced error handling for different types of errors
+        if (error instanceof Error) {
+          // OpenAI API schema validation errors
+          if (error.message.includes("Invalid schema for response_format")) {
+            console.error("OpenAI Schema Validation Error:");
+            console.error(
+              "This indicates a mismatch between our Zod schema and OpenAI's strict mode requirements"
+            );
+            console.error(
+              "All properties in the schema must be in the 'required' array for strict mode"
+            );
+            throw new Error(
+              "AI service schema validation failed. Please check that all schema properties are marked as required for OpenAI strict mode."
+            );
+          }
+
+          // OpenAI API rate limiting or authentication errors
+          if (error.message.includes("429") || error.message.includes("rate")) {
+            throw new Error(
+              "AI service rate limit exceeded. Please try again in a few moments."
+            );
+          }
+
+          if (
+            error.message.includes("401") ||
+            error.message.includes("authentication")
+          ) {
+            throw new Error(
+              "AI service authentication failed. Please check your API key configuration."
+            );
+          }
+
+          // JSON parsing errors
+          if (error.message.includes("Invalid analysis format")) {
+            throw new Error(
+              "AI service returned invalid response format. The response could not be parsed as valid JSON matching the expected schema."
+            );
+          }
+
+          // File system errors
+          if (
+            error.message.includes("ENOENT") ||
+            error.message.includes("no such file")
+          ) {
+            throw new Error(
+              "Submission files not found. Please ensure the student has submitted their assignment and files have been processed."
+            );
+          }
+
+          // Network or timeout errors
+          if (
+            error.message.includes("timeout") ||
+            error.message.includes("ECONNRESET")
+          ) {
+            throw new Error(
+              "Network timeout while contacting AI service. Please try again."
+            );
+          }
+        }
+
+        // Generic fallback with original error details
         throw new Error(
           `Failed to analyze rubric criterion: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }),
+
+  getExistingEvaluations: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        assignmentId: z.number(),
+        studentName: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { courseId, assignmentId, studentName } = input;
+
+      try {
+        const evaluationFiles = await getExistingEvaluations(
+          courseId,
+          assignmentId,
+          studentName
+        );
+
+        const evaluations = evaluationFiles.map((filePath) => {
+          try {
+            const content = fs.readFileSync(filePath, "utf-8");
+            const data = JSON.parse(content);
+            return {
+              filePath,
+              fileName: path.basename(filePath),
+              metadata: data.metadata,
+              evaluationSummary: {
+                satisfied: data.evaluation?.satisfied,
+                confidence: data.evaluation?.confidence,
+                recommendedPoints: data.evaluation?.recommendedPoints,
+              },
+            };
+          } catch (error) {
+            console.error(`Error reading evaluation file ${filePath}:`, error);
+            return {
+              filePath,
+              fileName: path.basename(filePath),
+              error: "Failed to read evaluation file",
+            };
+          }
+        });
+
+        return {
+          studentName,
+          evaluations: evaluations.sort((a, b) => {
+            // Sort by timestamp, newest first
+            const aTime = "metadata" in a ? a.metadata?.timestamp : "";
+            const bTime = "metadata" in b ? b.metadata?.timestamp : "";
+            return (bTime || "").localeCompare(aTime || "");
+          }),
+        };
+      } catch (error) {
+        console.error("Error getting existing evaluations:", error);
+        throw new Error(
+          `Failed to get existing evaluations: ${
             error instanceof Error ? error.message : String(error)
           }`
         );

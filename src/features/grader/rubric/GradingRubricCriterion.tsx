@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import { useState } from "react";
-import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasRouter";
 import { AICriterionAnalysis } from "./AICriterionAnalysis";
+import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
 
 interface GradingRubricCriterionProps {
   criterion: CanvasRubricCriterion;

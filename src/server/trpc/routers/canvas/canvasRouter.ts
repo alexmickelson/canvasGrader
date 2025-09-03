@@ -4,13 +4,12 @@ import {
   paginatedRequest,
   canvasRequestOptions,
   downloadSubmissionAttachmentsToFolder,
-  renderAttachmentsToPdf,
-  renderTextSubmissionToPdf,
 } from "./canvasServiceUtils";
 import {
   ensureDir,
   sanitizeName,
   getCourseMeta,
+  loadPersistedCourses,
   persistAssignmentsToStorage,
   persistCoursesToStorage,
   persistSubmissionsToStorage,
@@ -20,8 +19,19 @@ import { parseSchema } from "../parseSchema";
 import { axiosClient } from "../../../../utils/axiosUtils";
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
-import { promisify } from "util";
+import {
+  prepareTempDir,
+  cloneClassroomRepositories,
+  discoverRepositories,
+  buildGithubLookup,
+  computeCleanedPrefix,
+  fetchAssignmentName,
+  buildAssignmentDir,
+  organizeStudentRepositories,
+  summarizeAndLog,
+  cleanupTempDir,
+  type GithubUserMapEntry,
+} from "./githubClassroomUtils";
 import {
   CanvasRubricSchema,
   CanvasEnrollmentSchema,
@@ -35,7 +45,7 @@ import {
   type CanvasEnrollment,
 } from "./canvasModels";
 
-const execAsync = promisify(exec);
+// execAsync removed (no longer needed after refactor)
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -201,6 +211,18 @@ export const canvasRouter = createTRPCRouter({
       return JSON.parse(data);
     }),
   getCourses: publicProcedure.query(async () => {
+    // Check if courses are already persisted locally
+    const persistedCourses = loadPersistedCourses();
+
+    if (persistedCourses.length > 0) {
+      console.log(
+        `Found ${persistedCourses.length} persisted courses, skipping Canvas API call`
+      );
+      return persistedCourses;
+    }
+
+    // If no persisted courses found, fetch from Canvas
+    console.log("No persisted courses found, fetching from Canvas API");
     const url = `${canvasBaseUrl}/api/v1/courses?per_page=100`;
     const courses = await paginatedRequest<CanvasCourse[]>({
       url,
@@ -280,7 +302,7 @@ export const canvasRouter = createTRPCRouter({
     }),
   // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.
 
-  buildPreviewPdf: publicProcedure
+  downloadAllAttachments: publicProcedure
     .input(
       z.object({
         courseId: z.number(),
@@ -367,75 +389,48 @@ export const canvasRouter = createTRPCRouter({
         );
       }
 
-      // Check if preview PDF already exists
-      const previewPdfPath = path.join(submissionDir, "preview.pdf");
+      // Instead of generating a preview PDF, download attachments into
+      // the student's attachments folder under the submissionDir.
+      const attachmentsDir = path.join(submissionDir, "attachments");
+      ensureDir(attachmentsDir);
 
-      if (fs.existsSync(previewPdfPath)) {
-        console.log("Found existing preview PDF at:", previewPdfPath);
-        const existingPdfBytes = fs.readFileSync(previewPdfPath);
-        const pdfBase64 = existingPdfBytes.toString("base64");
-        return { pdfBase64 };
+      if (!attachments.length) {
+        console.log("No attachments to download for this submission");
+        return null;
       }
 
-      // Download attachments and store them in the structured folder (if any)
-      let pdfBytes: Uint8Array;
+      console.log("Downloading submission attachments to:", attachmentsDir);
+      const downloaded = await downloadSubmissionAttachmentsToFolder(
+        submission,
+        attachmentsDir
+      );
 
-      if (hasTextEntry && !attachments.length) {
-        // Text-only submission - generate PDF from text content
-        console.log("Generating PDF from text entry submission");
-        pdfBytes = await renderTextSubmissionToPdf(
-          submission.body!,
-          userName,
-          assignmentName
+      // Save a manifest of downloaded attachments
+      try {
+        const manifestPath = path.join(attachmentsDir, "attachments.json");
+        fs.writeFileSync(
+          manifestPath,
+          JSON.stringify(downloaded, null, 2),
+          "utf8"
         );
-      } else if (attachments.length > 0 && !hasTextEntry) {
-        // Attachment-only submission
-        console.log("Generating PDF from attachments");
-        const downloaded = await downloadSubmissionAttachmentsToFolder(
-          submission,
-          submissionDir
-        );
-        pdfBytes = await renderAttachmentsToPdf(downloaded);
-      } else if (attachments.length > 0 && hasTextEntry) {
-        // Combined submission - create text PDF and merge with attachments
-        console.log("Generating PDF from both text entry and attachments");
-        const downloaded = await downloadSubmissionAttachmentsToFolder(
-          submission,
-          submissionDir
-        );
-
-        // Create a combined array: text content first, then attachments
-        const textPdfBytes = await renderTextSubmissionToPdf(
-          submission.body!,
-          userName,
-          assignmentName
-        );
-
-        // Create a "fake" attachment for the text content to merge with other attachments
-        const textAttachment = {
-          id: undefined,
-          name: "Text Entry",
-          url: "",
-          contentType: "application/pdf",
-          bytes: textPdfBytes,
-        };
-
-        pdfBytes = await renderAttachmentsToPdf([
-          textAttachment,
-          ...downloaded,
-        ]);
-      } else {
-        // Fallback (shouldn't reach here due to earlier check)
-        throw new Error("No content to generate PDF from");
+        console.log("Saved attachments manifest to:", manifestPath);
+      } catch (err) {
+        console.warn("Failed to write attachments manifest:", err);
       }
 
-      const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+      type DownloadedAttachment = {
+        name?: string;
+        filename?: string;
+        display_name?: string;
+        url?: string;
+      };
+      const downloadedNames = (downloaded || []).map(
+        (d: DownloadedAttachment) =>
+          d.name || d.filename || d.display_name || String(d.url || "")
+      );
+      console.log(`Downloaded ${downloadedNames.length} attachments`);
 
-      // Save the preview PDF to the same folder
-      fs.writeFileSync(previewPdfPath, pdfBytes);
-      console.log("Generated and saved new preview PDF to:", previewPdfPath);
-
-      return { pdfBase64 };
+      return { downloaded: downloadedNames };
     }),
 
   getAssignmentRubric: publicProcedure
@@ -471,294 +466,39 @@ export const canvasRouter = createTRPCRouter({
       console.log(`  - Canvas Course ID: ${courseId}`);
 
       try {
-        // Get course metadata to determine storage path
         console.log(`\n1. Fetching course metadata for courseId: ${courseId}`);
         const courseMeta = await getCourseMeta(courseId);
-        if (!courseMeta) {
+        if (!courseMeta)
           throw new Error(`Course with ID ${courseId} not found`);
-        }
-        // Continue with download and discovery of repos
 
-        // Create temporary directory for GitHub Classroom downloads
-        const tempDir = path.join(process.cwd(), "temp", "github-classroom");
-        console.log(`\n2. Creating temporary directory: ${tempDir}`);
-        await ensureDir(tempDir);
-        console.log(`   ✓ Temporary directory created/verified`);
-
-        // Execute GitHub Classroom clone command
-        const cloneCommand = `gh classroom clone student-repos -a ${classroomAssignmentId}`;
-        console.log(`\n3. Executing GitHub Classroom clone command:`);
-        console.log(`   Command: ${cloneCommand}`);
-        console.log(`   Working directory: ${tempDir}`);
-        console.log(`   Executing...`);
-
-        const { stdout, stderr } = await execAsync(cloneCommand, {
-          cwd: tempDir,
-        });
-
-        if (stderr) {
-          console.log(`   ⚠️  GitHub CLI warnings/errors:`, stderr);
-        }
-        if (stdout) {
-          console.log(`   ✓ GitHub CLI output:`, stdout);
-        }
-        console.log(`   ✓ GitHub Classroom clone command completed`);
-
-        // Find the downloaded repositories directory
-        console.log(
-          `\n4. Scanning for downloaded repository directories in: ${tempDir}`
+        const tempDir = await prepareTempDir();
+        await cloneClassroomRepositories(classroomAssignmentId, tempDir);
+        const { reposDir, studentRepos } = discoverRepositories(tempDir);
+        const githubLookup = buildGithubLookup(
+          githubUserMap as GithubUserMapEntry[]
         );
-        const reposDirs = fs
-          .readdirSync(tempDir)
-          .filter((dir) => fs.statSync(path.join(tempDir, dir)).isDirectory());
-
-        console.log(
-          `   Found ${reposDirs.length} directories: ${reposDirs.join(", ")}`
+        const cleanedPrefix = computeCleanedPrefix(studentRepos);
+        const assignmentName = await fetchAssignmentName(
+          canvasBaseUrl,
+          courseId,
+          assignmentId
         );
-
-        if (reposDirs.length === 0) {
-          throw new Error("No repositories were downloaded");
-        }
-
-        // Assume the first directory contains the student repositories
-        const reposDir = path.join(tempDir, reposDirs[0]);
-        console.log(`   Using repository directory: ${reposDir}`);
-
-        const studentRepos = fs
-          .readdirSync(reposDir)
-          .filter((dir) => fs.statSync(path.join(reposDir, dir)).isDirectory());
-
-        console.log(`   Found ${studentRepos.length} student repositories:`);
-        studentRepos.forEach((repo, index) => {
-          console.log(`     ${index + 1}. ${repo}`);
-        });
-
-        // Build a lookup from github username -> studentName for accurate mapping
-        const githubLookup = new Map<string, string>();
-        (githubUserMap || []).forEach((m) => {
-          if (m.githubUsername)
-            githubLookup.set(m.githubUsername.toLowerCase(), m.studentName);
-        });
-
-        // Compute common prefix among repo names to more reliably extract usernames
-        const rawNames = studentRepos
-          .map((r) => String(r || "").trim())
-          .filter(Boolean);
-        const longestCommonPrefix = (arr: string[]) => {
-          if (arr.length === 0) return "";
-          return arr.reduce((prefix, s) => {
-            let i = 0;
-            const max = Math.min(prefix.length, s.length);
-            while (i < max && prefix[i] === s[i]) i++;
-            return prefix.slice(0, i);
-          }, arr[0]);
-        };
-        const common = longestCommonPrefix(rawNames);
-        const cleanedPrefix = common.replace(/[-_\s]+$/, "");
-
-        // Get assignment name for folder structure (use consistent storage layout)
-        console.log(
-          `\n5. Fetching assignment metadata for assignmentId: ${assignmentId}`
-        );
-        const { data: assignmentData } = await axiosClient.get(
-          `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
-          { headers: canvasRequestOptions.headers }
-        );
-        const assignmentName =
-          assignmentData?.name || `Assignment ${assignmentId}`;
-
-        const assignmentDir = path.join(
+        const assignmentDir = await buildAssignmentDir(
           storageDirectory,
-          sanitizeName(courseMeta.termName),
-          sanitizeName(courseMeta.courseName),
-          sanitizeName(`${assignmentId} - ${assignmentName}`),
-          "submissions"
+          courseMeta,
+          assignmentId,
+          assignmentName
         );
-
-        console.log(`\n5. Setting up target assignment directory:`);
-        console.log(`   Path: ${assignmentDir}`);
-        await ensureDir(assignmentDir);
-        console.log(`   ✓ Assignment submissions directory created/verified`);
-
-        let successCount = 0;
-        let errorCount = 0;
-        const errors: string[] = [];
-        const processedRepos: {
-          repoName: string;
-          studentName: string;
-          status: string;
-          reason?: string;
-        }[] = [];
-
-        console.log(`\n6. Processing and organizing student repositories:`);
-        console.log(`   Total repositories to process: ${studentRepos.length}`);
-
-        // Organize each student repository
-        for (const repoName of studentRepos) {
-          const repoIndex = studentRepos.indexOf(repoName) + 1;
-          console.log(
-            `\n   Processing repository ${repoIndex}/${studentRepos.length}: ${repoName}`
-          );
-
-          try {
-            // Extract student name from repository name, using githubUserMap when available
-            let studentNameCandidate = repoName;
-            // Remove common prefix if present
-            if (cleanedPrefix && repoName.startsWith(cleanedPrefix)) {
-              studentNameCandidate = repoName
-                .slice(cleanedPrefix.length)
-                .replace(/^[-_\s]+/, "");
-            } else {
-              // fallback to everything after first hyphen
-              const parts = repoName.split("-");
-              if (parts.length > 1)
-                studentNameCandidate = parts.slice(1).join("-");
-            }
-
-            // Try to map github username -> studentName using lookup
-            const usernameCandidate = studentNameCandidate.toLowerCase();
-            const resolvedStudentName =
-              githubLookup.get(usernameCandidate) || studentNameCandidate;
-
-            const sanitizedStudentName = sanitizeName(resolvedStudentName);
-
-            console.log(
-              `     → Raw student name extracted: "${studentNameCandidate}"`
-            );
-            console.log(
-              `     → Sanitized student name: "${sanitizedStudentName}"`
-            );
-
-            const sourceDir = path.join(reposDir, repoName);
-            // Previously we copied into .../<assignment>/submissions/<studentName>
-            // Now place repo contents under: <assignmentBase>/<studentName>/githubClassroom
-            const assignmentBase = path.dirname(assignmentDir);
-            const targetDir = path.join(
-              assignmentBase,
-              sanitizedStudentName,
-              "githubClassroom"
-            );
-
-            console.log(`     → Source directory: ${sourceDir}`);
-            console.log(`     → Target directory: ${targetDir}`);
-
-            // Check if source directory exists and has contents
-            const sourceStats = fs.statSync(sourceDir);
-            if (!sourceStats.isDirectory()) {
-              throw new Error(`Source path is not a directory: ${sourceDir}`);
-            }
-
-            const sourceContents = fs.readdirSync(sourceDir);
-            console.log(
-              `     → Source contains ${
-                sourceContents.length
-              } items: ${sourceContents.slice(0, 5).join(", ")}${
-                sourceContents.length > 5 ? "..." : ""
-              }`
-            );
-
-            // Create student directory if it doesn't exist
-            console.log(`     → Creating target directory...`);
-            await ensureDir(targetDir);
-
-            // Check if target directory already has contents
-            const existingContents = fs.existsSync(targetDir)
-              ? fs.readdirSync(targetDir)
-              : [];
-            if (existingContents.length > 0) {
-              console.log(
-                `     → Target directory already contains ${existingContents.length} items (will be overwritten)`
-              );
-            }
-
-            // Copy repository contents to student folder
-            const copyCommand = `cp -r "${sourceDir}"/* "${targetDir}"/`;
-            console.log(`     → Executing copy command: ${copyCommand}`);
-            await execAsync(copyCommand);
-
-            // Verify the copy was successful
-            const copiedContents = fs.readdirSync(targetDir);
-            console.log(
-              `     → Copy completed. Target now contains ${copiedContents.length} items`
-            );
-
-            processedRepos.push({
-              repoName,
-              studentName: sanitizedStudentName,
-              status: "success",
-              reason: `Successfully copied ${sourceContents.length} items to ${targetDir}`,
-            });
-
-            console.log(
-              `     ✅ Successfully organized repository for student: ${sanitizedStudentName}`
-            );
-            successCount++;
-          } catch (error) {
-            const errorMsg = `Failed to organize repository ${repoName}: ${
-              error instanceof Error ? error.message : String(error)
-            }`;
-            console.log(`     ❌ Error processing repository ${repoName}:`);
-            console.log(`        ${errorMsg}`);
-
-            processedRepos.push({
-              repoName,
-              studentName: repoName, // fallback to repo name if extraction failed
-              status: "error",
-              reason: errorMsg,
-            });
-
-            errors.push(errorMsg);
-            errorCount++;
-          }
-        }
-
-        console.log(`\n7. Repository processing summary:`);
-        console.log(`   ✅ Successful: ${successCount}`);
-        console.log(`   ❌ Failed: ${errorCount}`);
-        console.log(`   📊 Total processed: ${successCount + errorCount}`);
-
-        if (processedRepos.length > 0) {
-          console.log(`\n   Detailed results:`);
-          processedRepos.forEach((repo, index) => {
-            const statusIcon = repo.status === "success" ? "✅" : "❌";
-            console.log(
-              `     ${index + 1}. ${statusIcon} ${repo.repoName} → ${
-                repo.studentName
-              }`
-            );
-            if (repo.reason) {
-              console.log(`        Reason: ${repo.reason}`);
-            }
-          });
-        }
-
-        // Clean up temporary directory
-        console.log(`\n8. Cleaning up temporary directory: ${tempDir}`);
-        try {
-          await execAsync(`rm -rf "${tempDir}"`);
-          console.log(`   ✅ Temporary directory cleaned up successfully`);
-        } catch (cleanupError) {
-          console.log(
-            `   ⚠️  Failed to clean up temporary directory:`,
-            cleanupError
-          );
-        }
-
-        const finalMessage = `Successfully organized ${successCount} repositories${
-          errorCount > 0 ? ` (${errorCount} errors occurred)` : ""
-        }.`;
-        console.log(`\n=== GitHub Classroom Download Completed ===`);
-        console.log(`Final result: ${finalMessage}`);
-        console.log(`Assignment directory: ${assignmentDir}`);
-
-        return {
-          success: true,
-          message: finalMessage,
-          successCount,
-          errorCount,
-          errors: errors.length > 0 ? errors : undefined,
-          processedRepositories: processedRepos,
-        };
+        const organizeResult = await organizeStudentRepositories({
+          studentRepos,
+          reposDir,
+          cleanedPrefix,
+          githubLookup,
+          assignmentDir,
+        });
+        await cleanupTempDir(tempDir);
+        const { output } = summarizeAndLog(organizeResult, assignmentDir);
+        return output;
       } catch (error) {
         console.log(`\n❌ === GitHub Classroom Download FAILED ===`);
         console.log(`Error occurred during download and organization process:`);

@@ -11,7 +11,7 @@ export const useSubmissionsQuery = (courseId: number, assignmentId: number) => {
   );
 };
 
-export const usePreviewPdfQuery = ({
+export const useDownloadAttachmentsQuery = ({
   courseId,
   assignmentId,
   userId,
@@ -22,7 +22,7 @@ export const usePreviewPdfQuery = ({
 }) => {
   const trpc = useTRPC();
   return useQuery(
-    trpc.canvas.buildPreviewPdf.queryOptions({
+    trpc.canvas.downloadAllAttachments.queryOptions({
       courseId,
       assignmentId,
       userId,

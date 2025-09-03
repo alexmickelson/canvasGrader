@@ -1,9 +1,8 @@
 import type { FC } from "react";
 import DOMPurify from "dompurify";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasRouter";
-import { usePreviewPdfQuery } from "./graderHooks";
+import { useDownloadAttachmentsQuery } from "./graderHooks";
 import Spinner from "../../utils/Spinner";
-import { PDFPreview } from "../../utils/PDFPreview";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 
 export const AssignmentPreviewComponent: FC<{
   submission: CanvasSubmission;
@@ -15,15 +14,15 @@ export const AssignmentPreviewComponent: FC<{
   const submittedUrl = submission.url || null;
 
   // Top-level hook usage; it's safe even if we early-return for other cases.
-  const previewPdfQuery = usePreviewPdfQuery({
+  const downloadAttachmentsQuery = useDownloadAttachmentsQuery({
     courseId,
     assignmentId: submission.assignment_id,
     userId: submission.user_id,
   });
-  const { data, isLoading, isError, error } = previewPdfQuery;
-  const pdfDataUrl = data?.pdfBase64
-    ? `data:application/pdf;base64,${data.pdfBase64}`
-    : null;
+  const { data, isLoading, isError, error } = downloadAttachmentsQuery;
+  type DownloadResponse = { downloaded?: string[] } | null;
+  const downloadedNames: string[] | null =
+    (data as DownloadResponse)?.downloaded ?? null;
 
   // Only show PDF preview for submissions with file attachments, not text entries
   const isTextOnlySubmission =
@@ -48,7 +47,7 @@ export const AssignmentPreviewComponent: FC<{
     return (
       <section className="space-y-2 h-full flex flex-col">
         <div className="text-xs uppercase tracking-wide text-gray-400">
-          Preview PDF
+          Downloaded attachments
         </div>
 
         {isLoading && (
@@ -56,53 +55,66 @@ export const AssignmentPreviewComponent: FC<{
             <Spinner
               size={16}
               className="text-gray-400"
-              aria-label="Loading preview PDF"
+              aria-label="Downloading attachments"
             />
-            Generating PDF from preview…
+            Downloading attachments…
           </div>
         )}
 
         {!isLoading && isError && (
           <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-red-300">
-            Failed to build preview PDF
+            Failed to download attachments
             {error instanceof Error ? ": " + error.message : "."}
           </div>
         )}
 
-        {!isLoading && !isError && !pdfDataUrl && data === null && (
-          <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-yellow-300">
-            No attachments found for this submission - unable to generate PDF
-            preview.
-          </div>
-        )}
+        {!isLoading &&
+          !isError &&
+          downloadedNames &&
+          downloadedNames.length === 0 && (
+            <div className="rounded border border-gray-700 bg-gray-900 p-3 text-sm text-yellow-300">
+              No attachments found for this submission.
+            </div>
+          )}
 
-        {!isLoading && !isError && pdfDataUrl && (
-          <div className="flex-1 min-h-0">
-            <PDFPreview pdfDataUrl={pdfDataUrl} className="w-full h-full" />
-          </div>
-        )}
+        {!isLoading &&
+          !isError &&
+          downloadedNames &&
+          downloadedNames.length > 0 && (
+            <div className="flex-1 min-h-0 overflow-auto">
+              <ul className="list-disc list-inside text-sm text-gray-100">
+                {downloadedNames.map((n) => (
+                  <li
+                    key={n}
+                    className="py-1 flex items-center justify-between"
+                  >
+                    <span>{n}</span>
+                    <button
+                      className="ml-2 text-xs text-indigo-400 hover:text-indigo-300"
+                      onClick={() => {
+                        // Note: Individual file viewing is now handled by the SubmissionFileExplorerComponent
+                        // which provides a complete file browser with the ViewFileComponent integrated
+                        // To view individual files, you can use:
+                        // <ViewFileComponent courseId={courseId} assignmentId={submission.assignment_id} studentName={studentName} filePath={n} />
+                        console.log("View file:", n);
+                      }}
+                    >
+                      View
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 text-xs text-gray-500">
+                Files are available in the File Explorer below for detailed
+                preview and browsing
+              </div>
+            </div>
+          )}
 
         <div className="text-[11px] text-gray-500 flex-shrink-0">
-          If the PDF fails to load, open the original preview below.
+          Attachments are downloaded to the server and listed above.
         </div>
         <div className="flex gap-2 flex-shrink-0">
-          <a
-            href={previewUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 hover:bg-gray-700"
-          >
-            Open Original Preview
-          </a>
-          {pdfDataUrl && (
-            <a
-              href={pdfDataUrl}
-              download="submission-preview.pdf"
-              className="inline-flex items-center rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 hover:bg-gray-700"
-            >
-              Download PDF
-            </a>
-          )}
           {htmlUrl && (
             <a
               href={htmlUrl}

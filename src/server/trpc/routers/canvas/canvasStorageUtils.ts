@@ -2,12 +2,14 @@ import fs from "fs";
 import path from "path";
 import { axiosClient } from "../../../../utils/axiosUtils";
 import { canvasRequestOptions } from "./canvasServiceUtils";
+import { parseSchema } from "../parseSchema";
 import type {
   CanvasAssignment,
   CanvasCourse,
   CanvasSubmission,
   CanvasRubric,
 } from "./canvasModels";
+import { CanvasCourseSchema } from "./canvasModels";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -17,6 +19,69 @@ export function ensureDir(dirPath: string) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
+}
+
+export function getCourseDirectory({
+  termName,
+  courseName,
+}: {
+  termName: string;
+  courseName: string;
+}) {
+  const baseDir = path.join(
+    storageDirectory,
+    sanitizeName(termName),
+    sanitizeName(courseName)
+  );
+  ensureDir(baseDir);
+  return baseDir;
+}
+export function getAssignmentDirectory({
+  termName,
+  courseName,
+  assignmentId,
+  assignmentName,
+}: {
+  termName: string;
+  courseName: string;
+  assignmentId: number;
+  assignmentName: string;
+}) {
+  const baseDir = path.join(
+    storageDirectory,
+    sanitizeName(termName),
+    sanitizeName(courseName)
+  );
+  const assignDir = path.join(
+    baseDir,
+    sanitizeName(`${assignmentId} - ${assignmentName}`)
+  );
+  ensureDir(assignDir);
+  return baseDir;
+}
+
+export function getSubmissionDirectory({
+  termName,
+  courseName,
+  assignmentId,
+  assignmentName,
+  studentName,
+}: {
+  termName: string;
+  courseName: string;
+  assignmentId: number;
+  assignmentName: string;
+  studentName: string;
+}): string {
+  const submissionDir = path.join(
+    storageDirectory,
+    sanitizeName(termName),
+    sanitizeName(courseName),
+    sanitizeName(`${assignmentId} - ${assignmentName}`),
+    sanitizeName(studentName)
+  );
+  ensureDir(submissionDir);
+  return submissionDir;
 }
 
 export function sanitizeName(name: string): string {
@@ -49,26 +114,74 @@ export async function getCourseMeta(courseId: number): Promise<{
   }
 }
 
+export function loadPersistedCourses(): CanvasCourse[] {
+  try {
+    if (!fs.existsSync(storageDirectory)) {
+      return [];
+    }
+
+    const persistedCourses: CanvasCourse[] = [];
+
+    // Walk through term directories
+    const termDirs = fs
+      .readdirSync(storageDirectory, { withFileTypes: true })
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name);
+
+    for (const termDir of termDirs) {
+      const termPath = path.join(storageDirectory, termDir);
+
+      // Walk through course directories in each term
+      const courseDirs = fs
+        .readdirSync(termPath, { withFileTypes: true })
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name);
+
+      for (const courseDir of courseDirs) {
+        const courseJsonPath = path.join(termPath, courseDir, "course.json");
+
+        if (fs.existsSync(courseJsonPath)) {
+          try {
+            const courseData = JSON.parse(
+              fs.readFileSync(courseJsonPath, "utf8")
+            );
+            const parsedCourse = parseSchema(
+              CanvasCourseSchema,
+              courseData,
+              "CanvasCourse"
+            );
+            persistedCourses.push(parsedCourse);
+          } catch (error) {
+            console.warn(
+              `Failed to parse course.json at ${courseJsonPath}:`,
+              error
+            );
+          }
+        }
+      }
+    }
+
+    return persistedCourses;
+  } catch (error) {
+    console.warn("Error reading persisted courses:", error);
+    return [];
+  }
+}
+
 export async function persistAssignmentsToStorage(
   courseId: number,
   assignments: CanvasAssignment[]
 ): Promise<void> {
   try {
     const { courseName, termName } = await getCourseMeta(courseId);
-    const baseDir = path.join(
-      storageDirectory,
-      sanitizeName(termName),
-      sanitizeName(courseName)
-    );
-    ensureDir(baseDir);
-
     await Promise.all(
       assignments.map(async (a) => {
-        const assignDir = path.join(
-          baseDir,
-          sanitizeName(`${a.id} - ${a.name}`)
-        );
-        ensureDir(assignDir);
+        const assignDir = getAssignmentDirectory({
+          termName,
+          courseName,
+          assignmentId: a.id,
+          assignmentName: a.name,
+        });
         const filePath = path.join(assignDir, "assignment.json");
         try {
           fs.writeFileSync(filePath, JSON.stringify(a, null, 2), "utf8");
@@ -93,12 +206,7 @@ export async function persistCoursesToStorage(
         const termName =
           rawTerm && rawTerm !== "The End of Time" ? rawTerm : "Unknown Term";
 
-        const courseDir = path.join(
-          storageDirectory,
-          sanitizeName(termName),
-          sanitizeName(courseName)
-        );
-        ensureDir(courseDir);
+        const courseDir = getCourseDirectory({ termName, courseName });
 
         const courseJsonPath = path.join(courseDir, "course.json");
         fs.writeFileSync(
@@ -134,14 +242,13 @@ export async function persistSubmissionsToStorage(
           const userName =
             (typeof submission.user === "object" && submission.user?.name) ||
             `User ${submission.user_id}`;
-          const submissionDir = path.join(
-            storageDirectory,
-            sanitizeName(termName),
-            sanitizeName(courseName),
-            sanitizeName(`${assignmentId} - ${assignmentName}`),
-            sanitizeName(userName)
-          );
-          ensureDir(submissionDir);
+          const submissionDir = getSubmissionDirectory({
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
 
           const submissionJsonPath = path.join(
             submissionDir,
@@ -181,13 +288,12 @@ export async function persistRubricToStorage(
     );
     const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
 
-    const assignmentDir = path.join(
-      storageDirectory,
-      sanitizeName(termName),
-      sanitizeName(courseName),
-      sanitizeName(`${assignmentId} - ${assignmentName}`)
-    );
-    ensureDir(assignmentDir);
+    const assignmentDir = getAssignmentDirectory({
+      termName,
+      courseName,
+      assignmentId,
+      assignmentName,
+    });
 
     const rubricJsonPath = path.join(assignmentDir, "rubric.json");
     fs.writeFileSync(rubricJsonPath, JSON.stringify(rubric, null, 2), "utf8");

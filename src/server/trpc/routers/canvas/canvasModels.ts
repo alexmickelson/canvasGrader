@@ -146,11 +146,7 @@ export const CanvasSubmissionSchema = z.object({
   posted_at: z.string().nullable().optional(),
   read_status: z.string().nullable().optional(),
 
-  // User (as embedded object or string; normalized below)
-  user: z
-    .union([z.string(), z.object({ id: z.number(), name: z.string() })])
-    .nullable()
-    .optional(),
+  user: z.object({ id: z.number(), name: z.string() }),
 });
 export type CanvasSubmission = z.infer<typeof CanvasSubmissionSchema>;
 
