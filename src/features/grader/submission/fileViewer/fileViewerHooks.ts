@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useTRPC } from "../server/trpc/trpcClient";
+import { useTRPC } from "../../../../server/trpc/trpcClient";
 
 // Updated to align with fileViewerRouter which now expects names + term data instead of courseId
 export const useFileContentQuery = ({

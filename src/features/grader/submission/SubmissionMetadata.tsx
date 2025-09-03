@@ -1,13 +1,12 @@
 import type { FC } from "react";
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasRouter";
 import { SubmissionGradingInfo } from "./SubmissionGradingInfo";
 import { getSubmissionStatusChips, type StatusChip } from "./submissionUtils";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 
-interface SubmissionHeaderProps {
+
+export const SubmissionMetadata: FC< {
   submission: CanvasSubmission;
-}
-
-export const SubmissionMetadata: FC<SubmissionHeaderProps> = ({
+}> = ({
   submission,
 }) => {
   const chips = getSubmissionStatusChips(submission);

@@ -1,13 +1,9 @@
 import type { FC } from "react";
-import type { CanvasSubmissionComment } from "../../../server/trpc/routers/canvas/canvasRouter";
+import type { CanvasSubmissionComment } from "../../../server/trpc/routers/canvas/canvasModels";
 
-interface SubmissionCommentsProps {
+export const SubmissionComments: FC<{
   comments: CanvasSubmissionComment[];
-}
-
-export const SubmissionComments: FC<SubmissionCommentsProps> = ({
-  comments,
-}) => {
+}> = ({ comments }) => {
   if (!comments || comments.length === 0) {
     return null;
   }

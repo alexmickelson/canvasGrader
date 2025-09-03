@@ -1,13 +1,9 @@
 import type { FC } from "react";
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasRouter";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 
-interface SubmissionGradingInfoProps {
+export const SubmissionGradingInfo: FC<{
   submission: CanvasSubmission;
-}
-
-export const SubmissionGradingInfo: FC<SubmissionGradingInfoProps> = ({
-  submission,
-}) => {
+}> = ({ submission }) => {
   const fmt = (
     iso?: string | null,
     options: Intl.DateTimeFormatOptions = {

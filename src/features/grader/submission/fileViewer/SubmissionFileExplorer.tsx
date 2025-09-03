@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { useState, useMemo } from "react";
 import { ViewFileComponent } from "./ViewFileComponent";
 import { useListStudentFilesQuery } from "./fileViewerHooks";
-import Spinner from "./Spinner";
+import Spinner from "../../../../utils/Spinner";
 
 // Helper function to get file icon based on extension
 const getFileIcon = (fileName: string): string => {
@@ -145,9 +145,14 @@ const TreeNodeComponent: FC<{
         onClick={() => hasChildren && onToggleExpand(node.path)}
       >
         {hasChildren && (
-          <span className="text-xs text-gray-400">
-            {isExpanded ? "▼" : "▶"}
-          </span>
+          <span
+            className={`
+                inline-block w-0 h-0 
+                border-l-[4px] border-l-gray-400 border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent 
+                transition-transform duration-200 ${
+                  isExpanded ? "rotate-90" : ""
+                }`}
+          />
         )}
         <span>📁</span>
         <span>{node.name}</span>
@@ -242,24 +247,14 @@ export const SubmissionFileExplorer: FC<{
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-200">
-            Submission Files
-          </h3>
-          <div className="text-xs text-gray-400">
-            {termName} · {courseName} · Student: {studentName}
-          </div>
-        </div>
-
-        {/* Quick stats */}
+    <div className={`space-y-4 ${className} flex flex-row`}>
+      <div className="space-y-2 w-[400px]">
         {allFilePaths && (
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span> {allFilePaths.length} files</span>
             <button
               onClick={() => setExpandedNodes(new Set())}
-              className="text-indigo-400 hover:text-indigo-300"
+              className="unstyled text-indigo-400 hover:text-indigo-300 cursor-pointer"
             >
               Collapse All
             </button>
@@ -277,7 +272,7 @@ export const SubmissionFileExplorer: FC<{
                 findAllDirs(fileTree);
                 setExpandedNodes(allDirs);
               }}
-              className="text-indigo-400 hover:text-indigo-300"
+              className="unstyled text-indigo-400 hover:text-indigo-300 cursor-pointer"
             >
               Expand All
             </button>
@@ -285,7 +280,7 @@ export const SubmissionFileExplorer: FC<{
         )}
 
         {/* File tree */}
-        <div className="border border-gray-700 rounded bg-gray-900">
+        <div className="">
           {fileTree.length > 0 ? (
             <div className="p-2">
               {fileTree.map((node) => (
@@ -309,17 +304,14 @@ export const SubmissionFileExplorer: FC<{
 
       {/* File preview */}
       {selectedFile && (
-        <div className="border-t border-gray-700 pt-4">
-          <ViewFileComponent
-            assignmentId={assignmentId}
-            assignmentName={assignmentName}
-            studentName={studentName}
-            termName={termName}
-            courseName={courseName}
-            filePath={selectedFile}
-            className="w-full"
-          />
-        </div>
+        <ViewFileComponent
+          assignmentId={assignmentId}
+          assignmentName={assignmentName}
+          studentName={studentName}
+          termName={termName}
+          courseName={courseName}
+          filePath={selectedFile}
+        />
       )}
     </div>
   );

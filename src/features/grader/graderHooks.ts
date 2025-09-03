@@ -87,12 +87,20 @@ export const useAiAnalysisQuery = ({
   studentName,
   criterionDescription,
   criterionPoints,
+  criterionId,
+  termName,
+  courseName,
+  assignmentName,
 }: {
   courseId: number;
   assignmentId: number;
   studentName: string;
   criterionDescription: string;
   criterionPoints: number;
+  criterionId?: string;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
 }) => {
   const trpc = useTRPC();
   return useQuery(
@@ -102,6 +110,10 @@ export const useAiAnalysisQuery = ({
       studentName,
       criterionDescription,
       criterionPoints,
+      criterionId,
+      termName,
+      courseName,
+      assignmentName,
     })
   );
 };

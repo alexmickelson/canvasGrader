@@ -1,4 +1,4 @@
-import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasRouter";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 
 export function userName(submission: CanvasSubmission): string {
   const user = submission.user;
@@ -6,12 +6,6 @@ export function userName(submission: CanvasSubmission): string {
   // Handle null/undefined user
   if (!user) {
     return "Unknown student";
-  }
-
-  // Handle string user (legacy case)
-  if (typeof user === "string") {
-    const trimmed = user.trim();
-    return trimmed.length > 0 ? trimmed : "Unknown student";
   }
 
   // Handle normalized user object with id and name

@@ -4,8 +4,8 @@ import { useSettingsQuery } from "./settingsHooks";
 import Spinner from "../../utils/Spinner";
 import CanvasCourseItem from "./CanvasCourseItem";
 import SelectedCourseItem from "./SelectedCourseItem";
-import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasRouter";
 import type { SettingsCourse } from "../../server/trpc/routers/settingsRouter";
+import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasModels";
 
 // RemoveIcon inlined moved to SelectedCourseItem
 

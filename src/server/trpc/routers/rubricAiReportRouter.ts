@@ -4,11 +4,13 @@ import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
-import { getCourseMeta, sanitizeName } from "./canvas/canvasStorageUtils";
+import {
+  getSubmissionDirectory,
+  sanitizeName,
+} from "./canvas/canvasStorageUtils";
 import { createAiTool } from "../../../utils/createAiTool";
 import pdf2pic from "pdf2pic";
-
-const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
+import { getAllFilePaths } from "../utils/fileUtils";
 
 // Initialize OpenAI client
 const aiUrl = process.env.AI_URL;
@@ -180,112 +182,87 @@ function readTextFile(filePath: string): string {
     return `[Error reading file: ${filePath}]`;
   }
 }
+// // Helper function to get submission directory
+// async function getSubmissionDir(
+//   courseId: number,
+//   assignmentId: number,
+//   studentName: string
+// ): Promise<string> {
+//   const { courseName, termName } = await getCourseMeta(courseId);
 
-// Helper function to generate file system tree
-function generateFileSystemTree(dirPath: string, prefix: string = ""): string {
-  const items = fs.readdirSync(dirPath);
-  let tree = "";
+//   // Find the actual assignment directory
+//   const courseDir = path.join(
+//     storageDirectory,
+//     sanitizeName(termName),
+//     sanitizeName(courseName)
+//   );
+//   const assignmentDirs = fs
+//     .readdirSync(courseDir)
+//     .filter(
+//       (dir) =>
+//         dir.startsWith(`${assignmentId} - `) &&
+//         fs.statSync(path.join(courseDir, dir)).isDirectory()
+//     );
 
-  items.forEach((item, index) => {
-    const itemPath = path.join(dirPath, item);
-    const isLast = index === items.length - 1;
-    const currentPrefix = isLast ? "└── " : "├── ";
-    const nextPrefix = prefix + (isLast ? "    " : "│   ");
+//   if (assignmentDirs.length === 0) {
+//     throw new Error(
+//       `Assignment directory not found for assignment ${assignmentId}`
+//     );
+//   }
 
-    const stat = fs.statSync(itemPath);
-    if (stat.isDirectory()) {
-      tree += `${prefix}${currentPrefix}📁 ${item}/\n`;
-      tree += generateFileSystemTree(itemPath, nextPrefix);
-    } else {
-      const icon = isImageFile(item) ? "🖼️ " : isPdfFile(item) ? "📄 " : "📝 ";
-      tree += `${prefix}${currentPrefix}${icon}${item}\n`;
-    }
-  });
+//   const assignmentDir = path.join(courseDir, assignmentDirs[0]);
 
-  return tree;
-}
+//   // Find user submission folder
+//   const userDirs = fs.readdirSync(assignmentDir).filter((dir) => {
+//     const dirPath = path.join(assignmentDir, dir);
+//     return fs.statSync(dirPath).isDirectory();
+//   });
 
-// Helper function to get submission directory
-async function getSubmissionDir(
-  courseId: number,
-  assignmentId: number,
-  studentName: string
-): Promise<string> {
-  const { courseName, termName } = await getCourseMeta(courseId);
+//   console.log(`Looking for student '${studentName}' in directories:`, userDirs);
 
-  // Find the actual assignment directory
-  const courseDir = path.join(
-    storageDirectory,
-    sanitizeName(termName),
-    sanitizeName(courseName)
-  );
-  const assignmentDirs = fs
-    .readdirSync(courseDir)
-    .filter(
-      (dir) =>
-        dir.startsWith(`${assignmentId} - `) &&
-        fs.statSync(path.join(courseDir, dir)).isDirectory()
-    );
+//   // Try to find the student's folder by exact name match
+//   let userDir = userDirs.find((dir) => dir === studentName);
 
-  if (assignmentDirs.length === 0) {
-    throw new Error(
-      `Assignment directory not found for assignment ${assignmentId}`
-    );
-  }
+//   // If exact match not found, try case-insensitive match
+//   if (!userDir) {
+//     userDir = userDirs.find(
+//       (dir) => dir.toLowerCase() === studentName.toLowerCase()
+//     );
+//   }
 
-  const assignmentDir = path.join(courseDir, assignmentDirs[0]);
+//   // If still not found, try partial match
+//   if (!userDir) {
+//     userDir = userDirs.find(
+//       (dir) =>
+//         dir.toLowerCase().includes(studentName.toLowerCase()) ||
+//         studentName.toLowerCase().includes(dir.toLowerCase())
+//     );
+//   }
 
-  // Find user submission folder
-  const userDirs = fs.readdirSync(assignmentDir).filter((dir) => {
-    const dirPath = path.join(assignmentDir, dir);
-    return fs.statSync(dirPath).isDirectory();
-  });
+//   if (!userDir) {
+//     console.error(
+//       `Student directory not found for '${studentName}' in directories:`,
+//       userDirs
+//     );
+//     throw new Error(
+//       `Student submission folder not found for '${studentName}'. Available directories: ${userDirs.join(
+//         ", "
+//       )}`
+//     );
+//   }
 
-  console.log(`Looking for student '${studentName}' in directories:`, userDirs);
+//   console.log(
+//     `Found student directory: '${userDir}' for student '${studentName}'`
+//   );
 
-  // Try to find the student's folder by exact name match
-  let userDir = userDirs.find((dir) => dir === studentName);
+//   const submissionDir = path.join(assignmentDir, userDir);
 
-  // If exact match not found, try case-insensitive match
-  if (!userDir) {
-    userDir = userDirs.find(
-      (dir) => dir.toLowerCase() === studentName.toLowerCase()
-    );
-  }
+//   if (!fs.existsSync(submissionDir)) {
+//     throw new Error(`Submission directory not found: ${submissionDir}`);
+//   }
 
-  // If still not found, try partial match
-  if (!userDir) {
-    userDir = userDirs.find(
-      (dir) =>
-        dir.toLowerCase().includes(studentName.toLowerCase()) ||
-        studentName.toLowerCase().includes(dir.toLowerCase())
-    );
-  }
-
-  if (!userDir) {
-    console.error(
-      `Student directory not found for '${studentName}' in directories:`,
-      userDirs
-    );
-    throw new Error(
-      `Student submission folder not found for '${studentName}'. Available directories: ${userDirs.join(
-        ", "
-      )}`
-    );
-  }
-
-  console.log(
-    `Found student directory: '${userDir}' for student '${studentName}'`
-  );
-
-  const submissionDir = path.join(assignmentDir, userDir);
-
-  if (!fs.existsSync(submissionDir)) {
-    throw new Error(`Submission directory not found: ${submissionDir}`);
-  }
-
-  return submissionDir;
-}
+//   return submissionDir;
+// }
 
 // Get text submission from submission.json if it exists
 function getTextSubmission(submissionDir: string): string | null {
@@ -305,16 +282,31 @@ function getTextSubmission(submissionDir: string): string | null {
 }
 
 // Save the evaluation results to a JSON file
-async function saveEvaluationResults(
-  courseId: number,
-  assignmentId: number,
-  studentName: string,
-  criterionId: string | undefined,
-  criterionDescription: string,
-  conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[],
-  analysis: Record<string, unknown>,
-  usedFallbackSchema: boolean
-): Promise<void> {
+async function saveEvaluationResults({
+  courseId,
+  assignmentId,
+  studentName,
+  criterionId,
+  criterionDescription,
+  conversationMessages,
+  analysis,
+  usedFallbackSchema,
+  termName,
+  courseName,
+  assignmentName,
+}: {
+  courseId: number;
+  assignmentId: number;
+  studentName: string;
+  criterionId: string | undefined;
+  criterionDescription: string;
+  conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[];
+  analysis: Record<string, unknown>;
+  usedFallbackSchema: boolean;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
+}) {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const sanitizedStudentName = sanitizeName(studentName);
@@ -325,11 +317,13 @@ async function saveEvaluationResults(
     const fileName = `${sanitizedStudentName}.rubric.${criterionIdSafe}-${timestamp}.json`;
 
     // Get the student submission directory to place the file next to it
-    const submissionDir = await getSubmissionDir(
-      courseId,
+    const submissionDir = getSubmissionDirectory({
+      termName,
+      courseName,
       assignmentId,
-      studentName
-    );
+      assignmentName,
+      studentName,
+    });
     const parentDir = path.dirname(submissionDir); // Go up one level from the submission folder
     const evaluationFilePath = path.join(parentDir, fileName);
 
@@ -367,17 +361,27 @@ async function saveEvaluationResults(
 }
 
 // Get existing evaluation files for a student
-async function getExistingEvaluations(
-  courseId: number,
-  assignmentId: number,
-  studentName: string
-): Promise<string[]> {
+async function getExistingEvaluations({
+  assignmentId,
+  studentName,
+  courseName,
+  termName,
+  assignmentName,
+}: {
+  assignmentId: number;
+  studentName: string;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
+}): Promise<string[]> {
   try {
-    const submissionDir = await getSubmissionDir(
-      courseId,
+    const submissionDir = getSubmissionDirectory({
+      termName,
+      courseName,
       assignmentId,
-      studentName
-    );
+      assignmentName,
+      studentName,
+    });
     const parentDir = path.dirname(submissionDir);
     const sanitizedStudentName = sanitizeName(studentName);
 
@@ -494,10 +498,13 @@ export const rubricAiReportRouter = createTRPCRouter({
       z.object({
         courseId: z.number(),
         assignmentId: z.number(),
+        assignmentName: z.string(),
         studentName: z.string(),
         criterionDescription: z.string(),
         criterionPoints: z.number(),
         criterionId: z.string().optional(),
+        termName: z.string(),
+        courseName: z.string(),
       })
     )
     .query(async ({ input }) => {
@@ -508,6 +515,9 @@ export const rubricAiReportRouter = createTRPCRouter({
         criterionDescription,
         criterionPoints,
         criterionId,
+        termName,
+        courseName,
+        assignmentName,
       } = input;
 
       if (!openai) {
@@ -518,17 +528,19 @@ export const rubricAiReportRouter = createTRPCRouter({
 
       try {
         // Get submission directory
-        const submissionDir = await getSubmissionDir(
-          courseId,
+        const submissionDir = await getSubmissionDirectory({
+          termName,
+          courseName,
           assignmentId,
-          studentName
-        );
+          assignmentName,
+          studentName,
+        });
 
         // Get text submission if available
         const textSubmission = getTextSubmission(submissionDir);
 
         // Generate initial file system tree
-        const fileSystemTree = generateFileSystemTree(submissionDir);
+        const fileSystemTree = getAllFilePaths(submissionDir, submissionDir);
 
         // Create file system exploration tools
         const getFileSystemTreeTool = createAiTool({
@@ -537,6 +549,8 @@ export const rubricAiReportRouter = createTRPCRouter({
             "Get the complete file system tree structure of the submission folder",
           paramsSchema: z.object({}),
           fn: async () => {
+            console.log("reading directory", submissionDir);
+            console.log("files", fileSystemTree);
             return fileSystemTree;
           },
         });
@@ -1137,7 +1151,7 @@ Provide specific file references, line numbers for text files, page numbers for 
 
         // Save the evaluation results to a JSON file
         console.log("Saving evaluation results...");
-        await saveEvaluationResults(
+        await saveEvaluationResults({
           courseId,
           assignmentId,
           studentName,
@@ -1145,8 +1159,11 @@ Provide specific file references, line numbers for text files, page numbers for 
           criterionDescription,
           conversationMessages,
           analysis,
-          usedFallbackSchema
-        );
+          usedFallbackSchema,
+          courseName,
+          assignmentName,
+          termName,
+        });
 
         return responseData;
       } catch (error) {
@@ -1224,20 +1241,30 @@ Provide specific file references, line numbers for text files, page numbers for 
   getExistingEvaluations: publicProcedure
     .input(
       z.object({
-        courseId: z.number(),
         assignmentId: z.number(),
+        assignmentName: z.string(),
+        courseName: z.string(),
+        termName: z.string(),
         studentName: z.string(),
       })
     )
     .query(async ({ input }) => {
-      const { courseId, assignmentId, studentName } = input;
+      const {
+        courseName,
+        termName,
+        assignmentName,
+        assignmentId,
+        studentName,
+      } = input;
 
       try {
-        const evaluationFiles = await getExistingEvaluations(
-          courseId,
+        const evaluationFiles = await getExistingEvaluations({
           assignmentId,
-          studentName
-        );
+          studentName,
+          courseName,
+          termName,
+          assignmentName,
+        });
 
         const evaluations = evaluationFiles.map((filePath) => {
           try {

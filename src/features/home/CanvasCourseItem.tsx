@@ -1,4 +1,4 @@
-import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasRouter";
+import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasModels";
 import Spinner from "../../utils/Spinner";
 import { useSettingsQuery, useUpdateSettingsMutation } from "./settingsHooks";
 

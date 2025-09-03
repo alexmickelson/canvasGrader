@@ -4,14 +4,29 @@ import { useRubricQuery } from "../graderHooks";
 import { useGradeSubmissionMutation } from "../gradeSubmissionHooks";
 import Spinner from "../../../utils/Spinner";
 import { GradingRubricCriterion } from "./GradingRubricCriterion.js";
-import type { CanvasSubmission, CanvasRubricAssessment, CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels.js";
+import type {
+  CanvasSubmission,
+  CanvasRubricAssessment,
+  CanvasRubricCriterion,
+} from "../../../server/trpc/routers/canvas/canvasModels.js";
 
 export const GradingRubricDisplay: FC<{
   courseId: number;
   assignmentId: number;
   submission: CanvasSubmission;
   rubricAssessment?: CanvasRubricAssessment | null;
-}> = ({ courseId, assignmentId, submission, rubricAssessment }) => {
+  termName: string;
+  courseName: string;
+  assignmentName: string;
+}> = ({
+  courseId,
+  assignmentId,
+  submission,
+  rubricAssessment,
+  termName,
+  courseName,
+  assignmentName,
+}) => {
   const rubricQuery = useRubricQuery(courseId, assignmentId);
   const gradeSubmissionMutation = useGradeSubmissionMutation();
 
@@ -175,6 +190,9 @@ export const GradingRubricDisplay: FC<{
                 ? submission.user.name
                 : `User ${submission.user_id}`
             }
+            termName={termName}
+            courseName={courseName}
+            assignmentName={assignmentName}
           />
         ))}
       </div>

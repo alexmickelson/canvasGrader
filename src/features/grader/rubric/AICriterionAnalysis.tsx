@@ -2,20 +2,26 @@ import type { FC } from "react";
 import { useAiAnalysisQuery } from "../graderHooks";
 import Spinner from "../../../utils/Spinner";
 
-interface AICriterionAnalysisProps {
+export const AICriterionAnalysis: FC<{
   courseId: number;
   assignmentId: number;
   studentName: string;
   criterionDescription: string;
   criterionPoints: number;
-}
-
-export const AICriterionAnalysis: FC<AICriterionAnalysisProps> = ({
+  criterionId?: string;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
+}> = ({
   courseId,
   assignmentId,
   studentName,
   criterionDescription,
   criterionPoints,
+  criterionId,
+  termName,
+  courseName,
+  assignmentName,
 }) => {
   const analysisQuery = useAiAnalysisQuery({
     courseId,
@@ -23,6 +29,10 @@ export const AICriterionAnalysis: FC<AICriterionAnalysisProps> = ({
     studentName,
     criterionDescription,
     criterionPoints,
+    criterionId,
+    termName,
+    courseName,
+    assignmentName,
   });
 
   if (analysisQuery.isLoading) {

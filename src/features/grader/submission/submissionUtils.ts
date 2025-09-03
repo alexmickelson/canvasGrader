@@ -1,4 +1,4 @@
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasRouter";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export interface StatusChip {
   label: string;

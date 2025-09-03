@@ -1,9 +1,6 @@
 import type { FC } from "react";
-import type {
-  CanvasRubricCriterion,
-  CanvasRubricAssessment,
-} from "../../../server/trpc/routers/canvas/canvasRouter";
 import { RubricRatings } from "./RubricRatings";
+import type { CanvasRubricCriterion, CanvasRubricAssessment } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const RubricCriterion: FC<{
   criterion: CanvasRubricCriterion;

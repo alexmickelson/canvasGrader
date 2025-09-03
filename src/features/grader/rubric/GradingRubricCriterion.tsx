@@ -3,30 +3,34 @@ import { useState } from "react";
 import { AICriterionAnalysis } from "./AICriterionAnalysis";
 import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
 
-interface GradingRubricCriterionProps {
+export const GradingRubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
   assessment?: {
     rating_id?: string;
     points?: number;
     comments?: string;
   };
+  courseId: number;
+  assignmentId: number;
+  studentName: string;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
   onChange: (assessment: {
     rating_id?: string;
     points?: number;
     comments?: string;
   }) => void;
-  courseId: number;
-  assignmentId: number;
-  studentName: string;
-}
-
-export const GradingRubricCriterion: FC<GradingRubricCriterionProps> = ({
+}> = ({
   criterion,
   assessment,
   onChange,
   courseId,
   assignmentId,
   studentName,
+  termName,
+  courseName,
+  assignmentName,
 }) => {
   const [localComments, setLocalComments] = useState(
     assessment?.comments || ""
@@ -204,6 +208,10 @@ export const GradingRubricCriterion: FC<GradingRubricCriterionProps> = ({
                 criterion.description || `Criterion ${criterion.id}`
               }
               criterionPoints={criterion.points}
+              termName={termName}
+              courseName={courseName}
+              assignmentName={assignmentName}
+              criterionId={criterion.id}
             />
           </div>
         )}
