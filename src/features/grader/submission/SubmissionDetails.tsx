@@ -6,6 +6,7 @@ import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canva
 import { useAssignmentsQuery } from "../../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../../home/canvasHooks";
 import { SubmissionFileExplorer } from "./fileViewer/SubmissionFileExplorer";
+import { useDownloadAttachmentsQuery } from "../graderHooks";
 
 export const SubmissionDetailsWrapper: FC<{
   submission: CanvasSubmission;
@@ -18,6 +19,13 @@ export const SubmissionDetailsWrapper: FC<{
   const assignment = assignments?.find(
     (a) => a.id === submission.assignment_id
   );
+
+  // make sure attachments are downloaded
+  useDownloadAttachmentsQuery({
+    courseId,
+    assignmentId: submission.assignment_id,
+    userId: submission.user_id,
+  });
   if (!assignment) {
     return <span className="text-gray-400">Unknown Assignment</span>;
   }
