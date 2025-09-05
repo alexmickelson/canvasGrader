@@ -20,6 +20,9 @@
           text = ''
             set -euo pipefail
 
+            # Change to the project directory (where package.json is located)
+            cd ${self}
+
             # Ensure dependencies are installed
             if [ ! -d node_modules ]; then
               echo "Installing dependencies with pnpm..."
@@ -70,6 +73,9 @@
             runtimeInputs = with pkgs; [ nodejs_20 pnpm gh gh-classroom graphicsmagick ];
             text = ''
               set -euo pipefail
+
+              # Change to the project directory (where package.json is located)
+              cd ${self}
 
               # install deps and build
               pnpm install --frozen-lockfile || pnpm install
