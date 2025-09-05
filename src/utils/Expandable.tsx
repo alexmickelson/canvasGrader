@@ -1,5 +1,11 @@
 "use client";
-import { ReactNode, Dispatch, SetStateAction, useState, useRef } from "react";
+import {
+  type ReactNode,
+  type Dispatch,
+  type SetStateAction,
+  useState,
+  useRef,
+} from "react";
 
 export function Expandable({
   children,
