@@ -20,8 +20,10 @@
           text = ''
             set -euo pipefail
 
-            # Change to the project directory (where package.json is located)
-            cd ${self}
+            # Copy source to a writable temporary directory
+            TMPDIR=$(mktemp -d)
+            cp -r ${self}/* "$TMPDIR"
+            cd "$TMPDIR"
 
             # Ensure dependencies are installed
             if [ ! -d node_modules ]; then
@@ -74,8 +76,10 @@
             text = ''
               set -euo pipefail
 
-              # Change to the project directory (where package.json is located)
-              cd ${self}
+              # Copy source to a writable temporary directory
+              TMPDIR=$(mktemp -d)
+              cp -r ${self}/* "$TMPDIR"
+              cd "$TMPDIR"
 
               # install deps and build
               pnpm install --frozen-lockfile || pnpm install
