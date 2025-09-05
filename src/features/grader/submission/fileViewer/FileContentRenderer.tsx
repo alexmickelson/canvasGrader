@@ -4,7 +4,19 @@ import * as styles from "react-syntax-highlighter/dist/esm/styles/prism";
 import Spinner from "../../../../utils/Spinner";
 import { languageMap } from "./languageMap";
 
-interface FileContentRendererProps {
+// Get file extension and determine file type
+const getFileExtension = (path: string): string => {
+  return path.split(".").pop()?.toLowerCase() || "";
+};
+
+// Get syntax highlighting language based on file extension
+const getLanguage = (path: string): string => {
+  const ext = getFileExtension(path);
+
+  return languageMap[ext] || "text";
+};
+
+export const FileContentRenderer: FC<{
   fileType: "pdf" | "image" | "text" | "unknown";
   fileName: string;
   filePath: string;
@@ -18,28 +30,7 @@ interface FileContentRendererProps {
     | undefined;
   isLoading: boolean;
   error: { message: string } | null;
-}
-
-// Get file extension and determine file type
-const getFileExtension = (path: string): string => {
-  return path.split(".").pop()?.toLowerCase() || "";
-};
-
-// Get syntax highlighting language based on file extension
-const getLanguage = (path: string): string => {
-  const ext = getFileExtension(path);
-
-  return languageMap[ext] || "text";
-};
-
-export const FileContentRenderer: FC<FileContentRendererProps> = ({
-  fileType,
-  fileName,
-  filePath,
-  fileData,
-  isLoading,
-  error,
-}) => {
+}> = ({ fileType, fileName, filePath, fileData, isLoading, error }) => {
   if (error) {
     return (
       <div className="p-4 border border-red-700 bg-red-900/20 rounded text-red-300">
@@ -48,17 +39,26 @@ export const FileContentRenderer: FC<FileContentRendererProps> = ({
     );
   }
 
+  if (isLoading) {
+    const loadingMessage =
+      fileType === "image"
+        ? "Loading image..."
+        : fileType === "pdf"
+        ? "Loading PDF..."
+        : fileType === "text"
+        ? "Loading file content..."
+        : "Loading file...";
+
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Spinner size={24} className="text-gray-400" />
+        <span className="ml-2 text-gray-400">{loadingMessage}</span>
+      </div>
+    );
+  }
+
   switch (fileType) {
     case "image":
-      if (isLoading) {
-        return (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size={24} className="text-gray-400" />
-            <span className="ml-2 text-gray-400">Loading image...</span>
-          </div>
-        );
-      }
-
       if (fileData?.type === "binary") {
         return (
           <div className="text-center">
@@ -73,15 +73,6 @@ export const FileContentRenderer: FC<FileContentRendererProps> = ({
       break;
 
     case "pdf":
-      if (isLoading) {
-        return (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size={24} className="text-gray-400" />
-            <span className="ml-2 text-gray-400">Loading PDF...</span>
-          </div>
-        );
-      }
-
       if (fileData?.type === "binary") {
         return (
           <div className="h-96 border border-gray-700 rounded">
@@ -96,32 +87,25 @@ export const FileContentRenderer: FC<FileContentRendererProps> = ({
       break;
 
     case "text":
-      if (isLoading) {
-        return (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size={24} className="text-gray-400" />
-            <span className="ml-2 text-gray-400">Loading file content...</span>
-          </div>
-        );
-      }
-
       if (fileData?.type === "text") {
         return (
-          <div className="flex flex-col h-full min-h-[1000px] border border-gray-700 rounded">
+          <div className="flex flex-col h-full min-h-[1000px] border border-gray-700 rounded w-full">
             <div className="bg-gray-800 px-3 py-2 text-xs text-gray-400 border-b border-gray-700 flex-shrink-0">
               {fileName}
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto   ">
               <SyntaxHighlighter
                 language={getLanguage(filePath)}
                 style={styles.coldarkDark}
+                lineProps={{
+                  style: {
+                    minWidth: "100%",
+                    display: "inline-block",
+                  },
+                }}
                 customStyle={{
                   margin: 0,
-                  padding: "1rem",
                   background: "transparent",
-                  fontSize: "0.875rem",
-                  height: "100%",
-                  overflow: "visible",
                 }}
                 showLineNumbers={true}
               >
@@ -135,15 +119,6 @@ export const FileContentRenderer: FC<FileContentRendererProps> = ({
 
     case "unknown":
     default:
-      if (isLoading) {
-        return (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size={24} className="text-gray-400" />
-            <span className="ml-2 text-gray-400">Loading file...</span>
-          </div>
-        );
-      }
-
       return (
         <div className="p-4 border border-gray-700 bg-gray-800 rounded text-center">
           <div className="text-gray-400 mb-2">

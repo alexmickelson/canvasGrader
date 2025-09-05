@@ -14,6 +14,7 @@ import {
   persistCoursesToStorage,
   persistSubmissionsToStorage,
   persistRubricToStorage,
+  getSubmissionDirectory,
 } from "./canvasStorageUtils";
 import { parseSchema } from "../parseSchema";
 import { axiosClient } from "../../../../utils/axiosUtils";
@@ -370,24 +371,14 @@ export const canvasRouter = createTRPCRouter({
 
       // Create folder structure: semester/course/assignment/studentName
       // Example: storage/Spring 2025/Online Web Intro/15357295 - Hello World in HTML/John Doe/
-      const submissionDir = path.join(
-        storageDirectory,
-        sanitizeName(termName),
-        sanitizeName(courseName),
-        sanitizeName(`${assignmentId} - ${assignmentName}`),
-        sanitizeName(userName)
-      );
-      ensureDir(submissionDir);
+      const submissionDir = getSubmissionDirectory({
+        termName,
+        courseName,
+        assignmentId,
+        assignmentName,
+        studentName: userName,
+      });
 
-      // Save submission metadata
-      const submissionJsonPath = path.join(submissionDir, "submission.json");
-      if (!fs.existsSync(submissionJsonPath)) {
-        fs.writeFileSync(
-          submissionJsonPath,
-          JSON.stringify(submission, null, 2),
-          "utf8"
-        );
-      }
 
       // Instead of generating a preview PDF, download attachments into
       // the student's attachments folder under the submissionDir.
@@ -671,4 +662,3 @@ export const canvasRouter = createTRPCRouter({
       }
     }),
 });
-

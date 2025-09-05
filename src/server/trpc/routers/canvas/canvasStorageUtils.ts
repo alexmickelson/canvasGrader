@@ -9,7 +9,8 @@ import type {
   CanvasSubmission,
   CanvasRubric,
 } from "./canvasModels";
-import { CanvasCourseSchema } from "./canvasModels";
+import { CanvasCourseSchema, CanvasSubmissionSchema } from "./canvasModels";
+import TurndownService from "turndown";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -79,6 +80,30 @@ export function getSubmissionDirectory({
     sanitizeName(courseName),
     sanitizeName(`${assignmentId} - ${assignmentName}`),
     sanitizeName(studentName)
+  );
+  ensureDir(submissionDir);
+  return submissionDir;
+}
+
+export function getMetadataSubmissionDirectory({
+  termName,
+  courseName,
+  assignmentId,
+  assignmentName,
+  studentName,
+}: {
+  termName: string;
+  courseName: string;
+  assignmentId: number;
+  assignmentName: string;
+  studentName: string;
+}): string {
+  const submissionDir = path.join(
+    storageDirectory,
+    sanitizeName(termName),
+    sanitizeName(courseName),
+    sanitizeName(`${assignmentId} - ${assignmentName}`),
+    sanitizeName(studentName) + "_metadata"
   );
   ensureDir(submissionDir);
   return submissionDir;
@@ -242,7 +267,13 @@ export async function persistSubmissionsToStorage(
           const userName =
             (typeof submission.user === "object" && submission.user?.name) ||
             `User ${submission.user_id}`;
-          const submissionDir = getSubmissionDirectory({
+          const parsedSubmission = parseSchema(
+            CanvasSubmissionSchema,
+            submission,
+            "CanvasSubmission"
+          );
+
+          storeSubmissionJson(parsedSubmission, {
             termName,
             courseName,
             assignmentId,
@@ -250,15 +281,14 @@ export async function persistSubmissionsToStorage(
             studentName: userName,
           });
 
-          const submissionJsonPath = path.join(
-            submissionDir,
-            "submission.json"
-          );
-          fs.writeFileSync(
-            submissionJsonPath,
-            JSON.stringify(submission, null, 2),
-            "utf8"
-          );
+          // Convert HTML to markdown and store as submission.md
+          storeSubmissionMarkdown(parsedSubmission, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
         } catch (err) {
           console.warn(
             "Failed to write submission.json for user",
@@ -300,5 +330,98 @@ export async function persistRubricToStorage(
     console.log("Saved rubric to:", rubricJsonPath);
   } catch (err) {
     console.warn("Failed to persist rubric to storage", err);
+  }
+}
+
+// Store submission.json in the original submission directory
+export function storeSubmissionJson(
+  submission: {
+    id?: number;
+    user?: { id: number; name: string };
+    body?: string;
+    attachments?: unknown[];
+    [key: string]: unknown;
+  },
+  {
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+    studentName,
+  }: {
+    termName: string;
+    courseName: string;
+    assignmentId: number;
+    assignmentName: string;
+    studentName: string;
+  }
+): void {
+  try {
+    const originalDir = getMetadataSubmissionDirectory({
+      termName,
+      courseName,
+      assignmentId,
+      assignmentName,
+      studentName,
+    });
+
+    const submissionJsonPath = path.join(originalDir, "submission.json");
+    fs.writeFileSync(
+      submissionJsonPath,
+      JSON.stringify(submission, null, 2),
+      "utf8"
+    );
+    console.log("Saved submission.json to:", submissionJsonPath);
+  } catch (err) {
+    console.warn("Failed to store submission.json in original directory", err);
+  }
+}
+
+// Convert HTML to markdown and store as submission.md
+export function storeSubmissionMarkdown(
+  submission: {
+    id?: number;
+    user?: { id: number; name: string };
+    body?: string;
+    attachments?: unknown[];
+    [key: string]: unknown;
+  },
+  {
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+    studentName,
+  }: {
+    termName: string;
+    courseName: string;
+    assignmentId: number;
+    assignmentName: string;
+    studentName: string;
+  }
+): void {
+  try {
+    if (!submission.body || !submission.body.trim()) {
+      console.log("No submission body to convert to markdown");
+      return;
+    }
+
+    const submissionDir = getSubmissionDirectory({
+      termName,
+      courseName,
+      assignmentId,
+      assignmentName,
+      studentName,
+    });
+
+    // Convert HTML to markdown
+    const turndownService = new TurndownService();
+    const markdown = turndownService.turndown(submission.body);
+
+    const submissionMdPath = path.join(submissionDir, "submission.md");
+    fs.writeFileSync(submissionMdPath, markdown, "utf8");
+    console.log("Saved submission.md to:", submissionMdPath);
+  } catch (err) {
+    console.warn("Failed to convert and store submission as markdown", err);
   }
 }

@@ -52,17 +52,10 @@ export const SubmissionDetails: FC<{
   courseName: string;
 }> = ({ submission, courseId, assignmentName, termName, courseName }) => {
   return (
-    <div className="h-full flex flex-col space-y-4">
-      <div className="flex gap-4 w-full flex-1 min-h-0">
+    <div className="h-full flex flex-col space-y-4 w-full">
+      <div className="flex gap-4 flex-1 min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto space-y-4">
-            {/* todo: make sure to properly clean up. make sure that things are still downloaded... */}
-            {/* <AssignmentPreviewComponent
-              submission={submission}
-              courseId={courseId}
-            /> */}
-
-            <SubmissionFileExplorer
+          <SubmissionFileExplorer
               assignmentId={submission.assignment_id}
               assignmentName={assignmentName}
               studentName={submission.user.name}
@@ -70,11 +63,10 @@ export const SubmissionDetails: FC<{
               courseName={courseName}
             />
 
-            {submission.submission_comments &&
-              submission.submission_comments.length > 0 && (
-                <SubmissionComments comments={submission.submission_comments} />
-              )}
-          </div>
+          {submission.submission_comments &&
+            submission.submission_comments.length > 0 && (
+              <SubmissionComments comments={submission.submission_comments} />
+            )}
         </div>
         <div className="min-w-96">
           <SubmissionMetadata submission={submission} />

@@ -100,27 +100,13 @@ export const ViewFileComponent: FC<{
   });
 
   return (
-    <div className={`space-y-2 h-full flex flex-col overflow-auto`}>
-      <div className="flex items-center justify-between">
-        <div className="text-xs uppercase tracking-wide text-gray-400">
-          File Preview
-        </div>
-        <div className="text-xs text-gray-500">{filePath}</div>
-      </div>
-
-      <FileContentRenderer
-        fileType={fileType}
-        fileName={fileName}
-        filePath={filePath}
-        fileData={fileData}
-        isLoading={isLoading}
-        error={error}
-      />
-
-      {/* <div className="text-xs text-gray-500">
-        {termName} · {courseName} · {assignmentName} (#{assignmentId}) ·{" "}
-        {studentName}
-      </div> */}
-    </div>
+    <FileContentRenderer
+      fileType={fileType}
+      fileName={fileName}
+      filePath={filePath}
+      fileData={fileData}
+      isLoading={isLoading}
+      error={error}
+    />
   );
 };

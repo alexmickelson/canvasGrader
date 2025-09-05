@@ -72,7 +72,7 @@ export const AssignmentGraderPage = () => {
   }
 
   return (
-    <div className="p-4 text-gray-200 h-screen flex flex-col">
+    <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h1 className="text-xl font-semibold">
           Grade{" "}
@@ -102,8 +102,8 @@ export const AssignmentGraderPage = () => {
         </div>
       </div>{" "}
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
-      <div className="flex gap-4 items-stretch flex-1 min-h-0 flex-nowrap w-full">
-        <div className="flex-1 min-w-0">
+      <div className="flex gap-4 items-stretch flex-1 min-h-0 w-full">
+        <div className="w-96">
           <Suspense
             fallback={<div className="text-gray-400">Loading submissions…</div>}
           >
@@ -116,17 +116,16 @@ export const AssignmentGraderPage = () => {
           </Suspense>
         </div>
 
-        {/* Slide-in side panel that shares UI space */}
-        <aside
-          className={`bg-gray-900 border-l border-gray-800 shadow-xl transition-all duration-300 ease-out flex flex-col ${
-            selected ? "w-3/4 " : "w-auto"
-          }`}
-          role="complementary"
-          aria-labelledby="submission-details-title"
-          aria-hidden={selected ? undefined : true}
+        <div
+          className={`
+            bg-gray-900 border-l border-gray-800 shadow-xl 
+            transition-all duration-300 ease-out 
+            flex-1
+            flex flex-col
+          `}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
-            <div id="submission-details-title" className="text-xl truncate">
+            <div id="submission-details-title" className="truncate">
               {selected ? userName(selected) : ""}
             </div>
             <button
@@ -158,7 +157,7 @@ export const AssignmentGraderPage = () => {
               />
             )}
           </div>
-        </aside>
+        </div>
       </div>
       {/* GitHub Classroom Panel */}
       {isGitHubPanelOpen && (
@@ -251,4 +250,3 @@ export const AssignmentGraderPage = () => {
     </div>
   );
 };
-

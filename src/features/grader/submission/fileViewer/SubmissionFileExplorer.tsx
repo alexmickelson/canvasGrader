@@ -247,7 +247,7 @@ export const SubmissionFileExplorer: FC<{
   }
 
   return (
-    <div className={`space-y-4 ${className} flex flex-row`}>
+    <div className={`space-y-4 ${className} flex flex-row w-full`}>
       <div className="space-y-2 w-[400px]">
         {allFilePaths && (
           <div className="flex items-center gap-4 text-xs text-gray-400">
@@ -302,17 +302,19 @@ export const SubmissionFileExplorer: FC<{
         </div>
       </div>
 
-      {/* File preview */}
-      {selectedFile && (
-        <ViewFileComponent
-          assignmentId={assignmentId}
-          assignmentName={assignmentName}
-          studentName={studentName}
-          termName={termName}
-          courseName={courseName}
-          filePath={selectedFile}
-        />
-      )}
+      <div className="flex-1 overflow-x-auto w-96">
+        {/* File preview */}
+        {selectedFile && (
+          <ViewFileComponent
+            assignmentId={assignmentId}
+            assignmentName={assignmentName}
+            studentName={studentName}
+            termName={termName}
+            courseName={courseName}
+            filePath={selectedFile}
+          />
+        )}
+      </div>
     </div>
   );
 };
