@@ -1,19 +1,10 @@
 import type { FC } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import * as styles from "react-syntax-highlighter/dist/esm/styles/prism";
 import Spinner from "../../../../utils/Spinner";
-import { languageMap } from "./languageMap";
+import { TextFileRenderer } from "./TextFileRenderer";
 
 // Get file extension and determine file type
 const getFileExtension = (path: string): string => {
   return path.split(".").pop()?.toLowerCase() || "";
-};
-
-// Get syntax highlighting language based on file extension
-const getLanguage = (path: string): string => {
-  const ext = getFileExtension(path);
-
-  return languageMap[ext] || "text";
 };
 
 export const FileContentRenderer: FC<{
@@ -89,30 +80,11 @@ export const FileContentRenderer: FC<{
     case "text":
       if (fileData?.type === "text") {
         return (
-          <div className="flex flex-col h-full min-h-[1000px] border border-gray-700 rounded w-full">
-            <div className="bg-gray-800 px-3 py-2 text-xs text-gray-400 border-b border-gray-700 flex-shrink-0">
-              {fileName}
-            </div>
-            <div className="flex-1 overflow-auto   ">
-              <SyntaxHighlighter
-                language={getLanguage(filePath)}
-                style={styles.coldarkDark}
-                lineProps={{
-                  style: {
-                    minWidth: "100%",
-                    display: "inline-block",
-                  },
-                }}
-                customStyle={{
-                  margin: 0,
-                  background: "transparent",
-                }}
-                showLineNumbers={true}
-              >
-                {fileData.content}
-              </SyntaxHighlighter>
-            </div>
-          </div>
+          <TextFileRenderer
+            fileName={fileName}
+            filePath={filePath}
+            content={fileData.content}
+          />
         );
       }
       break;

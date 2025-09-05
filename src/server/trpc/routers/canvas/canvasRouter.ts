@@ -379,7 +379,6 @@ export const canvasRouter = createTRPCRouter({
         studentName: userName,
       });
 
-
       // Instead of generating a preview PDF, download attachments into
       // the student's attachments folder under the submissionDir.
       const attachmentsDir = path.join(submissionDir, "attachments");
@@ -609,7 +608,12 @@ export const canvasRouter = createTRPCRouter({
         const submissionResponse = await axiosClient.put(
           submissionUrl,
           submissionData,
-          canvasRequestOptions
+          {
+            ...canvasRequestOptions,
+            params: {
+              include: ["user", "rubric_assessment"],
+            },
+          }
         );
 
         console.log(
@@ -621,10 +625,24 @@ export const canvasRouter = createTRPCRouter({
           JSON.stringify(submissionResponse.data, null, 2)
         );
 
+        // Refetch the submission to get complete data including user information
+        console.log(
+          "Refetching submission data to include user information..."
+        );
+        const refetchUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+        const refetchResponse = await axiosClient.get(refetchUrl, {
+          ...canvasRequestOptions,
+          params: {
+            include: ["user", "rubric_assessment"],
+          },
+        });
+
+        console.log("Refetch response status:", refetchResponse.status);
+
         // Parse and return the updated submission
         const updatedSubmission = parseSchema(
           CanvasSubmissionSchema,
-          submissionResponse.data,
+          refetchResponse.data,
           "CanvasSubmission"
         );
 
