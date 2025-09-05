@@ -75,6 +75,10 @@ export const ViewFileComponent: FC<{
   termName: string;
   courseName: string;
   filePath: string;
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
 }> = ({
   assignmentId,
   assignmentName,
@@ -82,6 +86,10 @@ export const ViewFileComponent: FC<{
   termName,
   courseName,
   filePath,
+  startLine,
+  startColumn,
+  endLine,
+  endColumn,
 }) => {
   const fileType = getFileType(filePath);
   const fileName = filePath.split("/").pop() || "Unknown file";
@@ -107,6 +115,10 @@ export const ViewFileComponent: FC<{
       fileData={fileData}
       isLoading={isLoading}
       error={error}
+      startLine={startLine}
+      startColumn={startColumn}
+      endLine={endLine}
+      endColumn={endColumn}
     />
   );
 };

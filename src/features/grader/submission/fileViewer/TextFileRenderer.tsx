@@ -26,14 +26,70 @@ export const TextFileRenderer: FC<{
   fileName: string;
   filePath: string;
   content: string;
-}> = ({ fileName, filePath, content }) => {
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+}> = ({
+  fileName,
+  filePath,
+  content,
+  startLine,
+  startColumn,
+  endLine,
+  endColumn,
+}) => {
   const [showPreview, setShowPreview] = useState(true);
   const isMarkdown = isMarkdownFile(filePath);
 
+  // Extract selected content based on line/column parameters
+  const getSelectedContent = (fullContent: string): string => {
+    if (!startLine && !endLine) {
+      return fullContent;
+    }
+
+    const lines = fullContent.split("\n");
+    const start = Math.max(0, (startLine || 1) - 1); // Convert to 0-based index
+    const end = endLine ? Math.min(lines.length, endLine) : lines.length;
+
+    if (start >= lines.length) {
+      return "";
+    }
+
+    const selectedLines = lines.slice(start, end);
+
+    // Handle column selection for the first and last lines
+    if (startColumn && selectedLines.length > 0) {
+      const firstLine = selectedLines[0];
+      selectedLines[0] = firstLine.substring(Math.max(0, startColumn - 1));
+    }
+
+    if (endColumn && selectedLines.length > 0) {
+      const lastLine = selectedLines[selectedLines.length - 1];
+      selectedLines[selectedLines.length - 1] = lastLine.substring(
+        0,
+        endColumn
+      );
+    }
+
+    return selectedLines.join("\n");
+  };
+
+  const selectedContent = getSelectedContent(content);
+
   return (
-    <div className="flex flex-col h-full min-h-[1000px] border border-gray-700 rounded w-full">
+    <div className="flex flex-col h-full border border-gray-700 rounded w-full">
       <div className="bg-gray-800 px-3 py-2 text-xs text-gray-400 border-b border-gray-700 flex-shrink-0 flex items-center justify-between">
-        <span>{fileName}</span>
+        <div className="flex flex-col">
+          <span>{fileName}</span>
+          {(startLine || endLine) && (
+            <span className="text-xs text-blue-400">
+              Lines {startLine || 1}-{endLine || "end"}
+              {(startColumn || endColumn) &&
+                ` (cols ${startColumn || 1}-${endColumn || "end"})`}
+            </span>
+          )}
+        </div>
         {isMarkdown && (
           <button
             onClick={() => setShowPreview(!showPreview)}
@@ -47,7 +103,7 @@ export const TextFileRenderer: FC<{
         {isMarkdown && showPreview ? (
           <div
             className="p-4 text-gray-100"
-            dangerouslySetInnerHTML={{ __html: marked(content) }}
+            dangerouslySetInnerHTML={{ __html: marked(selectedContent) }}
           />
         ) : (
           <SyntaxHighlighter
@@ -64,8 +120,9 @@ export const TextFileRenderer: FC<{
               background: "transparent",
             }}
             showLineNumbers={true}
+            startingLineNumber={startLine || 1}
           >
-            {content}
+            {selectedContent}
           </SyntaxHighlighter>
         )}
       </div>

@@ -21,7 +21,22 @@ export const FileContentRenderer: FC<{
     | undefined;
   isLoading: boolean;
   error: { message: string } | null;
-}> = ({ fileType, fileName, filePath, fileData, isLoading, error }) => {
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+}> = ({
+  fileType,
+  fileName,
+  filePath,
+  fileData,
+  isLoading,
+  error,
+  startLine,
+  startColumn,
+  endLine,
+  endColumn,
+}) => {
   if (error) {
     return (
       <div className="p-4 border border-red-700 bg-red-900/20 rounded text-red-300">
@@ -84,6 +99,10 @@ export const FileContentRenderer: FC<{
             fileName={fileName}
             filePath={filePath}
             content={fileData.content}
+            startLine={startLine}
+            startColumn={startColumn}
+            endLine={endLine}
+            endColumn={endColumn}
           />
         );
       }
