@@ -2,15 +2,21 @@ import { useState } from "react";
 import { useGitHubClassroomMutation } from "./graderHooks";
 import type { SettingsCourse } from "../../server/trpc/routers/settingsRouter";
 
-interface GitHubClassroomDownloadProps {
+export const GitHubClassroomDownload: React.FC<{
   courseId: number;
   assignmentId: number;
-  course: SettingsCourse | undefined;
-}
-
-export const GitHubClassroomDownload: React.FC<
-  GitHubClassroomDownloadProps
-> = ({ courseId, assignmentId, course }) => {
+  course: SettingsCourse;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
+}> = ({
+  courseId,
+  assignmentId,
+  course,
+  termName,
+  courseName,
+  assignmentName,
+}) => {
   const [gitHubClassroomInput, setGitHubClassroomInput] = useState("");
   const [isGitHubPanelOpen, setIsGitHubPanelOpen] = useState(false);
 
@@ -48,6 +54,9 @@ export const GitHubClassroomDownload: React.FC<
       assignmentId,
       courseId,
       githubUserMap: course?.githubUserMap || [],
+      termName,
+      courseName,
+      assignmentName,
     });
 
     // Close the panel immediately to show progress

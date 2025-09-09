@@ -24,11 +24,7 @@ import path from "path";
 import {
   prepareTempDir,
   cloneClassroomRepositories,
-  discoverRepositories,
   buildGithubLookup,
-  computeCleanedPrefix,
-  fetchAssignmentName,
-  buildAssignmentDir,
   organizeStudentRepositories,
   summarizeAndLog,
   cleanupTempDir,
@@ -46,8 +42,6 @@ import {
   type CanvasRubric,
   type CanvasEnrollment,
 } from "./canvasModels.js";
-
-// execAsync removed (no longer needed after refactor)
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -173,7 +167,7 @@ export const canvasRouter = createTRPCRouter({
         sanitizeName(courseName),
         "enrollments.json"
       );
-      await ensureDir(path.dirname(enrollmentsPath));
+      ensureDir(path.dirname(enrollmentsPath));
       fs.writeFileSync(
         enrollmentsPath,
         JSON.stringify(parsed, null, 2),
@@ -523,7 +517,12 @@ export const canvasRouter = createTRPCRouter({
     .input(
       z.object({
         classroomAssignmentId: z.string(),
+        termName: z.string(),
+        courseName: z.string(),
+
         assignmentId: z.number(),
+        assignmentName: z.string(),
+
         courseId: z.number(),
         githubUserMap: z.array(
           z.object({ studentName: z.string(), githubUsername: z.string() })
@@ -531,8 +530,15 @@ export const canvasRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const { classroomAssignmentId, assignmentId, courseId, githubUserMap } =
-        input;
+      const {
+        classroomAssignmentId,
+        assignmentId,
+        courseId,
+        githubUserMap,
+        termName,
+        courseName,
+        assignmentName,
+      } = input;
 
       console.log("=== GitHub Classroom Download Started ===");
       console.log(`Input parameters:`);
@@ -542,37 +548,26 @@ export const canvasRouter = createTRPCRouter({
 
       try {
         console.log(`\n1. Fetching course metadata for courseId: ${courseId}`);
-        const courseMeta = await getCourseMeta(courseId);
-        if (!courseMeta)
-          throw new Error(`Course with ID ${courseId} not found`);
 
         const tempDir = await prepareTempDir();
-        await cloneClassroomRepositories(classroomAssignmentId, tempDir);
-        const { reposDir, studentRepos } = discoverRepositories(tempDir);
+        const { studentRepos, reposBaseDir } = await cloneClassroomRepositories(
+          classroomAssignmentId,
+          tempDir
+        );
         const githubLookup = buildGithubLookup(
           githubUserMap as GithubUserMapEntry[]
         );
-        const cleanedPrefix = computeCleanedPrefix(studentRepos);
-        const assignmentName = await fetchAssignmentName(
-          canvasBaseUrl,
-          courseId,
-          assignmentId
-        );
-        const assignmentDir = await buildAssignmentDir(
-          storageDirectory,
-          courseMeta,
-          assignmentId,
-          assignmentName
-        );
         const organizeResult = await organizeStudentRepositories({
           studentRepos,
-          reposDir,
-          cleanedPrefix,
           githubLookup,
-          assignmentDir,
+          termName,
+          courseName,
+          assignmentId,
+          assignmentName,
+          reposDir: reposBaseDir,
         });
         await cleanupTempDir(tempDir);
-        const { output } = summarizeAndLog(organizeResult, assignmentDir);
+        const { output } = summarizeAndLog(organizeResult);
         return output;
       } catch (error) {
         console.log(`\n❌ === GitHub Classroom Download FAILED ===`);

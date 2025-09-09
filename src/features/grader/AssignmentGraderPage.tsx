@@ -8,6 +8,8 @@ import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
 import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
 import { AnalysisWrapper } from "./analysis/AnalysisWrapper";
+import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
+import { useCanvasCoursesQuery } from "../home/canvasHooks";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -18,6 +20,13 @@ export const AssignmentGraderPage = () => {
   const parsedCourseId = courseId ? Number(courseId) : undefined;
   const parsedAssignmentId = assignmentId ? Number(assignmentId) : undefined;
   const course = settings?.courses?.find((c) => c.canvasId === parsedCourseId);
+
+  // Get Canvas course and assignment data for GitHub Classroom integration
+  const { data: canvasCourses } = useCanvasCoursesQuery();
+  const { data: assignments } = useAssignmentsQuery(parsedCourseId!);
+
+  const canvasCourse = canvasCourses?.find((c) => c.id === parsedCourseId);
+  const assignment = assignments?.find((a) => a.id === parsedAssignmentId);
 
   // Selected submission for slide-over panel
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
@@ -44,11 +53,16 @@ export const AssignmentGraderPage = () => {
           />
         </h1>
 
-        <GitHubClassroomDownload
-          courseId={parsedCourseId}
-          assignmentId={parsedAssignmentId}
-          course={course}
-        />
+        {course && canvasCourse && assignment && (
+          <GitHubClassroomDownload
+            courseId={parsedCourseId}
+            assignmentId={parsedAssignmentId}
+            course={course}
+            termName={canvasCourse.term?.name || "Unknown Term"}
+            courseName={canvasCourse.name}
+            assignmentName={assignment.name}
+          />
+        )}
       </div>{" "}
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
       <div className="flex gap-4 items-stretch flex-1 min-h-0 w-full">

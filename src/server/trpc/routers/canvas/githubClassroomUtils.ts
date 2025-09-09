@@ -4,7 +4,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import { axiosClient } from "../../../../utils/axiosUtils";
 import { canvasRequestOptions } from "./canvasServiceUtils";
-import { ensureDir, sanitizeName } from "./canvasStorageUtils";
+import { ensureDir, getSubmissionDirectory } from "./canvasStorageUtils";
 
 const execAsync = promisify(exec);
 
@@ -42,35 +42,55 @@ export const cloneClassroomRepositories = async (
   if (stderr) console.log(`   ⚠️  GitHub CLI warnings/errors:`, stderr);
   if (stdout) console.log(`   ✓ GitHub CLI output:`, stdout);
   console.log("   ✓ GitHub Classroom clone command completed");
-};
 
-export const discoverRepositories = (tempDir: string) => {
-  console.log(
-    `\n4. Scanning for downloaded repository directories in: ${tempDir}`
-  );
-  const reposDirs = fs
-    .readdirSync(tempDir)
-    .filter((dir) => fs.statSync(path.join(tempDir, dir)).isDirectory());
+  // GitHub Classroom may create a nested structure, so we need to discover the actual student repositories
+  const topLevelDirs = (
+    await fs.promises.readdir(tempDir, { withFileTypes: true })
+  )
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
 
   console.log(
-    `   Found ${reposDirs.length} directories: ${reposDirs.join(", ")}`
-  );
-  if (reposDirs.length === 0)
-    throw new Error("No repositories were downloaded");
-
-  const reposDir = path.join(tempDir, reposDirs[0]);
-  console.log(`   Using repository directory: ${reposDir}`);
-
-  const studentRepos = fs
-    .readdirSync(reposDir)
-    .filter((dir) => fs.statSync(path.join(reposDir, dir)).isDirectory());
-
-  console.log(`   Found ${studentRepos.length} student repositories:`);
-  studentRepos.forEach((repo, index) =>
-    console.log(`     ${index + 1}. ${repo}`)
+    `   Found ${topLevelDirs.length} top-level directories: ${topLevelDirs.join(
+      ", "
+    )}`
   );
 
-  return { reposDir, studentRepos };
+  // Check if we have individual student repos directly, or if they're nested in a parent directory
+  let studentRepos: string[] = [];
+  let reposBaseDir = tempDir;
+
+  // If there's only one directory and it contains multiple subdirectories that look like student repos,
+  // use the subdirectories as the student repos
+  if (topLevelDirs.length === 1) {
+    const potentialParentDir = path.join(tempDir, topLevelDirs[0]);
+    const subDirs = (
+      await fs.promises.readdir(potentialParentDir, { withFileTypes: true })
+    )
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name);
+
+    console.log(
+      `   Checking subdirectories in ${topLevelDirs[0]}: ${subDirs.join(", ")}`
+    );
+
+    // If the subdirectories look like student repositories (contain assignment prefix or github usernames)
+    if (subDirs.length > 1) {
+      studentRepos = subDirs;
+      reposBaseDir = potentialParentDir;
+      console.log(
+        `   Using subdirectories as student repositories from: ${reposBaseDir}`
+      );
+    } else {
+      studentRepos = topLevelDirs;
+      console.log(`   Using top-level directories as student repositories`);
+    }
+  } else {
+    studentRepos = topLevelDirs;
+    console.log(`   Using top-level directories as student repositories`);
+  }
+
+  return { studentRepos, reposBaseDir };
 };
 
 export const buildGithubLookup = (githubUserMap: GithubUserMapEntry[] = []) => {
@@ -114,35 +134,7 @@ export const fetchAssignmentName = async (
   return assignmentData?.name || `Assignment ${assignmentId}`;
 };
 
-export const buildAssignmentDir = async (
-  storageDirectory: string,
-  courseMeta: { termName: string; courseName: string },
-  assignmentId: number,
-  assignmentName: string
-) => {
-  const assignmentDir = path.join(
-    storageDirectory,
-    sanitizeName(courseMeta.termName),
-    sanitizeName(courseMeta.courseName),
-    sanitizeName(`${assignmentId} - ${assignmentName}`),
-    "submissions"
-  );
-  console.log(`\n5. Setting up target assignment directory:`);
-  console.log(`   Path: ${assignmentDir}`);
-  await ensureDir(assignmentDir);
-  console.log("   ✓ Assignment submissions directory created/verified");
-  return assignmentDir;
-};
-
-interface OrganizeParams {
-  studentRepos: string[];
-  reposDir: string;
-  cleanedPrefix: string;
-  githubLookup: Map<string, string>;
-  assignmentDir: string; // points to .../<assignment>/submissions
-}
-
-export interface OrganizeResult {
+interface OrganizeResult {
   processedRepos: ProcessedRepoResult[];
   successCount: number;
   errorCount: number;
@@ -152,10 +144,20 @@ export interface OrganizeResult {
 export const organizeStudentRepositories = async ({
   studentRepos,
   reposDir,
-  cleanedPrefix,
   githubLookup,
-  assignmentDir,
-}: OrganizeParams): Promise<OrganizeResult> => {
+  termName,
+  courseName,
+  assignmentId,
+  assignmentName,
+}: {
+  studentRepos: string[];
+  reposDir: string;
+  githubLookup: Map<string, string>;
+  termName: string;
+  courseName: string;
+  assignmentId: number;
+  assignmentName: string;
+}): Promise<OrganizeResult> => {
   console.log(`\n6. Processing and organizing student repositories:`);
   console.log(`   Total repositories to process: ${studentRepos.length}`);
 
@@ -170,34 +172,56 @@ export const organizeStudentRepositories = async ({
       `\n   Processing repository ${repoIndex}/${studentRepos.length}: ${repoName}`
     );
     try {
-      // Extract student name
-      let studentNameCandidate = repoName;
-      if (cleanedPrefix && repoName.startsWith(cleanedPrefix)) {
-        studentNameCandidate = repoName
-          .slice(cleanedPrefix.length)
-          .replace(/^[-_\s]+/, "");
-      } else {
-        const parts = repoName.split("-");
-        if (parts.length > 1) studentNameCandidate = parts.slice(1).join("-");
+      let studentName = "Unknown Student";
+      let githubUsername = "";
+
+      // Extract GitHub username from repository name
+      // Repository names typically follow pattern: assignment-prefix-githubusername
+      // e.g., "exam1-1-EthanHintze" -> "EthanHintze"
+
+      // First try to match against the github user map by checking if any username appears in the repo name
+      for (const [username, mappedStudentName] of githubLookup) {
+        if (repoName.toLowerCase().includes(username.toLowerCase())) {
+          studentName = mappedStudentName;
+          githubUsername = username;
+          break;
+        }
       }
 
-      const usernameCandidate = studentNameCandidate.toLowerCase();
-      const resolvedStudentName =
-        githubLookup.get(usernameCandidate) || studentNameCandidate;
-      const sanitizedStudentName = sanitizeName(resolvedStudentName);
+      // If no match found in the map, try to extract the GitHub username from the repo name
+      if (studentName === "Unknown Student") {
+        // Try to extract username after the last dash
+        const parts = repoName.split("-");
+        if (parts.length > 1) {
+          const potentialUsername = parts[parts.length - 1];
+          githubUsername = potentialUsername;
 
-      console.log(
-        `     → Raw student name extracted: "${studentNameCandidate}"`
-      );
-      console.log(`     → Sanitized student name: "${sanitizedStudentName}"`);
+          // Check if this username exists in our map
+          const mappedName = githubLookup.get(potentialUsername.toLowerCase());
+          if (mappedName) {
+            studentName = mappedName;
+          } else {
+            // Use the GitHub username as the student name if no mapping exists
+            studentName = potentialUsername;
+          }
+        }
+      }
+
+      console.log(`     → GitHub username extracted: "${githubUsername}"`);
+      console.log(`     → Student name resolved: "${studentName}"`);
 
       const sourceDir = path.join(reposDir, repoName);
-      const assignmentBase = path.dirname(assignmentDir);
-      const targetDir = path.join(
-        assignmentBase,
-        sanitizedStudentName,
-        "githubClassroom"
-      );
+      const submissionDirectory = getSubmissionDirectory({
+        termName,
+        courseName,
+        assignmentId,
+        assignmentName,
+        studentName,
+      });
+
+      const targetDir = path.join(submissionDirectory, "githubClassroom");
+      
+      ensureDir(targetDir);
 
       console.log(`     → Source directory: ${sourceDir}`);
       console.log(`     → Target directory: ${targetDir}`);
@@ -213,7 +237,6 @@ export const organizeStudentRepositories = async ({
           .join(", ")}${sourceContents.length > 5 ? "..." : ""}`
       );
 
-      await ensureDir(targetDir);
       const existingContents = fs.existsSync(targetDir)
         ? fs.readdirSync(targetDir)
         : [];
@@ -234,12 +257,12 @@ export const organizeStudentRepositories = async ({
 
       processedRepos.push({
         repoName,
-        studentName: sanitizedStudentName,
+        studentName,
         status: "success",
         reason: `Successfully copied ${sourceContents.length} items to ${targetDir}`,
       });
       console.log(
-        `     ✅ Successfully organized repository for student: ${sanitizedStudentName}`
+        `     ✅ Successfully organized repository for student: ${studentName}`
       );
       successCount++;
     } catch (error) {
@@ -262,10 +285,7 @@ export const organizeStudentRepositories = async ({
   return { processedRepos, successCount, errorCount, errors };
 };
 
-export const summarizeAndLog = (
-  result: OrganizeResult,
-  assignmentDir: string
-) => {
+export const summarizeAndLog = (result: OrganizeResult) => {
   const { successCount, errorCount, processedRepos, errors } = result;
   console.log(`\n7. Repository processing summary:`);
   console.log(`   ✅ Successful: ${successCount}`);
@@ -290,7 +310,6 @@ export const summarizeAndLog = (
   }.`;
   console.log(`\n=== GitHub Classroom Download Completed ===`);
   console.log(`Final result: ${finalMessage}`);
-  console.log(`Assignment directory: ${assignmentDir}`);
 
   return {
     finalMessage,
