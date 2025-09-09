@@ -7,6 +7,7 @@ import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasMo
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
 import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
+import { AnalysisWrapper } from "./analysis/AnalysisWrapper";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -20,6 +21,11 @@ export const AssignmentGraderPage = () => {
 
   // Selected submission for slide-over panel
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
+
+  // View toggle: 'submission' or 'analysis'
+  const [currentView, setCurrentView] = useState<"submission" | "analysis">(
+    "submission"
+  );
 
   if (!parsedCourseId || !parsedAssignmentId) {
     return (
@@ -54,7 +60,10 @@ export const AssignmentGraderPage = () => {
               courseId={parsedCourseId}
               assignmentId={parsedAssignmentId}
               selectedId={selected?.id ?? null}
-              onSelect={setSelected}
+              onSelect={(submission) => {
+                setSelected(submission);
+                setCurrentView("submission"); // Reset to submission view when selecting new student
+              }}
             />
           </Suspense>
         </div>
@@ -68,9 +77,38 @@ export const AssignmentGraderPage = () => {
           `}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
-            <div id="submission-details-title" className="truncate">
-              {selected ? userName(selected) : ""}
+            <div className="flex items-center gap-3">
+              <div id="submission-details-title" className="truncate">
+                {selected ? userName(selected) : ""}
+              </div>
+
+              {/* View Toggle Buttons */}
+              {selected && (
+                <div className="flex rounded-md border border-gray-600 overflow-hidden">
+                  <button
+                    onClick={() => setCurrentView("submission")}
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                      currentView === "submission"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    Submission
+                  </button>
+                  <button
+                    onClick={() => setCurrentView("analysis")}
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                      currentView === "analysis"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    AI Analysis
+                  </button>
+                </div>
+              )}
             </div>
+
             <button
               className="unstyled text-gray-400 hover:text-gray-200 rounded cursor-pointer "
               onClick={() => setSelected(null)}
@@ -94,10 +132,19 @@ export const AssignmentGraderPage = () => {
           </div>
           <div className="p-4 space-y-3 text-sm flex-1 min-h-0">
             {selected && courseId && (
-              <SubmissionDetailsWrapper
-                submission={selected}
-                courseId={Number(courseId)}
-              />
+              <>
+                {currentView === "submission" ? (
+                  <SubmissionDetailsWrapper
+                    submission={selected}
+                    courseId={Number(courseId)}
+                  />
+                ) : (
+                  <AnalysisWrapper
+                    submission={selected}
+                    courseId={Number(courseId)}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

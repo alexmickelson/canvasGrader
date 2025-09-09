@@ -67,13 +67,15 @@ export const AICriterionAnalysis: FC<{
     return null;
   }
 
+  const { analysis } = analysisQuery.data;
+
   return (
     <div className="p-4 bg-purple-900/20 border border-purple-700 rounded-lg space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="font-medium text-purple-300">AI Analysis</h4>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">
-            Confidence: {analysisQuery.data.confidence}%
+            Confidence: {analysis.confidence}%
           </span>
         </div>
       </div>
@@ -83,21 +85,21 @@ export const AICriterionAnalysis: FC<{
           Recommended Score
         </h5>
         <div className="text-lg font-bold text-green-400">
-          {analysisQuery.data.recommendedPoints} / {criterionPoints} pts
+          {analysis.recommendedPoints} / {criterionPoints} pts
         </div>
       </div>
 
       <div className="space-y-2">
         <h5 className="text-sm font-medium text-purple-300">Description</h5>
         <p className="text-sm text-gray-300 whitespace-pre-wrap">
-          {analysisQuery.data.description}
+          {analysis.description}
         </p>
       </div>
 
-      {analysisQuery.data.evidence.length > 0 && (
+      {analysis.evidence.length > 0 && (
         <div className="space-y-2">
           <h6 className="text-purple-300  ">Evidence</h6>
-          {analysisQuery.data.evidence.map((evidence, index) => (
+          {analysis.evidence.map((evidence, index) => (
             <EvidenceItem
               key={index}
               evidence={evidence}

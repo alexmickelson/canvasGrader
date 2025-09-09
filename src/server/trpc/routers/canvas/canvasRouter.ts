@@ -199,7 +199,7 @@ export const canvasRouter = createTRPCRouter({
         const parsed = enrollments.map((e) =>
           parseSchema(CanvasEnrollmentSchema, e, "CanvasEnrollment")
         );
-        await ensureDir(path.dirname(enrollmentsPath));
+        ensureDir(path.dirname(enrollmentsPath));
         fs.writeFileSync(
           enrollmentsPath,
           JSON.stringify(parsed, null, 2),
@@ -209,7 +209,21 @@ export const canvasRouter = createTRPCRouter({
       }
 
       const data = fs.readFileSync(enrollmentsPath, "utf8");
-      return JSON.parse(data);
+      try {
+        return JSON.parse(data);
+      } catch (error) {
+        console.error("Failed to parse enrollments file as JSON:", {
+          enrollmentsPath,
+          error: error,
+          data: data.substring(0, 500),
+        });
+        throw new Error(
+          `Failed to parse enrollments file as JSON: ${enrollmentsPath}. Error: ${error}. Data: ${data.substring(
+            0,
+            500
+          )}...`
+        );
+      }
     }),
   getCourses: publicProcedure.query(async (): Promise<CanvasCourse[]> => {
     // Check if courses are already persisted locally

@@ -1,5 +1,32 @@
 import z from "zod";
 
+// Schema for evidence in analysis results
+export const EvidenceSchema = z.object({
+  fileName: z
+    .string()
+    .describe(
+      "Name of the file containing evidence, only source files, not directories"
+    ),
+  lineNumbers: z
+    .object({
+      start: z.object({
+        line: z.number().min(0).describe("Starting line number"),
+        column: z.number().min(0).describe("Starting column number"),
+      }),
+      end: z.object({
+        line: z.number().min(0).describe("Ending line number"),
+        column: z.number().min(0).describe("Ending column number"),
+      }),
+    })
+    .nullable()
+    .describe("Code ranges with precise line and column information"),
+  description: z
+    .string()
+    .describe("Explanation of how this evidence relates to the criterion"),
+});
+
+export type Evidence = z.infer<typeof EvidenceSchema>;
+
 // Define structured output schema for AI analysis
 export const AnalysisResultSchema = z.object({
   confidence: z
@@ -13,33 +40,7 @@ export const AnalysisResultSchema = z.object({
     .describe("Recommended points to award for this criterion"),
   description: z.string().describe("brief explanation of the assessment"),
   evidence: z
-    .array(
-      z.object({
-        fileName: z
-          .string()
-          .describe(
-            "Name of the file containing evidence, only source files, not directories"
-          ),
-
-        lineNumbers: z
-          .object({
-            start: z.object({
-              line: z.number().min(0).describe("Starting line number"),
-              column: z.number().min(0).describe("Starting column number"),
-            }),
-            end: z.object({
-              line: z.number().min(0).describe("Ending line number"),
-              column: z.number().min(0).describe("Ending column number"),
-            }),
-          })
-          .describe("Code ranges with precise line and column information"),
-        description: z
-          .string()
-          .describe(
-            "Explanation of how this evidence relates to the criterion"
-          ),
-      })
-    )
+    .array(EvidenceSchema)
     .describe("Array of evidence found in the submission files"),
 });
 
@@ -58,18 +59,97 @@ export const EvaluationMetadataSchema = z.object({
 
 export type EvaluationMetadata = z.infer<typeof EvaluationMetadataSchema>;
 
+// Schema for tool calls in conversation messages
+export const ToolCallSchema = z.object({
+  id: z.string().optional(),
+  type: z.string().optional(),
+  function: z
+    .object({
+      name: z.string(),
+      arguments: z.string().optional(),
+    })
+    .optional(),
+});
+
+export type ToolCall = z.infer<typeof ToolCallSchema>;
+
+// Schema for conversation messages
+export const ConversationMessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant", "tool"]),
+  content: z.string().optional(),
+  tool_calls: z.array(ToolCallSchema).optional(),
+  tool_call_id: z.string().optional(),
+});
+
+export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
+
+// Schema for evaluation summary (used in getExistingEvaluations)
+export const EvaluationSummarySchema = z.object({
+  satisfied: z.boolean().optional(),
+  confidence: z.number().min(0).max(100).optional(),
+  recommendedPoints: z.number().min(0).optional(),
+});
+
+export type EvaluationSummary = z.infer<typeof EvaluationSummarySchema>;
+
+// Schema for existing evaluation (lighter version without full conversation)
+export const ExistingEvaluationSchema = z.object({
+  filePath: z.string(),
+  fileName: z.string(),
+  metadata: EvaluationMetadataSchema,
+  evaluationSummary: EvaluationSummarySchema,
+});
+
+export type ExistingEvaluation = z.infer<typeof ExistingEvaluationSchema>;
+
+// Schema for the response from getExistingEvaluations
+export const ExistingEvaluationsResponseSchema = z.object({
+  studentName: z.string(),
+  evaluations: z.array(
+    z.union([
+      ExistingEvaluationSchema,
+      z.object({
+        filePath: z.string(),
+        fileName: z.string(),
+        error: z.string(),
+      }),
+    ])
+  ),
+});
+
+export type ExistingEvaluationsResponse = z.infer<
+  typeof ExistingEvaluationsResponseSchema
+>;
+
 // Schema for full evaluation data
 export const FullEvaluationSchema = z.object({
   filePath: z.string().describe("Full path to the evaluation file"),
   fileName: z.string().describe("Name of the evaluation file"),
   metadata: EvaluationMetadataSchema.describe("Evaluation metadata"),
   conversation: z
-    .array(z.any())
+    .array(ConversationMessageSchema)
     .describe("Complete conversation history with AI"),
-  evaluation: z
-    .record(z.unknown())
-    .describe("Structured analysis result from AI"),
+  evaluation: AnalysisResultSchema.describe(
+    "Structured analysis result from AI"
+  ),
   submissionPath: z.string().describe("Path to the original submission files"),
 });
 
 export type FullEvaluation = z.infer<typeof FullEvaluationSchema>;
+
+// Schema for the response from analyzeRubricCriterion
+export const AnalyzeRubricCriterionResponseSchema = z.object({
+  analysis: AnalysisResultSchema.describe("The AI analysis result"),
+  submissionPath: z.string().describe("Path to the submission directory"),
+  fileSystemTree: z
+    .array(z.string())
+    .describe("File system tree structure as array of file paths"),
+  textSubmission: z
+    .string()
+    .nullable()
+    .describe("Text submission content if available"),
+});
+
+export type AnalyzeRubricCriterionResponse = z.infer<
+  typeof AnalyzeRubricCriterionResponseSchema
+>;

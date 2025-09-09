@@ -117,3 +117,53 @@ export const useAiAnalysisQuery = ({
     })
   );
 };
+
+export const useExistingEvaluationsQuery = ({
+  assignmentId,
+  assignmentName,
+  courseName,
+  termName,
+  studentName,
+}: {
+  assignmentId: number;
+  assignmentName: string;
+  courseName: string;
+  termName: string;
+  studentName: string;
+}) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.rubricAiReport.getExistingEvaluations.queryOptions({
+      assignmentId,
+      assignmentName,
+      courseName,
+      termName,
+      studentName,
+    })
+  );
+};
+
+export const useAllEvaluationsQuery = ({
+  assignmentId,
+  assignmentName,
+  courseName,
+  termName,
+  studentName,
+}: {
+  assignmentId: number;
+  assignmentName: string;
+  courseName: string;
+  termName: string;
+  studentName: string;
+}) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.rubricAiReport.getAllEvaluations.queryOptions({
+      assignmentId,
+      assignmentName,
+      courseName,
+      termName,
+      studentName,
+    })
+  );
+};

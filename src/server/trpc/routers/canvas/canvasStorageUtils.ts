@@ -167,9 +167,24 @@ export function loadPersistedCourses(): CanvasCourse[] {
 
         if (fs.existsSync(courseJsonPath)) {
           try {
-            const courseData = JSON.parse(
-              fs.readFileSync(courseJsonPath, "utf8")
-            );
+            const rawData = fs.readFileSync(courseJsonPath, "utf8");
+            let courseData;
+            try {
+              courseData = JSON.parse(rawData);
+            } catch (error) {
+              console.error("Failed to parse course.json as JSON:", {
+                courseJsonPath,
+                error: error,
+                rawData: rawData.substring(0, 500),
+              });
+              throw new Error(
+                `Failed to parse course.json as JSON: ${courseJsonPath}. Error: ${error}. Data: ${rawData.substring(
+                  0,
+                  500
+                )}...`
+              );
+            }
+
             const parsedCourse = parseSchema(
               CanvasCourseSchema,
               courseData,

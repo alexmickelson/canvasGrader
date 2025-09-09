@@ -4,7 +4,6 @@ import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
 import {
-  getMetadataSubmissionDirectory,
   getSubmissionDirectory,
   sanitizeName,
 } from "./canvas/canvasStorageUtils";
@@ -14,8 +13,18 @@ import { getAllFilePaths } from "../utils/fileUtils";
 import {
   AnalysisResultSchema,
   type FullEvaluation,
+  FullEvaluationSchema,
+  type ExistingEvaluationsResponse,
+  ExistingEvaluationsResponseSchema,
+  AnalyzeRubricCriterionResponseSchema,
+  type AnalyzeRubricCriterionResponse,
 } from "./rubricAiReportModels";
-import { getRubricAnalysisConversation } from "./rubricAiUtils";
+import {
+  getExistingEvaluations,
+  getRubricAnalysisConversation,
+  handleRubricAnalysisError,
+  saveEvaluationResults,
+} from "./rubricAiUtils";
 
 // Initialize OpenAI client
 const aiUrl = process.env.AI_URL;
@@ -193,9 +202,23 @@ function getTextSubmission(submissionDir: string): string | null {
   const submissionJsonPath = path.join(submissionDir, "submission.json");
   if (fs.existsSync(submissionJsonPath)) {
     try {
-      const submissionData = JSON.parse(
-        fs.readFileSync(submissionJsonPath, "utf-8")
-      );
+      const rawData = fs.readFileSync(submissionJsonPath, "utf-8");
+      let submissionData;
+      try {
+        submissionData = JSON.parse(rawData);
+      } catch (error) {
+        console.error("Failed to parse submission.json as JSON:", {
+          submissionJsonPath,
+          error: error,
+          rawData: rawData.substring(0, 500),
+        });
+        throw new Error(
+          `Failed to parse submission.json as JSON: ${submissionJsonPath}. Error: ${error}. Data: ${rawData.substring(
+            0,
+            500
+          )}...`
+        );
+      }
       return submissionData.body || null;
     } catch (error) {
       console.error("Error reading submission.json:", error);
@@ -203,124 +226,6 @@ function getTextSubmission(submissionDir: string): string | null {
     }
   }
   return null;
-}
-
-// Save the evaluation results to a JSON file
-async function saveEvaluationResults({
-  courseId,
-  assignmentId,
-  studentName,
-  criterionId,
-  criterionDescription,
-  conversationMessages,
-  analysis,
-  termName,
-  courseName,
-  assignmentName,
-}: {
-  courseId: number;
-  assignmentId: number;
-  studentName: string;
-  criterionId: string | undefined;
-  criterionDescription: string;
-  conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[];
-  analysis: Record<string, unknown>;
-  termName: string;
-  courseName: string;
-  assignmentName: string;
-}) {
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const sanitizedStudentName = sanitizeName(studentName);
-    const criterionIdSafe =
-      criterionId || sanitizeName(criterionDescription).slice(0, 20);
-
-    // Create filename: <student-name>.rubric.<rubriccriterionid>-<timestamp>.json
-    const fileName = `${sanitizedStudentName}.rubric.${criterionIdSafe}-${timestamp}.json`;
-
-    // Get the student submission directory to place the file next to it
-    const submissionDir = getMetadataSubmissionDirectory({
-      termName,
-      courseName,
-      assignmentId,
-      assignmentName,
-      studentName,
-    });
-    const evaluationFilePath = path.join(submissionDir, fileName);
-
-    const evaluationData = {
-      metadata: {
-        courseId,
-        assignmentId,
-        studentName,
-        criterionId,
-        criterionDescription,
-        timestamp: new Date().toISOString(),
-        model,
-      },
-      conversation: conversationMessages,
-      evaluation: analysis,
-      submissionPath: submissionDir,
-    };
-
-    // Ensure the directory exists
-    fs.mkdirSync(path.dirname(evaluationFilePath), { recursive: true });
-
-    // Write the evaluation results
-    fs.writeFileSync(
-      evaluationFilePath,
-      JSON.stringify(evaluationData, null, 2),
-      "utf-8"
-    );
-
-    console.log(`Saved evaluation results to: ${evaluationFilePath}`);
-  } catch (error) {
-    console.error("Error saving evaluation results:", error);
-    // Don't throw - this shouldn't break the main analysis
-  }
-}
-
-// Get existing evaluation files for a student
-async function getExistingEvaluations({
-  assignmentId,
-  studentName,
-  courseName,
-  termName,
-  assignmentName,
-}: {
-  assignmentId: number;
-  studentName: string;
-  termName: string;
-  courseName: string;
-  assignmentName: string;
-}): Promise<string[]> {
-  try {
-    const submissionDir = getSubmissionDirectory({
-      termName,
-      courseName,
-      assignmentId,
-      assignmentName,
-      studentName,
-    });
-    const parentDir = path.dirname(submissionDir);
-    const sanitizedStudentName = sanitizeName(studentName);
-
-    if (!fs.existsSync(parentDir)) {
-      return [];
-    }
-
-    const files = fs.readdirSync(parentDir);
-    const evaluationFiles = files.filter(
-      (file) =>
-        file.startsWith(`${sanitizedStudentName}.rubric.`) &&
-        file.endsWith(".json")
-    );
-
-    return evaluationFiles.map((file) => path.join(parentDir, file));
-  } catch (error) {
-    console.error("Error getting existing evaluations:", error);
-    return [];
-  }
 }
 
 export const rubricAiReportRouter = createTRPCRouter({
@@ -419,18 +324,6 @@ export const rubricAiReportRouter = createTRPCRouter({
           },
         });
         const tools = [getFileSystemTreeTool, readFileTool];
-        // const toolsSchema = [getFileSystemTreeTool, readFileTool].map(
-        //   (tool) => ({
-        //     type: "function" as const,
-        //     function: {
-        //       name: tool.name,
-        //       description: tool.description,
-        //       parameters: zodToJsonSchema(tool.paramsSchema),
-        //     },
-        //   })
-        // );
-
-        // Prepare initial system prompt with file system overview
         const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
 
 RUBRIC CRITERION TO EVALUATE:
@@ -492,22 +385,6 @@ Provide specific file references, line numbers for text files, and page numbers 
             resultSchema: AnalysisResultSchema,
           });
 
-        // Validate and prepare the response
-        const responseData = {
-          confidence: analysis.confidence ?? 0,
-          evidence: analysis.evidence ?? [],
-          recommendedPoints: analysis.recommendedPoints ?? 0,
-          description: analysis.description,
-          submissionPath: submissionDir,
-          fileSystemTree,
-          textSubmission,
-        };
-
-        console.log("Analysis completed successfully:", {
-          confidence: responseData.confidence,
-          evidenceCount: responseData.evidence.length,
-        });
-
         // Save the evaluation results to a JSON file
         console.log("Saving evaluation results...");
         await saveEvaluationResults({
@@ -521,72 +398,48 @@ Provide specific file references, line numbers for text files, and page numbers 
           courseName,
           assignmentName,
           termName,
+          model,
         });
 
-        return responseData;
+        // Prepare and validate the response
+        const responseData: AnalyzeRubricCriterionResponse = {
+          analysis,
+          submissionPath: submissionDir,
+          fileSystemTree,
+          textSubmission,
+        };
+
+        console.log("Analysis completed successfully:", {
+          confidence: analysis.confidence,
+          evidenceCount: analysis.evidence.length,
+        });
+
+        // Validate the response data before returning
+        let validatedResponse;
+        try {
+          validatedResponse =
+            AnalyzeRubricCriterionResponseSchema.parse(responseData);
+        } catch (error) {
+          console.error(
+            "AnalyzeRubricCriterionResponseSchema validation failed:",
+            {
+              error: error,
+              responseData: JSON.stringify(responseData, null, 2),
+              analysis: JSON.stringify(analysis, null, 2),
+            }
+          );
+          throw new Error(
+            `AnalyzeRubricCriterionResponseSchema validation failed. Response data: ${JSON.stringify(
+              responseData,
+              null,
+              2
+            )}. Error: ${error}`
+          );
+        }
+
+        return validatedResponse;
       } catch (error) {
-        console.error("Error analyzing rubric criterion:", error);
-
-        // Handle different types of errors with early returns
-        if (!(error instanceof Error)) {
-          throw new Error(
-            `Failed to analyze rubric criterion: ${String(error)}`
-          );
-        }
-
-        const message = error.message;
-
-        // OpenAI API schema validation errors
-        if (message.includes("Invalid schema for response_format")) {
-          console.error("OpenAI Schema Validation Error:");
-          console.error(
-            "This indicates a mismatch between our Zod schema and OpenAI's strict mode requirements"
-          );
-          console.error(
-            "All properties in the schema must be in the 'required' array for strict mode"
-          );
-          throw new Error(
-            "AI service schema validation failed. Please check that all schema properties are marked as required for OpenAI strict mode."
-          );
-        }
-
-        // OpenAI API rate limiting
-        if (message.includes("429") || message.includes("rate")) {
-          throw new Error(
-            "AI service rate limit exceeded. Please try again in a few moments."
-          );
-        }
-
-        // OpenAI API authentication errors
-        if (message.includes("401") || message.includes("authentication")) {
-          throw new Error(
-            "AI service authentication failed. Please check your API key configuration."
-          );
-        }
-
-        // JSON parsing errors
-        if (message.includes("Invalid analysis format")) {
-          throw new Error(
-            "AI service returned invalid response format. The response could not be parsed as valid JSON matching the expected schema."
-          );
-        }
-
-        // File system errors
-        if (message.includes("ENOENT") || message.includes("no such file")) {
-          throw new Error(
-            "Submission files not found. Please ensure the student has submitted their assignment and files have been processed."
-          );
-        }
-
-        // Network or timeout errors
-        if (message.includes("timeout") || message.includes("ECONNRESET")) {
-          throw new Error(
-            "Network timeout while contacting AI service. Please try again."
-          );
-        }
-
-        // Generic fallback with original error details
-        throw new Error(`Failed to analyze rubric criterion: ${message}`);
+        handleRubricAnalysisError(error);
       }
     }),
 
@@ -621,15 +474,47 @@ Provide specific file references, line numbers for text files, and page numbers 
         const evaluations = evaluationFiles.map((filePath) => {
           try {
             const content = fs.readFileSync(filePath, "utf-8");
-            const data = JSON.parse(content);
+            let data;
+            try {
+              data = JSON.parse(content);
+            } catch (error) {
+              console.error("Failed to parse evaluation file as JSON:", {
+                filePath,
+                error: error,
+                content: content.substring(0, 500),
+              });
+              throw new Error(
+                `Failed to parse evaluation file as JSON: ${filePath}. Error: ${error}`
+              );
+            }
+
+            // Validate the full evaluation data first
+            let validatedEvaluation;
+            try {
+              validatedEvaluation = FullEvaluationSchema.parse(data);
+            } catch (error) {
+              console.error("FullEvaluationSchema validation failed:", {
+                filePath,
+                error: error,
+                data: JSON.stringify(data, null, 2),
+              });
+              throw new Error(
+                `FullEvaluationSchema validation failed for file: ${filePath}. Data: ${JSON.stringify(
+                  data,
+                  null,
+                  2
+                )}. Error: ${error}`
+              );
+            }
+
             return {
               filePath,
               fileName: path.basename(filePath),
-              metadata: data.metadata,
+              metadata: validatedEvaluation.metadata,
               evaluationSummary: {
-                satisfied: data.evaluation?.satisfied,
-                confidence: data.evaluation?.confidence,
-                recommendedPoints: data.evaluation?.recommendedPoints,
+                confidence: validatedEvaluation.evaluation.confidence,
+                recommendedPoints:
+                  validatedEvaluation.evaluation.recommendedPoints,
               },
             };
           } catch (error) {
@@ -642,7 +527,7 @@ Provide specific file references, line numbers for text files, and page numbers 
           }
         });
 
-        return {
+        const response: ExistingEvaluationsResponse = {
           studentName,
           evaluations: evaluations.sort((a, b) => {
             // Sort by timestamp, newest first
@@ -651,6 +536,8 @@ Provide specific file references, line numbers for text files, and page numbers 
             return (bTime || "").localeCompare(aTime || "");
           }),
         };
+
+        return ExistingEvaluationsResponseSchema.parse(response);
       } catch (error) {
         console.error("Error getting existing evaluations:", error);
         throw new Error(
@@ -714,18 +601,59 @@ Provide specific file references, line numbers for text files, and page numbers 
           try {
             const filePath = path.join(parentDir, fileName);
             const content = fs.readFileSync(filePath, "utf-8");
-            const evaluationData = JSON.parse(content);
 
-            evaluations.push({
-              filePath,
-              fileName,
-              metadata: evaluationData.metadata,
-              conversation: evaluationData.conversation,
-              evaluation: evaluationData.evaluation,
-              submissionPath: evaluationData.submissionPath,
-            });
+            let evaluationData;
+            try {
+              evaluationData = JSON.parse(content);
+            } catch (error) {
+              console.error("Failed to parse evaluation file as JSON:", {
+                fileName,
+                filePath,
+                error: error,
+                content: content.substring(0, 500),
+              });
+              throw new Error(
+                `Failed to parse evaluation file as JSON: ${fileName}. Error: ${error}. Content: ${content.substring(
+                  0,
+                  500
+                )}...`
+              );
+            }
+
+            // Validate the evaluation data against the schema
+            let validatedEvaluation;
+            try {
+              validatedEvaluation = FullEvaluationSchema.parse({
+                filePath,
+                fileName,
+                metadata: evaluationData.metadata,
+                conversation: evaluationData.conversation,
+                evaluation: evaluationData.evaluation,
+                submissionPath: evaluationData.submissionPath,
+              });
+            } catch (error) {
+              console.error("FullEvaluationSchema validation failed:", {
+                fileName,
+                filePath,
+                error: error,
+                evaluationData: JSON.stringify(evaluationData, null, 2),
+              });
+              throw new Error(
+                `FullEvaluationSchema validation failed for file: ${fileName}. Data: ${JSON.stringify(
+                  evaluationData,
+                  null,
+                  2
+                )}. Error: ${error}`
+              );
+            }
+
+            evaluations.push(validatedEvaluation);
           } catch (error) {
             console.error(`Error reading evaluation file ${fileName}:`, error);
+            console.error(
+              "Validation error details:",
+              error instanceof Error ? error.message : String(error)
+            );
             // Continue with other files instead of failing completely
           }
         }

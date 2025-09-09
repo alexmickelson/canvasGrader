@@ -2,16 +2,10 @@ import type { FC } from "react";
 import { ViewFileComponent } from "../submission/fileViewer/ViewFileComponent";
 import { Expandable } from "../../../utils/Expandable";
 import ExpandIcon from "../../../utils/ExpandIcon";
+import type { Evidence } from "../../../server/trpc/routers/rubricAiReportModels";
 
 export const EvidenceItem: FC<{
-  evidence: {
-    fileName: string;
-    lineNumbers: {
-      start: { line: number; column: number };
-      end: { line: number; column: number };
-    };
-    description: string;
-  };
+  evidence: Evidence;
   assignmentId: number;
   studentName: string;
   termName: string;
@@ -56,10 +50,10 @@ export const EvidenceItem: FC<{
           termName={termName}
           courseName={courseName}
           filePath={evidence.fileName}
-          startLine={evidence.lineNumbers.start.line}
-          startColumn={evidence.lineNumbers.start.column}
-          endLine={evidence.lineNumbers.end.line}
-          endColumn={evidence.lineNumbers.end.column}
+          startLine={evidence.lineNumbers?.start.line}
+          startColumn={evidence.lineNumbers?.start.column}
+          endLine={evidence.lineNumbers?.end.line}
+          endColumn={evidence.lineNumbers?.end.column}
         />
       </Expandable>
     </div>
