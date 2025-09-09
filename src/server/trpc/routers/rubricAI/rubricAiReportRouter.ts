@@ -26,34 +26,15 @@ import {
   handleRubricAnalysisError,
   saveEvaluationResults,
 } from "./rubricAiUtils";
-
-// Initialize OpenAI client
-const aiUrl = process.env.AI_URL;
-const aiToken = process.env.AI_TOKEN;
+import { getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
 
 // const model = "claude-sonnet-4";
 const model = "gpt-5";
 
-if (!aiUrl || !aiToken) {
-  console.warn(
-    "AI_URL and AI_TOKEN environment variables are required for AI features"
-  );
-}
-
-const openai =
-  aiUrl && aiToken
-    ? new OpenAI({
-        apiKey: aiToken,
-        baseURL: aiUrl,
-      })
-    : null;
-
 // Helper function to extract text from PDF files using OpenAI vision
 async function extractTextFromPdf(pdfPath: string): Promise<string> {
   try {
-    if (!openai) {
-      return `[PDF analysis unavailable: AI service not configured]`;
-    }
+    const openai = getOpenaiClient();
 
     // Convert PDF to PNG images using pdf2pic with aspect ratio preservation
     const pdfBasename = path.basename(pdfPath, ".pdf");
@@ -256,12 +237,6 @@ export const rubricAiReportRouter = createTRPCRouter({
         courseName,
         assignmentName,
       } = input;
-
-      if (!openai) {
-        throw new Error(
-          "AI service not configured. Please set AI_URL and AI_TOKEN environment variables."
-        );
-      }
 
       try {
         // Get submission directory
@@ -587,7 +562,6 @@ Provide specific file references, line numbers for text files, and page numbers 
           studentName,
         });
         const sanitizedStudentName = sanitizeName(studentName);
-
 
         // Read all files in the directory
         const files = fs.readdirSync(submissionDir);

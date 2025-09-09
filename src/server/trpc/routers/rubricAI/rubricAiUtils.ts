@@ -14,22 +14,7 @@ import {
   FullEvaluationSchema,
 } from "./rubricAiReportModels";
 import OpenAI from "openai";
-
-// Initialize OpenAI client
-const aiUrl = process.env.AI_URL;
-const aiToken = process.env.AI_TOKEN;
-// const model = "claude-sonnet-4";
-
-if (!aiUrl || !aiToken) {
-  console.warn(
-    "AI_URL and AI_TOKEN environment variables are required for AI features"
-  );
-}
-
-const openai = new OpenAI({
-  apiKey: aiToken,
-  baseURL: aiUrl,
-});
+import { getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
 
 export async function getRubricAnalysisConversation({
   startingMessages,
@@ -45,6 +30,7 @@ export async function getRubricAnalysisConversation({
   conversation: OpenAI.Chat.ChatCompletionMessageParam[];
   result: z.infer<typeof resultSchema>;
 }> {
+  const openai = getOpenaiClient();
   const toolsSchema = tools.map((tool) =>
     zodFunction({
       name: tool.name,
@@ -74,6 +60,11 @@ export async function getRubricAnalysisConversation({
     // Add the new messages to the conversation
     conversationMessages.push(...result.newMessages);
     if (result.done) break;
+
+    conversationMessages.push({
+      role: "user",
+      content: `Continue your analysis if you need more information, or provide your final structured JSON analysis when you have gathered enough evidence.`,
+    });
   }
 
   // Add final prompt for structured output
@@ -178,6 +169,7 @@ async function explorationRound({
   done: boolean;
   newMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 }> {
+  const openai = getOpenaiClient();
   console.log(`AI exploration round ${round}`);
 
   console.log(
@@ -240,12 +232,6 @@ async function explorationRound({
 
     // Add tool messages to new messages array
     newMessages.push(...toolMessages);
-
-    // Add a message encouraging the AI to continue or finish
-    newMessages.push({
-      role: "user",
-      content: `Continue your analysis if you need more information, or provide your final structured JSON analysis when you have gathered enough evidence.`,
-    });
   } else {
     // If no tool calls, the AI is ready to provide structured output
     console.log(

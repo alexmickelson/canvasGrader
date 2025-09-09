@@ -1,7 +1,8 @@
 import type { FC } from "react";
 import { useAiAnalysisQuery } from "../graderHooks";
 import Spinner from "../../../utils/Spinner";
-import { EvidenceItem } from "./EvidenceItem";
+import { AnalysisSummary } from "../shared/AnalysisSummary";
+import { EvidenceSection } from "../shared/EvidenceSection";
 
 export const AICriterionAnalysis: FC<{
   courseId: number;
@@ -80,38 +81,22 @@ export const AICriterionAnalysis: FC<{
         </div>
       </div>
 
-      <div className="space-y-2">
-        <h5 className="text-sm font-medium text-purple-300">
-          Recommended Score
-        </h5>
-        <div className="text-lg font-bold text-green-400">
-          {analysis.recommendedPoints} / {criterionPoints} pts
-        </div>
-      </div>
+      <AnalysisSummary
+        confidence={analysis.confidence}
+        recommendedPoints={analysis.recommendedPoints}
+        totalPoints={criterionPoints}
+        description={analysis.description}
+      />
 
-      <div className="space-y-2">
-        <h5 className="text-sm font-medium text-purple-300">Description</h5>
-        <p className="text-sm text-gray-300 whitespace-pre-wrap">
-          {analysis.description}
-        </p>
-      </div>
-
-      {analysis.evidence.length > 0 && (
-        <div className="space-y-2">
-          <h6 className="text-purple-300  ">Evidence</h6>
-          {analysis.evidence.map((evidence, index) => (
-            <EvidenceItem
-              key={index}
-              evidence={evidence}
-              assignmentId={assignmentId}
-              studentName={studentName}
-              termName={termName}
-              courseName={courseName}
-              assignmentName={assignmentName}
-            />
-          ))}
-        </div>
-      )}
+      <EvidenceSection
+        evidence={analysis.evidence}
+        assignmentId={assignmentId}
+        studentName={studentName}
+        termName={termName}
+        courseName={courseName}
+        assignmentName={assignmentName}
+        title="Evidence"
+      />
     </div>
   );
 };
