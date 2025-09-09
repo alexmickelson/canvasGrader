@@ -1,15 +1,15 @@
 import z from "zod";
-import { createTRPCRouter, publicProcedure } from "../utils/trpc";
+import { createTRPCRouter, publicProcedure } from "../../utils/trpc";
 import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
 import {
   getSubmissionDirectory,
   sanitizeName,
-} from "./canvas/canvasStorageUtils";
-import { createAiTool } from "../../../utils/aiUtils/createAiTool";
+} from "../canvas/canvasStorageUtils";
+import { createAiTool } from "../../../../utils/aiUtils/createAiTool";
 import pdf2pic from "pdf2pic";
-import { getAllFilePaths } from "../utils/fileUtils";
+import { getAllFilePaths } from "../../utils/fileUtils";
 import {
   AnalysisResultSchema,
   type FullEvaluation,

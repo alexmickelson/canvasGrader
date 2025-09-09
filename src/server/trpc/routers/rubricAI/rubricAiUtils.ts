@@ -1,11 +1,11 @@
 import { zodResponseFormat, zodFunction } from "openai/helpers/zod";
-import type { AiTool } from "../../../utils/aiUtils/createAiTool";
-import { executeToolCall } from "../../../utils/aiUtils/executeToolCall";
+import type { AiTool } from "../../../../utils/aiUtils/createAiTool";
+import { executeToolCall } from "../../../../utils/aiUtils/executeToolCall";
 import { z } from "zod";
 import {
   getMetadataSubmissionDirectory,
   sanitizeName,
-} from "./canvas/canvasStorageUtils";
+} from "../canvas/canvasStorageUtils";
 import fs from "fs";
 import path from "path";
 import {

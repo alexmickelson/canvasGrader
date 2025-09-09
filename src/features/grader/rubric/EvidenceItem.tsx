@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { ViewFileComponent } from "../submission/fileViewer/ViewFileComponent";
 import { Expandable } from "../../../utils/Expandable";
 import ExpandIcon from "../../../utils/ExpandIcon";
-import type { Evidence } from "../../../server/trpc/routers/rubricAiReportModels";
+import type { Evidence } from "../../../server/trpc/routers/rubricAI/rubricAiReportModels";
 
 export const EvidenceItem: FC<{
   evidence: Evidence;

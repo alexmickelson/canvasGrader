@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Spinner from "../../../utils/Spinner";
 import { useAllEvaluationsQuery } from "../graderHooks";
-import type { FullEvaluation } from "../../../server/trpc/routers/rubricAiReportModels";
+import type { FullEvaluation } from "../../../server/trpc/routers/rubricAI/rubricAiReportModels";
 
 export const AnalysisView: React.FC<{
   assignmentId: number;
