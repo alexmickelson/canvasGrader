@@ -44,3 +44,32 @@ export const AnalysisResultSchema = z.object({
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
+
+// Schema for evaluation metadata
+export const EvaluationMetadataSchema = z.object({
+  courseId: z.number(),
+  assignmentId: z.number(),
+  studentName: z.string(),
+  criterionId: z.string().optional(),
+  criterionDescription: z.string(),
+  timestamp: z.string(),
+  model: z.string(),
+});
+
+export type EvaluationMetadata = z.infer<typeof EvaluationMetadataSchema>;
+
+// Schema for full evaluation data
+export const FullEvaluationSchema = z.object({
+  filePath: z.string().describe("Full path to the evaluation file"),
+  fileName: z.string().describe("Name of the evaluation file"),
+  metadata: EvaluationMetadataSchema.describe("Evaluation metadata"),
+  conversation: z
+    .array(z.any())
+    .describe("Complete conversation history with AI"),
+  evaluation: z
+    .record(z.unknown())
+    .describe("Structured analysis result from AI"),
+  submissionPath: z.string().describe("Path to the original submission files"),
+});
+
+export type FullEvaluation = z.infer<typeof FullEvaluationSchema>;

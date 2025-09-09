@@ -13,6 +13,7 @@ import pdf2pic from "pdf2pic";
 import { getAllFilePaths } from "../utils/fileUtils";
 import {
   AnalysisResultSchema,
+  type FullEvaluation,
 } from "./rubricAiReportModels";
 import { getRubricAnalysisConversation } from "./rubricAiUtils";
 
@@ -322,7 +323,6 @@ async function getExistingEvaluations({
   }
 }
 
-
 export const rubricAiReportRouter = createTRPCRouter({
   analyzeRubricCriterion: publicProcedure
     .input(
@@ -484,18 +484,13 @@ Provide specific file references, line numbers for text files, and page numbers 
           },
         ];
 
-        const {conversation, result: analysis} = await getRubricAnalysisConversation({
-        startingMessages: messages,
-        tools,
-        model,
-        resultSchema: AnalysisResultSchema,
-      });
-
-
-
-        // Parse the AI response using the utility function
-
-        console.log("Successfully parsed AI response");
+        const { conversation, result: analysis } =
+          await getRubricAnalysisConversation({
+            startingMessages: messages,
+            tools,
+            model,
+            resultSchema: AnalysisResultSchema,
+          });
 
         // Validate and prepare the response
         const responseData = {
@@ -660,6 +655,93 @@ Provide specific file references, line numbers for text files, and page numbers 
         console.error("Error getting existing evaluations:", error);
         throw new Error(
           `Failed to get existing evaluations: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }),
+
+  getAllEvaluations: publicProcedure
+    .input(
+      z.object({
+        assignmentId: z.number(),
+        assignmentName: z.string(),
+        courseName: z.string(),
+        termName: z.string(),
+        studentName: z.string(),
+      })
+    )
+    .query(async ({ input }): Promise<FullEvaluation[]> => {
+      const {
+        courseName,
+        termName,
+        assignmentName,
+        assignmentId,
+        studentName,
+      } = input;
+
+      try {
+        // Get the submission directory
+        const submissionDir = getSubmissionDirectory({
+          termName,
+          courseName,
+          assignmentId,
+          assignmentName,
+          studentName,
+        });
+        const parentDir = path.dirname(submissionDir);
+        const sanitizedStudentName = sanitizeName(studentName);
+
+        // Check if directory exists
+        if (!fs.existsSync(parentDir)) {
+          return [];
+        }
+
+        // Read all files in the directory
+        const files = fs.readdirSync(parentDir);
+
+        // Filter for evaluation files (format: <student-name>.rubric.<criterion-id>-<timestamp>.json)
+        const evaluationFiles = files.filter(
+          (file) =>
+            file.startsWith(`${sanitizedStudentName}.rubric.`) &&
+            file.endsWith(".json")
+        );
+
+        // Load and parse each evaluation file
+        const evaluations: FullEvaluation[] = [];
+
+        for (const fileName of evaluationFiles) {
+          try {
+            const filePath = path.join(parentDir, fileName);
+            const content = fs.readFileSync(filePath, "utf-8");
+            const evaluationData = JSON.parse(content);
+
+            evaluations.push({
+              filePath,
+              fileName,
+              metadata: evaluationData.metadata,
+              conversation: evaluationData.conversation,
+              evaluation: evaluationData.evaluation,
+              submissionPath: evaluationData.submissionPath,
+            });
+          } catch (error) {
+            console.error(`Error reading evaluation file ${fileName}:`, error);
+            // Continue with other files instead of failing completely
+          }
+        }
+
+        // Sort by timestamp, newest first
+        evaluations.sort((a, b) => {
+          const aTime = a.metadata?.timestamp || "";
+          const bTime = b.metadata?.timestamp || "";
+          return bTime.localeCompare(aTime);
+        });
+
+        return evaluations;
+      } catch (error) {
+        console.error("Error loading all evaluations:", error);
+        throw new Error(
+          `Failed to load evaluations: ${
             error instanceof Error ? error.message : String(error)
           }`
         );
