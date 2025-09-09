@@ -1,15 +1,15 @@
 import fs from "fs";
 import path from "path";
-import { axiosClient } from "../../../../utils/axiosUtils";
-import { canvasRequestOptions } from "./canvasServiceUtils";
-import { parseSchema } from "../parseSchema";
+import { axiosClient } from "../../../../utils/axiosUtils.js";
+import { canvasRequestOptions } from "./canvasServiceUtils.js";
+import { parseSchema } from "../parseSchema.js";
 import type {
   CanvasAssignment,
   CanvasCourse,
   CanvasSubmission,
   CanvasRubric,
-} from "./canvasModels";
-import { CanvasCourseSchema, CanvasSubmissionSchema } from "./canvasModels";
+} from "./canvasModels.js";
+import { CanvasCourseSchema, CanvasSubmissionSchema } from "./canvasModels.js";
 import TurndownService from "turndown";
 
 const canvasBaseUrl =

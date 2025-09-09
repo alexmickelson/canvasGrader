@@ -20,11 +20,6 @@
           text = ''
             set -euo pipefail
 
-            # Copy source to a writable temporary directory
-            TMPDIR=$(mktemp -d)
-            cp -r ${self}/* "$TMPDIR"
-            cd "$TMPDIR"
-
             # Ensure dependencies are installed
             if [ ! -d node_modules ]; then
               echo "Installing dependencies with pnpm..."

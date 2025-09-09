@@ -5,6 +5,8 @@ import * as trpcExpress from "@trpc/server/adapters/express";
 import path from "path";
 import { appRouter } from "./trpc/utils/main.js";
 import cron from "node-cron";
+import dotenv from 'dotenv';
+dotenv.config();
 
 cron.schedule("0 2 * * *", async () => {
   console.log("running a task every night at 2 am");

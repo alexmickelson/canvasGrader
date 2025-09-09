@@ -1,10 +1,10 @@
 import z from "zod";
-import { createTRPCRouter, publicProcedure } from "../../utils/trpc";
+import { createTRPCRouter, publicProcedure } from "../../utils/trpc.js";
 import {
   paginatedRequest,
   canvasRequestOptions,
   downloadSubmissionAttachmentsToFolder,
-} from "./canvasServiceUtils";
+} from "./canvasServiceUtils.js";
 import {
   ensureDir,
   sanitizeName,
@@ -15,9 +15,9 @@ import {
   persistSubmissionsToStorage,
   persistRubricToStorage,
   getSubmissionDirectory,
-} from "./canvasStorageUtils";
-import { parseSchema } from "../parseSchema";
-import { axiosClient } from "../../../../utils/axiosUtils";
+} from "./canvasStorageUtils.js";
+import { parseSchema } from "../parseSchema.js";
+import { axiosClient } from "../../../../utils/axiosUtils.js";
 import fs from "fs";
 import path from "path";
 import {
@@ -32,7 +32,7 @@ import {
   summarizeAndLog,
   cleanupTempDir,
   type GithubUserMapEntry,
-} from "./githubClassroomUtils";
+} from "./githubClassroomUtils.js";
 import {
   CanvasRubricSchema,
   CanvasEnrollmentSchema,
@@ -44,7 +44,7 @@ import {
   CanvasSubmissionSchema,
   type CanvasRubric,
   type CanvasEnrollment,
-} from "./canvasModels";
+} from "./canvasModels.js";
 
 // execAsync removed (no longer needed after refactor)
 

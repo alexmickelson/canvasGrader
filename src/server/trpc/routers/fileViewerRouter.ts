@@ -88,11 +88,22 @@ export const fileViewerRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
-      const { filePath } = input;
+      const {
+        filePath,
+        termName,
+        courseName,
+        assignmentId,
+        assignmentName,
+        studentName,
+      } = input;
 
       try {
         const basePath = getSubmissionDirectory({
-          ...input,
+          termName,
+          courseName,
+          assignmentId,
+          assignmentName,
+          studentName,
         });
 
         const fullFilePath = path.join(basePath, filePath);
@@ -165,11 +176,21 @@ export const fileViewerRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
-      const { studentName } = input;
+      const {
+        studentName,
+        termName,
+        courseName,
+        assignmentId,
+        assignmentName,
+      } = input;
 
       try {
         const basePath = getSubmissionDirectory({
-          ...input,
+          termName,
+          courseName,
+          assignmentId,
+          assignmentName,
+          studentName,
         });
 
         if (!fs.existsSync(basePath)) {
