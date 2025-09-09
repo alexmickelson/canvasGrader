@@ -93,6 +93,7 @@ Provide specific file references, line numbers for text files, and page numbers 
       model: model,
       messages: conversationMessages,
       response_format: zodResponseFormat(resultSchema, "rubric_analysis"),
+      stream: false,
       temperature: 0.1,
     });
   } catch (error) {
@@ -110,6 +111,7 @@ Provide specific file references, line numbers for text files, and page numbers 
 
   // Parse the final result - with zodResponseFormat, this should be valid JSON
   if (!finalMessage.content) {
+    console.log(JSON.stringify(finalResponse, null, 2));
     throw new Error("No content in final response from AI service");
   }
 
@@ -249,7 +251,9 @@ async function explorationRound({
     done: false,
     newMessages,
   };
-} // Helper function to handle rubric analysis errors
+} 
+
+// Helper function to handle rubric analysis errors
 export function handleRubricAnalysisError(error: unknown) {
   console.error("Error analyzing rubric criterion:", error);
 

@@ -24,3 +24,10 @@ export function getOpenaiClient(): OpenAI {
   }
   return openai;
 }
+
+
+export const aiModel = (() => {
+  const model = process.env.AI_MODEL;
+  if (!model) throw new Error("AI_MODEL not set");
+  return model;
+})();

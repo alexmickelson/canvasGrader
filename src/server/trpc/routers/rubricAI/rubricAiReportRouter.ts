@@ -26,10 +26,11 @@ import {
   handleRubricAnalysisError,
   saveEvaluationResults,
 } from "./rubricAiUtils";
-import { getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
+import { aiModel, getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
 
 // const model = "claude-sonnet-4";
-const model = "gpt-5";
+// const model = "gpt-5";
+// const model = "gpt-oss:120b";
 
 // Helper function to extract text from PDF files using OpenAI vision
 async function extractTextFromPdf(pdfPath: string): Promise<string> {
@@ -62,7 +63,7 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
       // Use OpenAI to transcribe the PNG image
       console.log(`Transcribing page ${i + 1} of PDF: ${pdfPath}`);
       const response = await openai.chat.completions.create({
-        model: model,
+        model: aiModel,
         messages: [
           {
             role: "user",
@@ -137,7 +138,7 @@ async function extractTextFromPdf(pdfPath: string): Promise<string> {
       error instanceof Error &&
       error.message.includes("invalid_request_body")
     ) {
-      return `[PDF transcription unavailable: Current AI model (${model}) may not support vision capabilities for PDF analysis. PDF file: ${path.basename(
+      return `[PDF transcription unavailable: Current AI model (${aiModel}) may not support vision capabilities for PDF analysis. PDF file: ${path.basename(
         pdfPath
       )}]`;
     }
@@ -357,7 +358,7 @@ Provide specific file references, line numbers for text files, and page numbers 
           await getRubricAnalysisConversation({
             startingMessages: messages,
             tools,
-            model,
+            model: aiModel,
             resultSchema: AnalysisResultSchema,
           });
 
@@ -374,7 +375,7 @@ Provide specific file references, line numbers for text files, and page numbers 
           courseName,
           assignmentName,
           termName,
-          model,
+          model: aiModel,
         });
 
         // Prepare and validate the response
