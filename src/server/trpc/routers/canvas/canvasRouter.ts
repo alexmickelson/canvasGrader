@@ -15,6 +15,7 @@ import {
   persistSubmissionsToStorage,
   persistRubricToStorage,
   getSubmissionDirectory,
+  loadSubmissionsFromStorage,
 } from "./canvasStorageUtils.js";
 import { parseSchema } from "../parseSchema.js";
 import { axiosClient } from "../../../../utils/axiosUtils.js";
@@ -277,6 +278,24 @@ export const canvasRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
+      // Check if submissions already exist in storage
+      console.log(
+        `Checking for existing submissions in storage for assignment ${input.assignmentId}`
+      );
+      const existingSubmissions = await loadSubmissionsFromStorage(
+        input.courseId,
+        input.assignmentId
+      );
+
+      if (existingSubmissions && existingSubmissions.length > 0) {
+        console.log(
+          `Found ${existingSubmissions.length} existing submissions, returning cached results`
+        );
+        return existingSubmissions;
+      }
+
+      console.log("No existing submissions found, fetching from Canvas API");
+
       const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions`;
       const submissions = await paginatedRequest<CanvasSubmission[]>({
         url,
@@ -313,6 +332,58 @@ export const canvasRouter = createTRPCRouter({
         filteredSubmissions
       );
 
+      return filteredSubmissions;
+    }),
+
+  refreshAssignmentSubmissions: publicProcedure
+    .input(
+      z.object({
+        courseId: z.coerce.number(),
+        assignmentId: z.coerce.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      console.log(
+        `Force refreshing submissions from Canvas API for assignment ${input.assignmentId}`
+      );
+
+      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions`;
+      const submissions = await paginatedRequest<CanvasSubmission[]>({
+        url,
+        params: {
+          include: ["user", "submission_comments", "rubric_assessment"],
+        },
+      });
+      const parsedSubmissions = submissions.map((submission) =>
+        parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
+      );
+
+      // Filter out submissions from Test Student
+      const filteredSubmissions = parsedSubmissions.filter((submission) => {
+        if (isTestStudentSubmission(submission)) {
+          console.log(
+            `Filtering out Test Student submission (ID: ${submission.id})`
+          );
+          return false;
+        }
+        return true;
+      });
+
+      const filteredCount =
+        parsedSubmissions.length - filteredSubmissions.length;
+      if (filteredCount > 0) {
+        console.log(`Filtered out ${filteredCount} Test Student submission(s)`);
+      }
+
+      await persistSubmissionsToStorage(
+        input.courseId,
+        input.assignmentId,
+        filteredSubmissions
+      );
+
+      console.log(
+        `Successfully refreshed ${filteredSubmissions.length} submissions`
+      );
       return filteredSubmissions;
     }),
   // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.

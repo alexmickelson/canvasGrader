@@ -58,7 +58,7 @@ export function getAssignmentDirectory({
     sanitizeName(`${assignmentId} - ${assignmentName}`)
   );
   ensureDir(assignDir);
-  return baseDir;
+  return assignDir;
 }
 
 export function getSubmissionDirectory({
@@ -389,6 +389,80 @@ export function storeSubmissionJson(
     console.log("Saved submission.json to:", submissionJsonPath);
   } catch (err) {
     console.warn("Failed to store submission.json in original directory", err);
+  }
+}
+
+// Load submissions from storage
+export async function loadSubmissionsFromStorage(
+  courseId: number,
+  assignmentId: number
+): Promise<CanvasSubmission[] | null> {
+  try {
+    const { courseName, termName } = await getCourseMeta(courseId);
+    const { data: assignment } = await axiosClient.get(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+      {
+        headers: canvasRequestOptions.headers,
+      }
+    );
+    const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
+
+    const assignmentDir = getAssignmentDirectory({
+      termName,
+      courseName,
+      assignmentId,
+      assignmentName,
+    });
+
+    if (!fs.existsSync(assignmentDir)) {
+      console.log(`Assignment directory does not exist: ${assignmentDir}`);
+      return null;
+    }
+
+    const submissions: CanvasSubmission[] = [];
+    const entries = fs.readdirSync(assignmentDir, { withFileTypes: true });
+
+    console.log(
+      `Found ${entries.length} entries in assignment directory: ${assignmentDir}`
+    );
+
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.endsWith("_metadata")) {
+        const metadataDir = path.join(assignmentDir, entry.name);
+        const submissionJsonPath = path.join(metadataDir, "submission.json");
+
+        console.log(`Checking for submission.json at: ${submissionJsonPath}`);
+
+        if (fs.existsSync(submissionJsonPath)) {
+          try {
+            const submissionData = fs.readFileSync(submissionJsonPath, "utf8");
+            const submission = JSON.parse(submissionData);
+            const parsedSubmission = parseSchema(
+              CanvasSubmissionSchema,
+              submission,
+              "CanvasSubmission"
+            );
+            submissions.push(parsedSubmission);
+            console.log(
+              `Successfully loaded submission from: ${submissionJsonPath}`
+            );
+          } catch (err) {
+            console.warn(
+              `Failed to parse submission file: ${submissionJsonPath}`,
+              err
+            );
+          }
+        } else {
+          console.log(`submission.json not found at: ${submissionJsonPath}`);
+        }
+      }
+    }
+
+    console.log(`Loaded ${submissions.length} submissions from storage`);
+    return submissions.length > 0 ? submissions : null;
+  } catch (err) {
+    console.warn("Failed to load submissions from storage", err);
+    return null;
   }
 }
 

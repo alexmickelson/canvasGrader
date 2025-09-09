@@ -21,24 +21,18 @@ export const AnalysisView: React.FC<{
   const [selectedAnalysis, setSelectedAnalysis] =
     useState<FullEvaluation | null>(null);
 
-  // Use actual data from the query
-  const analyses = allEvaluations || [];
 
-  if (isLoading) {
+  if (!allEvaluations)
     return (
       <div className="flex items-center justify-center h-64">
         <Spinner />
       </div>
     );
-  }
 
-  if (!analyses || analyses.length === 0) {
+  if (isLoading) {
     return (
-      <div className="text-center text-gray-400 py-8">
-        <div className="text-lg mb-2">No Previous Analyses</div>
-        <div className="text-sm">
-          No AI analyses have been performed for this submission yet.
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <Spinner />
       </div>
     );
   }
@@ -49,7 +43,7 @@ export const AnalysisView: React.FC<{
       <div className="flex-shrink-0 border-b border-gray-700 p-4">
         <h3 className="text-lg font-semibold mb-3">Previous AI Analyses</h3>
         <div className="space-y-2">
-          {analyses.map((analysis) => (
+          {allEvaluations.map((analysis) => (
             <button
               key={analysis.fileName}
               onClick={() => setSelectedAnalysis(analysis)}

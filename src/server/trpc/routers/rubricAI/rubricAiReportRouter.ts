@@ -4,6 +4,7 @@ import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
 import {
+  getMetadataSubmissionDirectory,
   getSubmissionDirectory,
   sanitizeName,
 } from "../canvas/canvasStorageUtils";
@@ -567,25 +568,30 @@ Provide specific file references, line numbers for text files, and page numbers 
         studentName,
       } = input;
 
+      console.log("=== getAllEvaluations Debug Info ===");
+      console.log("Input parameters:", {
+        courseName,
+        termName,
+        assignmentName,
+        assignmentId,
+        studentName,
+      });
+
       try {
         // Get the submission directory
-        const submissionDir = getSubmissionDirectory({
+        const submissionDir = getMetadataSubmissionDirectory({
           termName,
           courseName,
           assignmentId,
           assignmentName,
           studentName,
         });
-        const parentDir = path.dirname(submissionDir);
         const sanitizedStudentName = sanitizeName(studentName);
 
-        // Check if directory exists
-        if (!fs.existsSync(parentDir)) {
-          return [];
-        }
 
         // Read all files in the directory
-        const files = fs.readdirSync(parentDir);
+        const files = fs.readdirSync(submissionDir);
+        console.log(`Found ${files.length} files in directory:`, files);
 
         // Filter for evaluation files (format: <student-name>.rubric.<criterion-id>-<timestamp>.json)
         const evaluationFiles = files.filter(
@@ -594,19 +600,46 @@ Provide specific file references, line numbers for text files, and page numbers 
             file.endsWith(".json")
         );
 
+        console.log("Filter criteria:", {
+          startsWith: `${sanitizedStudentName}.rubric.`,
+          endsWith: ".json",
+        });
+
+        console.log(
+          `Found ${evaluationFiles.length} evaluation files:`,
+          evaluationFiles
+        );
+
         // Load and parse each evaluation file
         const evaluations: FullEvaluation[] = [];
 
+        if (evaluationFiles.length === 0) {
+          console.log("❌ No evaluation files found matching the criteria");
+          console.log(
+            "Files that didn't match:",
+            files.filter(
+              (file) =>
+                !file.startsWith(`${sanitizedStudentName}.rubric.`) ||
+                !file.endsWith(".json")
+            )
+          );
+          return [];
+        }
+
+        console.log(`Processing ${evaluationFiles.length} evaluation files...`);
+
         for (const fileName of evaluationFiles) {
           try {
-            const filePath = path.join(parentDir, fileName);
+            console.log(`📁 Processing file: ${fileName}`);
+            const filePath = path.join(submissionDir, fileName);
             const content = fs.readFileSync(filePath, "utf-8");
 
             let evaluationData;
             try {
               evaluationData = JSON.parse(content);
+              console.log(`✅ Successfully parsed JSON for: ${fileName}`);
             } catch (error) {
-              console.error("Failed to parse evaluation file as JSON:", {
+              console.error("❌ Failed to parse evaluation file as JSON:", {
                 fileName,
                 filePath,
                 error: error,
@@ -631,8 +664,9 @@ Provide specific file references, line numbers for text files, and page numbers 
                 evaluation: evaluationData.evaluation,
                 submissionPath: evaluationData.submissionPath,
               });
+              console.log(`✅ Successfully validated schema for: ${fileName}`);
             } catch (error) {
-              console.error("FullEvaluationSchema validation failed:", {
+              console.error("❌ FullEvaluationSchema validation failed:", {
                 fileName,
                 filePath,
                 error: error,
@@ -648,8 +682,12 @@ Provide specific file references, line numbers for text files, and page numbers 
             }
 
             evaluations.push(validatedEvaluation);
+            console.log(`✅ Added evaluation to results: ${fileName}`);
           } catch (error) {
-            console.error(`Error reading evaluation file ${fileName}:`, error);
+            console.error(
+              `❌ Error reading evaluation file ${fileName}:`,
+              error
+            );
             console.error(
               "Validation error details:",
               error instanceof Error ? error.message : String(error)
@@ -665,9 +703,19 @@ Provide specific file references, line numbers for text files, and page numbers 
           return bTime.localeCompare(aTime);
         });
 
+        console.log(
+          `✅ Returning ${evaluations.length} evaluations (sorted by timestamp)`
+        );
+        console.log("=== getAllEvaluations Debug Info End ===");
+
         return evaluations;
       } catch (error) {
-        console.error("Error loading all evaluations:", error);
+        console.error("❌ Error loading all evaluations:", error);
+        console.error("Error details:", {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        console.log("=== getAllEvaluations Debug Info End (Error) ===");
         throw new Error(
           `Failed to load evaluations: ${
             error instanceof Error ? error.message : String(error)
