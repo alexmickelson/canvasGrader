@@ -1,5 +1,4 @@
 import z from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import { OpenAI } from "openai";
 import fs from "fs";
@@ -9,13 +8,13 @@ import {
   getSubmissionDirectory,
   sanitizeName,
 } from "./canvas/canvasStorageUtils";
-import { createAiTool } from "../../../utils/createAiTool";
+import { createAiTool } from "../../../utils/aiUtils/createAiTool";
 import pdf2pic from "pdf2pic";
 import { getAllFilePaths } from "../utils/fileUtils";
 import {
   AnalysisResultSchema,
-  type AnalysisResult,
 } from "./rubricAiReportModels";
+import { getRubricAnalysisConversation } from "./rubricAiUtils";
 
 // Initialize OpenAI client
 const aiUrl = process.env.AI_URL;
@@ -323,188 +322,6 @@ async function getExistingEvaluations({
   }
 }
 
-// Utility function to parse AI response with multiple fallback strategies
-function parseAiResponse(analysisContent: string): AnalysisResult {
-  // Clean up the response content - remove markdown code blocks if present
-  let cleanContent = analysisContent.trim();
-
-  // Remove markdown json code blocks
-  if (cleanContent.startsWith("```json") && cleanContent.endsWith("```")) {
-    cleanContent = cleanContent.slice(7, -3).trim();
-    console.log("Removed markdown json code blocks");
-  } else if (cleanContent.startsWith("```") && cleanContent.endsWith("```")) {
-    cleanContent = cleanContent.slice(3, -3).trim();
-    console.log("Removed markdown code blocks");
-  }
-
-  try {
-    const parsedJson = JSON.parse(cleanContent);
-    return AnalysisResultSchema.parse(parsedJson);
-  } catch (parseError) {
-    console.error("=== JSON PARSE ERROR ANALYSIS ===");
-    console.error("Parse error:", parseError);
-    console.error("Raw content length:", analysisContent.length);
-    console.error("Cleaned content length:", cleanContent.length);
-
-    // Check for signs of concatenated JSON objects
-    const openBraces = (cleanContent.match(/\{/g) || []).length;
-    const closeBraces = (cleanContent.match(/\}/g) || []).length;
-    console.error("Open braces count:", openBraces);
-    console.error("Close braces count:", closeBraces);
-
-    // Try to handle concatenated JSON objects
-    if (cleanContent.match(/\}\s*\{/)) {
-      return parseConcatenatedJson(cleanContent);
-    }
-
-    // Last resort: try to extract a single valid JSON object
-    return extractSingleJsonObject(cleanContent);
-  }
-}
-
-// Helper function to parse concatenated JSON objects
-function parseConcatenatedJson(cleanContent: string): AnalysisResult {
-  console.error(
-    "DETECTED: Concatenated JSON objects found at positions:",
-    [...cleanContent.matchAll(/\}\s*\{/g)].map((match) => match.index)
-  );
-
-  try {
-    console.log("Attempting to parse multiple JSON objects...");
-    const jsonSeparatorMatches = [...cleanContent.matchAll(/\}\s*\{/g)];
-
-    if (jsonSeparatorMatches.length === 0) {
-      throw new Error("No concatenated objects detected");
-    }
-
-    // Split on }{ pattern and reconstruct complete JSON objects
-    const parts = cleanContent.split(/\}\s*\{/);
-    const jsonObjects: string[] = [];
-
-    parts.forEach((part, index) => {
-      const reconstructed =
-        index === 0
-          ? part + "}"
-          : index === parts.length - 1
-          ? "{" + part
-          : "{" + part + "}";
-      jsonObjects.push(reconstructed);
-    });
-
-    console.log(`Found ${jsonObjects.length} potential JSON objects`);
-
-    // Try to parse each object and find the best one
-    const parsedObjects: Record<string, unknown>[] = [];
-
-    for (let i = 0; i < jsonObjects.length; i++) {
-      try {
-        const obj = JSON.parse(jsonObjects[i]);
-        console.log(`Successfully parsed object ${i + 1}:`, Object.keys(obj));
-        parsedObjects.push(obj);
-      } catch (objParseError) {
-        console.error(`Failed to parse object ${i + 1}:`, objParseError);
-      }
-    }
-
-    if (parsedObjects.length === 0) {
-      throw new Error("Could not parse any objects from concatenated JSON");
-    }
-
-    // Find the most complete object that matches our schema
-    const bestObject = findBestJsonObject(parsedObjects);
-
-    if (!bestObject) {
-      throw new Error("No valid objects found in concatenated JSON");
-    }
-
-    console.log("Successfully recovered from concatenated JSON");
-    return AnalysisResultSchema.parse(bestObject);
-  } catch (multiParseError) {
-    console.error("Failed to parse multiple JSON objects:", multiParseError);
-    throw new Error(
-      "Invalid analysis format from AI service - concatenated JSON parsing failed"
-    );
-  }
-}
-
-// Helper function to extract a single valid JSON object
-function extractSingleJsonObject(cleanContent: string): AnalysisResult {
-  console.log("Attempting last resort: single object extraction...");
-
-  try {
-    // Try to find the first complete JSON object
-    let braceCount = 0;
-    let startIndex = -1;
-    let endIndex = -1;
-
-    for (let i = 0; i < cleanContent.length; i++) {
-      if (cleanContent[i] === "{") {
-        if (braceCount === 0) {
-          startIndex = i;
-        }
-        braceCount++;
-      } else if (cleanContent[i] === "}") {
-        braceCount--;
-        if (braceCount === 0 && startIndex !== -1) {
-          endIndex = i;
-          break;
-        }
-      }
-    }
-
-    if (startIndex === -1 || endIndex === -1) {
-      throw new Error("Could not extract valid JSON object");
-    }
-
-    const extractedJson = cleanContent.slice(startIndex, endIndex + 1);
-    console.log(
-      "Extracted first complete JSON object:",
-      extractedJson.substring(0, 200) + "..."
-    );
-
-    const parsedExtracted = JSON.parse(extractedJson);
-    console.log("Successfully recovered using JSON extraction");
-    return AnalysisResultSchema.parse(parsedExtracted);
-  } catch (extractError) {
-    console.error("JSON extraction also failed:", extractError);
-    console.error("Full raw content:", cleanContent);
-    throw new Error(
-      "Invalid analysis format from AI service - all recovery attempts failed"
-    );
-  }
-}
-
-// Helper function to find the best JSON object based on schema completeness
-function findBestJsonObject(
-  parsedObjects: Record<string, unknown>[]
-): Record<string, unknown> | null {
-  let bestObject = null;
-  let bestScore = -1;
-
-  for (const obj of parsedObjects) {
-    // Score based on how many expected fields are present
-    let score = 0;
-    if (obj.satisfied !== undefined) score++;
-    if (obj.confidence !== undefined) score++;
-    if (obj.recommendedPoints !== undefined) score++;
-    if (obj.explanation !== undefined) score++;
-    if (obj.evidence !== undefined) score++;
-    if (obj.additionalFilesNeeded !== undefined) score++;
-
-    console.log(`Object score: ${score}, keys:`, Object.keys(obj));
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestObject = obj;
-    }
-  }
-
-  if (bestObject) {
-    console.log("Using best scoring object with score:", bestScore);
-  }
-
-  return bestObject;
-}
 
 export const rubricAiReportRouter = createTRPCRouter({
   analyzeRubricCriterion: publicProcedure
@@ -601,16 +418,17 @@ export const rubricAiReportRouter = createTRPCRouter({
             }
           },
         });
-        const toolsSchema = [getFileSystemTreeTool, readFileTool].map(
-          (tool) => ({
-            type: "function" as const,
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: zodToJsonSchema(tool.paramsSchema),
-            },
-          })
-        );
+        const tools = [getFileSystemTreeTool, readFileTool];
+        // const toolsSchema = [getFileSystemTreeTool, readFileTool].map(
+        //   (tool) => ({
+        //     type: "function" as const,
+        //     function: {
+        //       name: tool.name,
+        //       description: tool.description,
+        //       parameters: zodToJsonSchema(tool.paramsSchema),
+        //     },
+        //   })
+        // );
 
         // Prepare initial system prompt with file system overview
         const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
@@ -643,123 +461,11 @@ EVALUATION PROCESS:
 4. For text files, pay attention to line numbers when referencing specific content
 5. For PDFs, reference specific pages when citing evidence
 6. For images, note their presence and relevance even though content can't be analyzed
-7. Once you have gathered sufficient evidence, respond with "READY_FOR_STRUCTURED_OUTPUT" to indicate you're ready for the final assessment
-8. Focus on concrete evidence and provide confidence levels for your assessments
+7. Focus on concrete evidence and provide confidence levels for your assessments
 
-Take your time to thoroughly explore the submission before providing your final structured analysis.`;
+Take your time to thoroughly explore the submission before providing your final structured analysis.
 
-        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Please analyze this student submission against the rubric criterion. Start by examining the file system structure and any provided text submission, then use the available tools to read additional files as needed. Provide a comprehensive analysis with specific evidence references. When you're ready to provide your final assessment, respond with "READY_FOR_STRUCTURED_OUTPUT" and I'll ask for your structured analysis.`,
-          },
-        ];
-
-        // Tool exploration loop - allow multiple rounds of tool usage
-        const conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-          ...messages,
-        ];
-        const maxRounds = 10; // Prevent infinite loops
-        let round = 0;
-        let readyForStructuredOutput = false;
-
-        while (!readyForStructuredOutput && round < maxRounds) {
-          round++;
-          console.log(`AI exploration round ${round}`);
-
-          const explorationResponse = await openai.chat.completions.create({
-            model: model,
-            messages: conversationMessages,
-            tools: toolsSchema,
-            tool_choice: "auto",
-            temperature: 0.1,
-          });
-
-          const assistantMessage = explorationResponse.choices[0]?.message;
-          if (!assistantMessage) {
-            throw new Error("No response from AI service");
-          }
-
-          conversationMessages.push(assistantMessage);
-
-          // Check if AI is ready for structured output
-          if (
-            assistantMessage.content?.includes("READY_FOR_STRUCTURED_OUTPUT")
-          ) {
-            readyForStructuredOutput = true;
-            break;
-          }
-
-          // Process any tool calls
-          if (
-            assistantMessage.tool_calls &&
-            assistantMessage.tool_calls.length > 0
-          ) {
-            console.log(
-              `Processing ${assistantMessage.tool_calls.length} tool calls in round ${round}`
-            );
-
-            for (const toolCall of assistantMessage.tool_calls) {
-              if (toolCall.type === "function") {
-                console.log(`  Tool call: ${toolCall.function.name}`);
-                console.log(`  Parameters: ${toolCall.function.arguments}`);
-
-                let result = "";
-
-                if (toolCall.function.name === getFileSystemTreeTool.name) {
-                  result = await getFileSystemTreeTool.fn("{}");
-                } else if (toolCall.function.name === readFileTool.name) {
-                  result = await readFileTool.fn(toolCall.function.arguments);
-                }
-
-                console.log(`  Result length: ${result.length} characters`);
-
-                conversationMessages.push({
-                  role: "tool",
-                  tool_call_id: toolCall.id,
-                  content: result,
-                });
-              }
-            }
-
-            // Add a message encouraging the AI to continue or finish
-            conversationMessages.push({
-              role: "user",
-              content: `Continue your analysis if you need more information, or respond with "READY_FOR_STRUCTURED_OUTPUT" when you have gathered enough evidence to provide a comprehensive assessment.`,
-            });
-          } else {
-            // If no tool calls and not ready, prompt for structured output
-            console.log(
-              "AI response without tool calls or ready signal:",
-              assistantMessage.content
-            );
-
-            // Add a direct request for structured output
-            conversationMessages.push({
-              role: "user",
-              content: `I need you to provide your final structured analysis now. Based on the information you have, please respond with "READY_FOR_STRUCTURED_OUTPUT" so I can request your structured JSON analysis.`,
-            });
-
-            // Give it one more chance, but if it still doesn't respond properly, force exit
-            if (round >= 2) {
-              readyForStructuredOutput = true; // Force exit after giving it a chance
-            }
-          }
-        }
-
-        if (round >= maxRounds) {
-          console.warn(
-            `Reached maximum exploration rounds (${maxRounds}), proceeding to structured output`
-          );
-        }
-
-        // Now get the final structured analysis using Zod schema
-        conversationMessages.push({
-          role: "user",
-          content: `Now please provide your final analysis in the required JSON format. Based on your exploration of the submission files, analyze how well this submission meets the rubric criterion. 
-
-IMPORTANT: Your response must be valid JSON that matches the required schema. Include:
+Use the available tools to explore the submission thoroughly. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis in JSON format. Include:
 - satisfied: boolean indicating if criterion is met
 - confidence: number 0-100 for your confidence level
 - recommendedPoints: number of points to award
@@ -767,47 +473,27 @@ IMPORTANT: Your response must be valid JSON that matches the required schema. In
 - evidence: array of evidence objects with fileName, fileType, relevantContent, meetsRequirement, confidence, and reasoning
 - additionalFilesNeeded: array of any additional files you'd like to examine (optional)
 
-Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.`,
-        });
+Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.
+`;
 
-        let finalResponse;
+        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `Please analyze this student submission against the rubric criterion. Start by examining the file system structure and any provided text submission, then use the available tools to read additional files as needed. When you have gathered sufficient evidence, provide your final structured analysis in JSON format without making any more tool calls.`,
+          },
+        ];
 
-        try {
-          finalResponse = await openai.chat.completions.create({
-            model: model,
-            messages: conversationMessages,
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "rubric_analysis",
-                schema: zodToJsonSchema(AnalysisResultSchema),
-                strict: true,
-              },
-            },
-            temperature: 0.1,
-          });
-        } catch (openaiError) {
-          console.error("OpenAI API Error:", openaiError);
-          throw new Error(
-            "AI service failed to generate structured analysis: " +
-              (openaiError instanceof Error
-                ? openaiError.message
-                : String(openaiError))
-          );
-        }
+        const {conversation, result: analysis} = await getRubricAnalysisConversation({
+        startingMessages: messages,
+        tools,
+        model,
+        resultSchema: AnalysisResultSchema,
+      });
 
-        const analysisContent = finalResponse.choices[0]?.message?.content;
-        if (!analysisContent) {
-          throw new Error("No analysis response from AI service");
-        }
 
-        console.log(
-          "Raw AI response content:",
-          analysisContent.substring(0, 500) + "..."
-        );
 
         // Parse the AI response using the utility function
-        const analysis = parseAiResponse(analysisContent);
 
         console.log("Successfully parsed AI response");
 
@@ -835,7 +521,7 @@ Provide specific file references, line numbers for text files, and page numbers 
           studentName,
           criterionId,
           criterionDescription,
-          conversationMessages,
+          conversationMessages: conversation,
           analysis,
           courseName,
           assignmentName,
