@@ -167,3 +167,21 @@ export const useAllEvaluationsQuery = ({
     })
   );
 };
+
+// GitHub Classroom hooks
+export const useGitHubClassroomsQuery = () => {
+  const trpc = useTRPC();
+  return useQuery(trpc.canvas.getGitHubClassrooms.queryOptions());
+};
+
+export const useGitHubClassroomAssignmentsQuery = (
+  classroomId: string | null
+) => {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.canvas.getGitHubClassroomAssignments.queryOptions({
+      classroomId: classroomId || "",
+    }),
+    enabled: !!classroomId,
+  });
+};

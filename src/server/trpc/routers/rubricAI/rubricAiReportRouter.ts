@@ -1,6 +1,6 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../../utils/trpc";
-import { OpenAI } from "openai";
+
 import fs from "fs";
 import path from "path";
 import {
@@ -19,6 +19,7 @@ import {
   ExistingEvaluationsResponseSchema,
   AnalyzeRubricCriterionResponseSchema,
   type AnalyzeRubricCriterionResponse,
+  type ConversationMessage,
 } from "./rubricAiReportModels";
 import {
   getExistingEvaluations,
@@ -26,7 +27,10 @@ import {
   handleRubricAnalysisError,
   saveEvaluationResults,
 } from "./rubricAiUtils";
-import { aiModel, getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
+import {
+  aiModel,
+  getOpenaiClient,
+} from "../../../../utils/aiUtils/getOpenaiClient";
 
 // const model = "claude-sonnet-4";
 // const model = "gpt-5";
@@ -241,7 +245,7 @@ export const rubricAiReportRouter = createTRPCRouter({
 
       try {
         // Get submission directory
-        const submissionDir = await getSubmissionDirectory({
+        const submissionDir = getSubmissionDirectory({
           termName,
           courseName,
           assignmentId,
@@ -301,6 +305,7 @@ export const rubricAiReportRouter = createTRPCRouter({
           },
         });
         const tools = [getFileSystemTreeTool, readFileTool];
+
         const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
 
 RUBRIC CRITERION TO EVALUATE:
@@ -315,7 +320,6 @@ ${
   textSubmission
     ? `Text Submission Content:
 ${textSubmission}
-
 `
     : "No text submission found."
 }
@@ -346,7 +350,7 @@ Use the available tools to explore the submission thoroughly. When you have gath
 Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.
 `;
 
-        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        const messages: ConversationMessage[] = [
           { role: "system", content: systemPrompt },
           {
             role: "user",

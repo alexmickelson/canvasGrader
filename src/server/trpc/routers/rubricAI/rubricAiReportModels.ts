@@ -73,7 +73,7 @@ export const ToolCallSchema = z.object({
 
 export type ToolCall = z.infer<typeof ToolCallSchema>;
 
-// Schema for conversation messages
+// Schema for conversation messages (internal domain model)
 export const ConversationMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
   content: z.string().optional(),

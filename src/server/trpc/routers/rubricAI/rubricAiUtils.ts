@@ -12,9 +12,57 @@ import {
   type AnalysisResult,
   type FullEvaluation,
   FullEvaluationSchema,
+  type ConversationMessage,
 } from "./rubricAiReportModels";
 import OpenAI from "openai";
 import { getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
+
+// Helper functions to convert between domain model and OpenAI types
+function toOpenAIMessage(
+  message: ConversationMessage
+): OpenAI.Chat.ChatCompletionMessageParam {
+  const baseMessage: Record<string, unknown> = {
+    role: message.role,
+  };
+
+  if (message.content) {
+    baseMessage.content = message.content;
+  }
+
+  if (message.tool_calls && message.tool_calls.length > 0) {
+    baseMessage.tool_calls = message.tool_calls.map((tc) => ({
+      id: tc.id || "",
+      type: "function" as const,
+      function: {
+        name: tc.function?.name || "",
+        arguments: tc.function?.arguments || "",
+      },
+    }));
+  }
+
+  if (message.tool_call_id) {
+    baseMessage.tool_call_id = message.tool_call_id;
+  }
+
+  return baseMessage as unknown as OpenAI.Chat.ChatCompletionMessageParam;
+}
+
+function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
+  const msg = openaiMessage as Record<string, unknown>;
+  return {
+    role: msg.role as ConversationMessage["role"],
+    content: (msg.content as string) || undefined,
+    tool_calls: (msg.tool_calls as unknown[])?.map((tc: unknown) => {
+      const toolCall = tc as Record<string, unknown>;
+      return {
+        id: toolCall.id as string,
+        type: toolCall.type as string,
+        function: toolCall.function as { name: string; arguments?: string },
+      };
+    }),
+    tool_call_id: msg.tool_call_id as string,
+  };
+}
 
 export async function getRubricAnalysisConversation({
   startingMessages,
@@ -22,12 +70,12 @@ export async function getRubricAnalysisConversation({
   model,
   resultSchema,
 }: {
-  startingMessages: OpenAI.Chat.ChatCompletionMessageParam[];
+  startingMessages: ConversationMessage[];
   tools: AiTool[];
   model: string;
   resultSchema: z.ZodTypeAny;
 }): Promise<{
-  conversation: OpenAI.Chat.ChatCompletionMessageParam[];
+  conversation: ConversationMessage[];
   result: z.infer<typeof resultSchema>;
 }> {
   const openai = getOpenaiClient();
@@ -39,27 +87,41 @@ export async function getRubricAnalysisConversation({
     })
   );
 
-  const conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    ...startingMessages,
-  ];
+  const conversationMessages: ConversationMessage[] = [...startingMessages];
   const maxRounds = 10; // Prevent infinite loops
   let round = 0;
 
   while (round < maxRounds) {
     round++;
 
-    const result = await explorationRound({
-      conversationMessages,
-      tools,
-      toolsSchema,
+    // Convert to OpenAI format for the API call
+    const openaiMessages = conversationMessages.map(toOpenAIMessage);
+
+    const completion = await openai.chat.completions.create({
       model,
-      resultSchema,
-      round,
+      messages: openaiMessages,
+      tools: toolsSchema,
     });
 
-    // Add the new messages to the conversation
-    conversationMessages.push(...result.newMessages);
-    if (result.done) break;
+    const assistantMessage = completion.choices[0].message;
+    conversationMessages.push(fromOpenAIMessage(assistantMessage));
+
+    if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      // Execute tool calls and add results
+      const toolMessages = await Promise.all(
+        assistantMessage.tool_calls.map((toolCall) =>
+          executeToolCall(toolCall, tools)
+        )
+      );
+
+      // Convert tool messages back to domain model
+      toolMessages.forEach((msg) =>
+        conversationMessages.push(fromOpenAIMessage(msg))
+      );
+    } else {
+      // No tool calls means we're done with this exploration round
+      break;
+    }
 
     conversationMessages.push({
       role: "user",
@@ -91,7 +153,7 @@ Provide specific file references, line numbers for text files, and page numbers 
   try {
     finalResponse = await openai.chat.completions.parse({
       model: model,
-      messages: conversationMessages,
+      messages: conversationMessages.map(toOpenAIMessage),
       response_format: zodResponseFormat(resultSchema, "rubric_analysis"),
       stream: false,
       temperature: 0.1,
@@ -146,112 +208,12 @@ Provide specific file references, line numbers for text files, and page numbers 
   }
 
   // Add the final response to conversation and return both conversation and result
-  conversationMessages.push(finalMessage);
+  conversationMessages.push(fromOpenAIMessage(finalMessage));
   return {
     conversation: conversationMessages,
     result,
   };
 }
-
-async function explorationRound({
-  conversationMessages,
-  tools,
-  toolsSchema,
-  model,
-  resultSchema,
-  round,
-}: {
-  conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[];
-  tools: AiTool[];
-  toolsSchema: OpenAI.Chat.ChatCompletionTool[];
-  model: string;
-  resultSchema: z.ZodTypeAny;
-  round: number;
-}): Promise<{
-  done: boolean;
-  newMessages: OpenAI.Chat.ChatCompletionMessageParam[];
-}> {
-  const openai = getOpenaiClient();
-  console.log(`AI exploration round ${round}`);
-
-  console.log(
-    `About to call OpenAI exploration round ${round} with zodResponseFormat`
-  );
-
-  let explorationResponse;
-  try {
-    explorationResponse = await openai.chat.completions.parse({
-      model: model,
-      messages: conversationMessages,
-      response_format: zodResponseFormat(resultSchema, "rubric_analysis"),
-      tools: toolsSchema,
-      tool_choice: "auto",
-      temperature: 0.1,
-    });
-  } catch (error) {
-    console.error(`OpenAI exploration round ${round} API call failed:`, {
-      error: error,
-      messageCount: conversationMessages.length,
-      toolCount: toolsSchema.length,
-    });
-    throw new Error(
-      `OpenAI exploration round ${round} API call failed. Error: ${error}`
-    );
-  }
-
-  const assistantMessage = explorationResponse.choices[0]?.message;
-  if (!assistantMessage) {
-    throw new Error("No response from AI service");
-  }
-
-  const newMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    assistantMessage,
-  ];
-
-  // Check if AI is ready for structured output (no tool calls means it's done exploring)
-  if (
-    !assistantMessage.tool_calls ||
-    assistantMessage.tool_calls.length === 0
-  ) {
-    return {
-      done: true,
-      newMessages,
-    };
-  }
-
-  // Process any tool calls
-  if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-    console.log(
-      `Processing ${assistantMessage.tool_calls.length} tool calls in round ${round}`
-    );
-
-    // Execute all tool calls and collect results
-    const toolMessages = await Promise.all(
-      assistantMessage.tool_calls.map((toolCall) =>
-        executeToolCall(toolCall, tools)
-      )
-    );
-
-    // Add tool messages to new messages array
-    newMessages.push(...toolMessages);
-  } else {
-    // If no tool calls, the AI is ready to provide structured output
-    console.log(
-      "AI response without tool calls - ready for structured output:",
-      assistantMessage.content?.substring(0, 200) + "..."
-    );
-    // The response without tool calls will be processed as the final analysis
-    return {
-      done: true,
-      newMessages,
-    };
-  }
-
-  return {
-    done: false,
-    newMessages,
-  };
-} 
 
 // Helper function to handle rubric analysis errors
 export function handleRubricAnalysisError(error: unknown) {
@@ -393,7 +355,7 @@ export async function saveEvaluationResults({
   studentName: string;
   criterionId: string | undefined;
   criterionDescription: string;
-  conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[];
+  conversationMessages: ConversationMessage[];
   analysis: AnalysisResult;
   termName: string;
   courseName: string;

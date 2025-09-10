@@ -18,9 +18,14 @@ import {
   loadSubmissionsFromStorage,
 } from "./canvasStorageUtils.js";
 import { parseSchema } from "../parseSchema.js";
+import { parseClassroomList, parseAssignmentList } from "./githubCliParser.js";
 import { axiosClient } from "../../../../utils/axiosUtils.js";
 import fs from "fs";
 import path from "path";
+import { promisify } from "util";
+import { exec } from "child_process";
+
+const execAsync = promisify(exec);
 import {
   prepareTempDir,
   cloneClassroomRepositories,
@@ -756,6 +761,71 @@ export const canvasRouter = createTRPCRouter({
           `Failed to grade submission: ${
             error instanceof Error ? error.message : String(error)
           }`
+        );
+      }
+    }),
+
+  // GitHub Classroom queries
+  getGitHubClassrooms: publicProcedure.query(async () => {
+    try {
+      console.log("Fetching GitHub Classrooms...");
+
+      // First check if gh CLI is available
+      try {
+        await execAsync("gh --version");
+      } catch {
+        throw new Error("GitHub CLI (gh) is not installed or not in PATH");
+      }
+
+      // Check if classroom extension is installed
+      try {
+        await execAsync("gh classroom --help");
+      } catch {
+        throw new Error(
+          "GitHub Classroom extension is not installed. Run: gh extension install github/gh-classroom"
+        );
+      }
+
+      const { stdout } = await execAsync("gh classroom list");
+
+      // Parse the output using the dedicated parser function
+      const classrooms = parseClassroomList(stdout);
+
+      console.log(`Found ${classrooms.length} classrooms`);
+      return classrooms;
+    } catch (error) {
+      console.error("Error fetching GitHub Classrooms:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(message);
+    }
+  }),
+
+  getGitHubClassroomAssignments: publicProcedure
+    .input(z.object({ classroomId: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        console.log(
+          `Fetching assignments for classroom ${input.classroomId}...`
+        );
+
+        // Use the appropriate gh classroom command for assignments
+        // Note: The exact command might vary depending on the gh-classroom extension version
+        const { stdout } = await execAsync(
+          `gh classroom assignments --classroom-id ${input.classroomId}`
+        );
+
+        // Parse the output using the dedicated parser function
+        const assignments = parseAssignmentList(stdout);
+
+        console.log(
+          `Found ${assignments.length} assignments for classroom ${input.classroomId}`
+        );
+        return assignments;
+      } catch (error) {
+        console.error("Error fetching GitHub Classroom assignments:", error);
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Failed to fetch assignments for classroom ${input.classroomId}. Error: ${message}`
         );
       }
     }),
