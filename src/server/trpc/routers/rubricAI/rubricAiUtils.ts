@@ -64,6 +64,71 @@ function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
   };
 }
 
+export async function getAiCompletion({
+  messages,
+  model,
+  tools,
+  responseFormat,
+  temperature = 0.1,
+}: {
+  messages: ConversationMessage[];
+  model: string;
+  tools?: AiTool[];
+  responseFormat?: z.ZodTypeAny;
+  temperature?: number;
+}): Promise<ConversationMessage> {
+  const openai = getOpenaiClient();
+
+  // Convert domain messages to OpenAI format
+  const openaiMessages = messages.map(toOpenAIMessage);
+
+  // Prepare tools if provided
+  const toolsSchema = tools?.map((tool) =>
+    zodFunction({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.paramsSchema,
+    })
+  );
+
+  try {
+    let completion;
+
+    if (responseFormat) {
+      // Use structured output with zodResponseFormat
+      completion = await openai.chat.completions.parse({
+        model,
+        messages: openaiMessages,
+        response_format: zodResponseFormat(
+          responseFormat,
+          "structured_response"
+        ),
+        tools: toolsSchema,
+        temperature,
+      });
+    } else {
+      // Regular completion
+      completion = await openai.chat.completions.create({
+        model,
+        messages: openaiMessages,
+        tools: toolsSchema,
+        temperature,
+      });
+    }
+
+    const assistantMessage = completion.choices[0]?.message;
+    if (!assistantMessage) {
+      throw new Error("No response from AI service");
+    }
+
+    // Convert back to domain model and return
+    return fromOpenAIMessage(assistantMessage);
+  } catch (error) {
+    console.error("OpenAI API call failed:", error);
+    throw new Error(`AI completion failed: ${error}`);
+  }
+}
+
 export async function getRubricAnalysisConversation({
   startingMessages,
   tools,
@@ -78,15 +143,6 @@ export async function getRubricAnalysisConversation({
   conversation: ConversationMessage[];
   result: z.infer<typeof resultSchema>;
 }> {
-  const openai = getOpenaiClient();
-  const toolsSchema = tools.map((tool) =>
-    zodFunction({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.paramsSchema,
-    })
-  );
-
   const conversationMessages: ConversationMessage[] = [...startingMessages];
   const maxRounds = 10; // Prevent infinite loops
   let round = 0;
@@ -94,24 +150,32 @@ export async function getRubricAnalysisConversation({
   while (round < maxRounds) {
     round++;
 
-    // Convert to OpenAI format for the API call
-    const openaiMessages = conversationMessages.map(toOpenAIMessage);
-
-    const completion = await openai.chat.completions.create({
+    // Use the reusable completion function
+    const assistantMessage = await getAiCompletion({
+      messages: conversationMessages,
       model,
-      messages: openaiMessages,
-      tools: toolsSchema,
+      tools,
     });
 
-    const assistantMessage = completion.choices[0].message;
-    conversationMessages.push(fromOpenAIMessage(assistantMessage));
+    conversationMessages.push(assistantMessage);
 
     if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
       // Execute tool calls and add results
       const toolMessages = await Promise.all(
-        assistantMessage.tool_calls.map((toolCall) =>
-          executeToolCall(toolCall, tools)
-        )
+        assistantMessage.tool_calls
+          .filter((tc) => tc.id && tc.function?.name) // Filter out incomplete tool calls
+          .map((toolCall) => {
+            // Convert to the expected format for executeToolCall
+            const openaiToolCall = {
+              id: toolCall.id!,
+              type: "function" as const,
+              function: {
+                name: toolCall.function!.name,
+                arguments: toolCall.function!.arguments || "",
+              },
+            };
+            return executeToolCall(openaiToolCall, tools);
+          })
       );
 
       // Convert tool messages back to domain model
@@ -149,31 +213,16 @@ Provide specific file references, line numbers for text files, and page numbers 
     "About to call OpenAI with zodResponseFormat for structured output"
   );
 
-  let finalResponse;
-  try {
-    finalResponse = await openai.chat.completions.parse({
-      model: model,
-      messages: conversationMessages.map(toOpenAIMessage),
-      response_format: zodResponseFormat(resultSchema, "rubric_analysis"),
-      stream: false,
-      temperature: 0.1,
-    });
-  } catch (error) {
-    console.error("OpenAI API call failed:", {
-      error: error,
-      messageCount: conversationMessages.length,
-    });
-    throw new Error(`OpenAI API call failed. Error: ${error}`);
-  }
+  // Use the reusable completion function with structured output
+  const finalMessage = await getAiCompletion({
+    messages: conversationMessages,
+    model,
+    responseFormat: resultSchema,
+    temperature: 0.1,
+  });
 
-  const finalMessage = finalResponse.choices[0]?.message;
-  if (!finalMessage) {
-    throw new Error("No final response from AI service");
-  }
-
-  // Parse the final result - with zodResponseFormat, this should be valid JSON
+  // Parse the final result
   if (!finalMessage.content) {
-    console.log(JSON.stringify(finalResponse, null, 2));
     throw new Error("No content in final response from AI service");
   }
 
@@ -194,7 +243,7 @@ Provide specific file references, line numbers for text files, and page numbers 
     );
   }
 
-  // Validate the result against the schema - zodResponseFormat should ensure this passes
+  // Validate the result against the schema
   let result;
   try {
     result = resultSchema.parse(parsedResult);
@@ -208,7 +257,7 @@ Provide specific file references, line numbers for text files, and page numbers 
   }
 
   // Add the final response to conversation and return both conversation and result
-  conversationMessages.push(fromOpenAIMessage(finalMessage));
+  conversationMessages.push(finalMessage);
   return {
     conversation: conversationMessages,
     result,

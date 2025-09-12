@@ -1,19 +1,32 @@
-/**
- * Utility functions for parsing GitHub CLI output
- */
+import { z } from "zod";
 
-export interface GitHubClassroom {
-  id: string;
-  name: string;
-  url: string;
-}
+export const GitHubClassroomSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  url: z.string(),
+});
 
-export interface GitHubAssignment {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-}
+export const GitHubAssignmentSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.string(),
+  status: z.string(),
+});
+
+export const CourseScheduleSchema = z.object({
+  crn: z.string(),
+  course: z.string(),
+  section: z.string(),
+  courseTitle: z.string(),
+  meetingPattern: z.string(),
+  instructorName: z.string(),
+  room: z.string(),
+  creditHrs: z.string(),
+});
+
+export type GitHubClassroom = z.infer<typeof GitHubClassroomSchema>;
+export type GitHubAssignment = z.infer<typeof GitHubAssignmentSchema>;
+export type CourseSchedule = z.infer<typeof CourseScheduleSchema>;
 
 /**
  * Parses the output from `gh classroom list` command
