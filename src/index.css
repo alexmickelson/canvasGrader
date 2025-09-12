@@ -41,6 +41,7 @@ button:not(.unstyled) {
     text-slate-100
     font-bold 
     rounded 
+    cursor-pointer
     focus:outline-none;
 }
 

@@ -66,7 +66,7 @@ export const AssignmentGraderPage = () => {
       </div>{" "}
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
       <div className="flex gap-4 items-stretch flex-1 min-h-0 w-full">
-        <div className="w-96">
+        <div className="w-64">
           <Suspense
             fallback={<div className="text-gray-400">Loading submissions…</div>}
           >
@@ -74,6 +74,7 @@ export const AssignmentGraderPage = () => {
               courseId={parsedCourseId}
               assignmentId={parsedAssignmentId}
               selectedId={selected?.id ?? null}
+              assignment={assignment ?? null}
               onSelect={(submission) => {
                 setSelected(submission);
                 setCurrentView("submission"); // Reset to submission view when selecting new student
@@ -101,20 +102,20 @@ export const AssignmentGraderPage = () => {
                 <div className="flex rounded-md border border-gray-600 overflow-hidden">
                   <button
                     onClick={() => setCurrentView("submission")}
-                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                    className={`unstyled px-3 py-1 text-xs font-medium transition-colors cursor-pointer  ${
                       currentView === "submission"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        ? "bg-blue-800 text-white"
+                        : "text-gray-300 hover:bg-gray-600"
                     }`}
                   >
                     Submission
                   </button>
                   <button
                     onClick={() => setCurrentView("analysis")}
-                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                    className={`unstyled px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
                       currentView === "analysis"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        ? "bg-blue-800 text-white"
+                        : "text-gray-300 hover:bg-gray-600"
                     }`}
                   >
                     AI Analysis

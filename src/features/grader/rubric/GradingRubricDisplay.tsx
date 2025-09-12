@@ -162,9 +162,9 @@ export const GradingRubricDisplay: FC<{
 
   return (
     <section className="px-1 pb-1 bg-slate-950 rounded">
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-xs uppercase tracking-wide text-gray-400">
-          Grading Rubric
+      <div className="flex items-center justify-end mb-4 ">
+        <div className="text-xs uppercase tracking-wide text-gray-400 pe-3">
+          Total Grade
         </div>
         <div className="text-sm text-gray-400">
           <span className="font-bold text-green-400">{totalScore}</span>/
@@ -200,14 +200,14 @@ export const GradingRubricDisplay: FC<{
       {/* General Comment */}
       <div className="mt-4 space-y-2">
         <label className="block text-sm font-medium text-gray-300">
-          General Comment (Optional)
+          General Comment
         </label>
         <textarea
           value={generalComment}
           onChange={(e) => setGeneralComment(e.target.value)}
           placeholder="Add a general comment about this submission..."
           rows={3}
-          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2  border border-gray-600 rounded-md text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
