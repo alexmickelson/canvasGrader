@@ -73,7 +73,6 @@ export const AICriterionAnalysis: FC<{
   return (
     <div className="p-4 bg-purple-900/20 border border-purple-700 rounded-lg space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="font-medium text-purple-300">AI Analysis</h4>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">
             Confidence: {analysis.confidence}%

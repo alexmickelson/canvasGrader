@@ -1,4 +1,3 @@
-import { zodResponseFormat, zodFunction } from "openai/helpers/zod";
 import type { AiTool } from "../../../../utils/aiUtils/createAiTool";
 import { executeToolCall } from "../../../../utils/aiUtils/executeToolCall";
 import { z } from "zod";
@@ -15,10 +14,10 @@ import {
   type ConversationMessage,
 } from "./rubricAiReportModels";
 import OpenAI from "openai";
-import { getOpenaiClient } from "../../../../utils/aiUtils/getOpenaiClient";
+import { getAiCompletion } from "../../../../utils/aiUtils/getAiCompletion";
 
 // Helper functions to convert between domain model and OpenAI types
-function toOpenAIMessage(
+export function toOpenAIMessage(
   message: ConversationMessage
 ): OpenAI.Chat.ChatCompletionMessageParam {
   const baseMessage: Record<string, unknown> = {
@@ -47,7 +46,7 @@ function toOpenAIMessage(
   return baseMessage as unknown as OpenAI.Chat.ChatCompletionMessageParam;
 }
 
-function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
+export function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
   const msg = openaiMessage as Record<string, unknown>;
   return {
     role: msg.role as ConversationMessage["role"],
@@ -62,71 +61,6 @@ function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
     }),
     tool_call_id: msg.tool_call_id as string,
   };
-}
-
-export async function getAiCompletion({
-  messages,
-  model,
-  tools,
-  responseFormat,
-  temperature = 0.1,
-}: {
-  messages: ConversationMessage[];
-  model: string;
-  tools?: AiTool[];
-  responseFormat?: z.ZodTypeAny;
-  temperature?: number;
-}): Promise<ConversationMessage> {
-  const openai = getOpenaiClient();
-
-  // Convert domain messages to OpenAI format
-  const openaiMessages = messages.map(toOpenAIMessage);
-
-  // Prepare tools if provided
-  const toolsSchema = tools?.map((tool) =>
-    zodFunction({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.paramsSchema,
-    })
-  );
-
-  try {
-    let completion;
-
-    if (responseFormat) {
-      // Use structured output with zodResponseFormat
-      completion = await openai.chat.completions.parse({
-        model,
-        messages: openaiMessages,
-        response_format: zodResponseFormat(
-          responseFormat,
-          "structured_response"
-        ),
-        tools: toolsSchema,
-        temperature,
-      });
-    } else {
-      // Regular completion
-      completion = await openai.chat.completions.create({
-        model,
-        messages: openaiMessages,
-        tools: toolsSchema,
-        temperature,
-      });
-    }
-
-    const assistantMessage = completion.choices[0]?.message;
-    if (!assistantMessage) {
-      throw new Error("No response from AI service");
-    }
-
-    // Convert back to domain model and return
-    return fromOpenAIMessage(assistantMessage);
-  } catch (error) {
-    console.error("OpenAI API call failed:", error);
-    throw new Error(`AI completion failed: ${error}`);
-  }
 }
 
 export async function getRubricAnalysisConversation({
@@ -165,22 +99,26 @@ export async function getRubricAnalysisConversation({
         assistantMessage.tool_calls
           .filter((tc) => tc.id && tc.function?.name) // Filter out incomplete tool calls
           .map((toolCall) => {
-            // Convert to the expected format for executeToolCall
-            const openaiToolCall = {
+            // Use the tool call directly with the generic domain model
+            const genericToolCall = {
               id: toolCall.id!,
-              type: "function" as const,
+              type: toolCall.type || "function",
               function: {
                 name: toolCall.function!.name,
                 arguments: toolCall.function!.arguments || "",
               },
             };
-            return executeToolCall(openaiToolCall, tools);
+            return executeToolCall(genericToolCall, tools);
           })
       );
 
-      // Convert tool messages back to domain model
+      // Add tool messages directly to conversation (they're already in domain model format)
       toolMessages.forEach((msg) =>
-        conversationMessages.push(fromOpenAIMessage(msg))
+        conversationMessages.push({
+          role: msg.role,
+          content: msg.content,
+          tool_call_id: msg.tool_call_id,
+        })
       );
     } else {
       // No tool calls means we're done with this exploration round

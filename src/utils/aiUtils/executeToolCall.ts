@@ -1,12 +1,27 @@
-import type OpenAI from "openai";
 import type { AiTool } from "./createAiTool";
 
-// Helper function to execute a single tool call and return the tool message
+// Generic domain model for tool calls
+export interface GenericToolCall {
+  id: string;
+  type: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
 
+// Generic domain model for tool message response
+export interface GenericToolMessage {
+  role: "tool";
+  tool_call_id: string;
+  content: string;
+}
+
+// Helper function to execute a single tool call and return the tool message
 export async function executeToolCall(
-  toolCall: OpenAI.Chat.ChatCompletionMessageToolCall,
+  toolCall: GenericToolCall,
   tools: AiTool[]
-): Promise<OpenAI.Chat.ChatCompletionToolMessageParam> {
+): Promise<GenericToolMessage> {
   if (toolCall.type === "function") {
     console.log(`  Tool call: ${toolCall.function.name}`);
     console.log(`  Parameters: ${toolCall.function.arguments}`);
