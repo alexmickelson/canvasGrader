@@ -15,6 +15,7 @@ import {
 } from "./rubricAiReportModels";
 import OpenAI from "openai";
 import { getAiCompletion } from "../../../../utils/aiUtils/getAiCompletion";
+import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient";
 
 // Helper functions to convert between domain model and OpenAI types
 export function toOpenAIMessage(
@@ -25,7 +26,33 @@ export function toOpenAIMessage(
   };
 
   if (message.content) {
-    baseMessage.content = message.content;
+    // Handle both string content and structured content
+    if (typeof message.content === "string") {
+      baseMessage.content = message.content;
+    } else {
+      // Handle array content (for images and mixed content)
+      baseMessage.content = message.content.map((item) => {
+        if (item.type === "text") {
+          return {
+            type: "text" as const,
+            text: item.text || "",
+          };
+        } else if (item.type === "image_url") {
+          // Convert base64 data to data URL for OpenAI
+          const mediaType = item.image_url?.mediaType || "image/png";
+          const dataUrl = `data:${mediaType};base64,${
+            item.image_url?.base64 || ""
+          }`;
+          return {
+            type: "image_url" as const,
+            image_url: {
+              url: dataUrl,
+            },
+          };
+        }
+        return item;
+      });
+    }
   }
 
   if (message.tool_calls && message.tool_calls.length > 0) {
@@ -48,9 +75,58 @@ export function toOpenAIMessage(
 
 export function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
   const msg = openaiMessage as Record<string, unknown>;
+
+  // Handle content conversion from OpenAI format to domain model
+  let content: ConversationMessage["content"];
+  if (typeof msg.content === "string") {
+    content = msg.content;
+  } else if (Array.isArray(msg.content)) {
+    // Convert OpenAI structured content to our domain model
+    content = msg.content.map((item: Record<string, unknown>) => {
+      if (item.type === "text") {
+        return {
+          type: "text" as const,
+          text: item.text as string | undefined,
+        };
+      } else if (item.type === "image_url") {
+        // Extract base64 data from data URL if present
+        const imageUrl = item.image_url as { url?: string } | undefined;
+        const url = imageUrl?.url || "";
+
+        // Parse data URL to extract base64 and media type
+        const dataUrlMatch = url.match(/^data:([^;]+);base64,(.+)$/);
+        if (dataUrlMatch) {
+          return {
+            type: "image_url" as const,
+            image_url: {
+              base64: dataUrlMatch[2],
+              mediaType: dataUrlMatch[1],
+            },
+          };
+        } else {
+          // Fallback for non-data URLs (shouldn't happen in our use case)
+          return {
+            type: "image_url" as const,
+            image_url: {
+              base64: "",
+              mediaType: "image/png",
+            },
+          };
+        }
+      }
+      return {
+        type: item.type as "text" | "image_url",
+        text: item.text as string | undefined,
+        image_url: undefined,
+      };
+    });
+  } else {
+    content = undefined;
+  }
+
   return {
     role: msg.role as ConversationMessage["role"],
-    content: (msg.content as string) || undefined,
+    content,
     tool_calls: (msg.tool_calls as unknown[])?.map((tc: unknown) => {
       const toolCall = tc as Record<string, unknown>;
       return {
@@ -66,12 +142,10 @@ export function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
 export async function getRubricAnalysisConversation({
   startingMessages,
   tools,
-  model,
   resultSchema,
 }: {
   startingMessages: ConversationMessage[];
   tools: AiTool[];
-  model: string;
   resultSchema: z.ZodTypeAny;
 }): Promise<{
   conversation: ConversationMessage[];
@@ -87,7 +161,6 @@ export async function getRubricAnalysisConversation({
     // Use the reusable completion function
     const assistantMessage = await getAiCompletion({
       messages: conversationMessages,
-      model,
       tools,
     });
 
@@ -154,7 +227,6 @@ Provide specific file references, line numbers for text files, and page numbers 
   // Use the reusable completion function with structured output
   const finalMessage = await getAiCompletion({
     messages: conversationMessages,
-    model,
     responseFormat: resultSchema,
     temperature: 0.1,
   });
@@ -164,17 +236,23 @@ Provide specific file references, line numbers for text files, and page numbers 
     throw new Error("No content in final response from AI service");
   }
 
+  // Convert content to string if it's an array (shouldn't happen for structured responses, but safety check)
+  const contentStr =
+    typeof finalMessage.content === "string"
+      ? finalMessage.content
+      : JSON.stringify(finalMessage.content);
+
   let parsedResult;
   try {
-    parsedResult = JSON.parse(finalMessage.content);
+    parsedResult = JSON.parse(contentStr);
   } catch (error) {
     console.error("Failed to parse AI response as JSON:", {
       error: error,
-      content: finalMessage.content,
-      contentLength: finalMessage.content.length,
+      content: contentStr,
+      contentLength: contentStr.length,
     });
     throw new Error(
-      `Failed to parse final response as JSON: ${error}. Content: ${finalMessage.content.substring(
+      `Failed to parse final response as JSON: ${error}. Content: ${contentStr.substring(
         0,
         500
       )}...`
@@ -335,7 +413,6 @@ export async function saveEvaluationResults({
   termName,
   courseName,
   assignmentName,
-  model,
 }: {
   courseId: number;
   assignmentId: number;
@@ -347,7 +424,6 @@ export async function saveEvaluationResults({
   termName: string;
   courseName: string;
   assignmentName: string;
-  model: string;
 }) {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -379,7 +455,7 @@ export async function saveEvaluationResults({
         criterionId,
         criterionDescription,
         timestamp: new Date().toISOString(),
-        model,
+        model: aiModel,
       },
       conversation: conversationMessages.map((msg) => {
         const baseMessage = {

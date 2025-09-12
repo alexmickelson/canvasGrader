@@ -76,7 +76,26 @@ export type ToolCall = z.infer<typeof ToolCallSchema>;
 // Schema for conversation messages (internal domain model)
 export const ConversationMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
-  content: z.string().optional(),
+  content: z
+    .union([
+      z.string(),
+      z.array(
+        z.object({
+          type: z.enum(["text", "image_url"]),
+          text: z.string().optional(),
+          image_url: z
+            .object({
+              base64: z.string().describe("Base64 encoded image data"),
+              mediaType: z
+                .string()
+                .optional()
+                .describe("MIME type of the image (e.g., 'image/png')"),
+            })
+            .optional(),
+        })
+      ),
+    ])
+    .optional(),
   tool_calls: z.array(ToolCallSchema).optional(),
   tool_call_id: z.string().optional(),
 });

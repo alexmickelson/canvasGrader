@@ -9,7 +9,6 @@ import {
   sanitizeName,
 } from "../canvas/canvasStorageUtils";
 import { createAiTool } from "../../../../utils/aiUtils/createAiTool";
-import pdf2pic from "pdf2pic";
 import { getAllFilePaths } from "../../utils/fileUtils";
 import {
   AnalysisResultSchema,
@@ -28,130 +27,10 @@ import {
   saveEvaluationResults,
 } from "./rubricAiUtils";
 import {
-  aiModel,
-  getOpenaiClient,
-} from "../../../../utils/aiUtils/getOpenaiClient";
-
-// const model = "claude-sonnet-4";
-// const model = "gpt-5";
-// const model = "gpt-oss:120b";
-
-// Helper function to extract text from PDF files using OpenAI vision
-async function extractTextFromPdf(pdfPath: string): Promise<string> {
-  try {
-    const openai = getOpenaiClient();
-
-    // Convert PDF to PNG images using pdf2pic with aspect ratio preservation
-    const pdfBasename = path.basename(pdfPath, ".pdf");
-    const convert = pdf2pic.fromPath(pdfPath, {
-      density: 150,
-      saveFilename: `${pdfBasename}-page`,
-      savePath: path.dirname(pdfPath),
-      format: "png",
-      height: 1024,
-    });
-
-    const results = await convert.bulk(-1, { responseType: "image" });
-
-    // Process each page image
-    const pageTranscriptions: string[] = [];
-
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      if (!result.path) continue;
-
-      // Read the generated PNG file as base64
-      const pngBuffer = fs.readFileSync(result.path);
-      const base64Png = pngBuffer.toString("base64");
-
-      // Use OpenAI to transcribe the PNG image
-      console.log(`Transcribing page ${i + 1} of PDF: ${pdfPath}`);
-      const response = await openai.chat.completions.create({
-        model: aiModel,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Please transcribe this page (${
-                  i + 1
-                }) from a PDF document to clean, well-formatted Markdown. Include all text content, preserve structure with headers, lists, code blocks, tables, etc. If there are images or diagrams, describe them briefly in [brackets].`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/png;base64,${base64Png}`,
-                },
-              },
-            ],
-          },
-        ],
-      });
-
-      const pageTranscription = response.choices[0]?.message?.content;
-      if (pageTranscription) {
-        // Save the markdown transcription to a file
-        const markdownFileName = `${pdfBasename}-page${i + 1}.md`;
-        const markdownPath = path.join(path.dirname(pdfPath), markdownFileName);
-
-        try {
-          fs.writeFileSync(markdownPath, pageTranscription, "utf-8");
-          console.log(`Saved transcription to: ${markdownFileName}`);
-        } catch (writeError) {
-          console.warn(
-            `Could not save markdown file ${markdownFileName}:`,
-            writeError
-          );
-        }
-
-        pageTranscriptions.push(
-          `=== Page ${i + 1} (${pdfBasename}-page${
-            i + 1
-          }.png) ===\n${pageTranscription}`
-        );
-      }
-
-      // Keep the PNG file instead of deleting it
-      console.log(`Converted page ${i + 1} to: ${path.basename(result.path)}`);
-    }
-
-    if (pageTranscriptions.length === 0) {
-      return `[Error: No transcription received from AI service for PDF: ${path.basename(
-        pdfPath
-      )}]`;
-    }
-
-    // Combine all page transcriptions
-    const fullTranscription = pageTranscriptions.join("\n\n");
-
-    // Add line numbers to the transcription for better referencing
-    const lines = fullTranscription.split("\n");
-    const numberedText = lines
-      .map((line: string, index: number) => `${index + 1}: ${line}`)
-      .join("\n");
-
-    return `=== PDF Transcription (${path.basename(
-      pdfPath
-    )}) ===\n${numberedText}`;
-  } catch (error) {
-    console.error(`Error transcribing PDF ${pdfPath}:`, error);
-
-    // If it's a vision-related error, provide a more helpful message
-    if (
-      error instanceof Error &&
-      error.message.includes("invalid_request_body")
-    ) {
-      return `[PDF transcription unavailable: Current AI model (${aiModel}) may not support vision capabilities for PDF analysis. PDF file: ${path.basename(
-        pdfPath
-      )}]`;
-    }
-
-    return `[Error transcribing PDF: ${path.basename(pdfPath)} - ${
-      error instanceof Error ? error.message : String(error)
-    }]`;
-  }
-}
+  extractTextFromPdf,
+  combinePageTranscriptions,
+  storeTranscriptionPage,
+} from "../../../../utils/aiUtils/extractTextFromPdf";
 
 // Helper function to check if file is an image
 function isImageFile(filename: string): boolean {
@@ -296,7 +175,19 @@ export const rubricAiReportRouter = createTRPCRouter({
             }
 
             if (isPdfFile(params.fileName)) {
-              return await extractTextFromPdf(filePath);
+              const pageTranscriptions = await extractTextFromPdf(filePath);
+
+              // Store each page transcription
+              for (const page of pageTranscriptions) {
+                await storeTranscriptionPage(
+                  filePath,
+                  page.pageNumber,
+                  page.transcription
+                );
+              }
+
+              // Return combined transcription for the AI tool
+              return combinePageTranscriptions(filePath, pageTranscriptions);
             } else if (isImageFile(params.fileName)) {
               return `[Image file: ${params.fileName} - Visual analysis not available, but file is present]`;
             } else {
@@ -362,7 +253,6 @@ Provide specific file references, line numbers for text files, and page numbers 
           await getRubricAnalysisConversation({
             startingMessages: messages,
             tools,
-            model: aiModel,
             resultSchema: AnalysisResultSchema,
           });
 
@@ -379,7 +269,6 @@ Provide specific file references, line numbers for text files, and page numbers 
           courseName,
           assignmentName,
           termName,
-          model: aiModel,
         });
 
         // Prepare and validate the response

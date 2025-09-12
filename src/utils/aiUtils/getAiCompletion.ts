@@ -1,19 +1,91 @@
 import { zodFunction, zodResponseFormat } from "openai/helpers/zod.mjs";
 import type z from "zod";
 import type { ConversationMessage } from "../../server/trpc/routers/rubricAI/rubricAiReportModels";
-import { toOpenAIMessage, fromOpenAIMessage } from "../../server/trpc/routers/rubricAI/rubricAiUtils";
+import {
+  toOpenAIMessage,
+  fromOpenAIMessage,
+} from "../../server/trpc/routers/rubricAI/rubricAiUtils";
 import type { AiTool } from "./createAiTool";
-import { getOpenaiClient } from "./getOpenaiClient";
+import { aiModel, getOpenaiClient } from "./getOpenaiClient";
+import { Ollama } from "ollama";
+
+const OLLAMA_URL = process.env.OLLAMA_URL;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
 
 export async function getAiCompletion({
   messages,
-  model,
+  tools,
+  responseFormat,
+  temperature = 0.1,
+  provider = "openai",
+}: {
+  messages: ConversationMessage[];
+  tools?: AiTool[];
+  responseFormat?: z.ZodTypeAny;
+  temperature?: number;
+  provider?: "openai" | "ollama";
+}): Promise<ConversationMessage> {
+  if (provider === "ollama") {
+    return getOllamaCompletion({
+      messages,
+      temperature,
+    });
+  }
+
+  return getOpenAiCompletion({
+    messages,
+    tools,
+    responseFormat,
+    temperature,
+  });
+}
+
+export async function getOllamaCompletion({
+  messages,
+  temperature = 0.1,
+}: {
+  messages: ConversationMessage[];
+  temperature?: number;
+}): Promise<ConversationMessage> {
+  const ollama = new Ollama({ host: OLLAMA_URL });
+
+  // Convert domain messages to Ollama format
+  const ollamaMessages = messages.map((message) => ({
+    role: message.role as "system" | "user" | "assistant",
+    content:
+      typeof message.content === "string"
+        ? message.content
+        : message.content
+            ?.map((item) => (item.type === "text" ? item.text : "[Image]"))
+            .join(" ") || "",
+  }));
+
+  try {
+    const response = await ollama.chat({
+      model: OLLAMA_MODEL ?? "gpt-oss:120b",
+      messages: ollamaMessages,
+      options: {
+        temperature,
+      },
+    });
+
+    return {
+      role: "assistant",
+      content: response.message.content,
+    };
+  } catch (error) {
+    console.error("Ollama API call failed:", error);
+    throw new Error(`AI completion failed: ${error}`);
+  }
+}
+
+async function getOpenAiCompletion({
+  messages,
   tools,
   responseFormat,
   temperature = 0.1,
 }: {
   messages: ConversationMessage[];
-  model: string;
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
   temperature?: number;
@@ -38,7 +110,7 @@ export async function getAiCompletion({
     if (responseFormat) {
       // Use structured output with zodResponseFormat
       completion = await openai.chat.completions.parse({
-        model,
+        model: aiModel,
         messages: openaiMessages,
         response_format: zodResponseFormat(
           responseFormat,
@@ -50,7 +122,7 @@ export async function getAiCompletion({
     } else {
       // Regular completion
       completion = await openai.chat.completions.create({
-        model,
+        model: aiModel,
         messages: openaiMessages,
         tools: toolsSchema,
         temperature,
