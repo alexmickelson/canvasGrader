@@ -1,5 +1,6 @@
 import { zodFunction, zodResponseFormat } from "openai/helpers/zod.mjs";
 import type z from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ConversationMessage } from "../../server/trpc/routers/rubricAI/rubricAiReportModels";
 import {
   toOpenAIMessage,
@@ -12,22 +13,25 @@ import { Ollama } from "ollama";
 const OLLAMA_URL = process.env.OLLAMA_URL;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
 
+const provider: "openai" | "ollama" = "openai";
+// const provider: "openai" | "ollama" = "ollama";
+
 export async function getAiCompletion({
   messages,
   tools,
   responseFormat,
   temperature = 0.1,
-  provider = "openai",
 }: {
   messages: ConversationMessage[];
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
   temperature?: number;
-  provider?: "openai" | "ollama";
 }): Promise<ConversationMessage> {
   if (provider === "ollama") {
     return getOllamaCompletion({
       messages,
+      tools,
+      responseFormat,
       temperature,
     });
   }
@@ -42,9 +46,13 @@ export async function getAiCompletion({
 
 export async function getOllamaCompletion({
   messages,
+  tools: _tools,
+  responseFormat,
   temperature = 0.1,
 }: {
   messages: ConversationMessage[];
+  tools?: AiTool[];
+  responseFormat?: z.ZodTypeAny;
   temperature?: number;
 }): Promise<ConversationMessage> {
   const ollama = new Ollama({ host: OLLAMA_URL });
@@ -60,18 +68,54 @@ export async function getOllamaCompletion({
             .join(" ") || "",
   }));
 
+  // Add instruction for structured output if responseFormat is provided
+  if (responseFormat) {
+    const lastMessageIndex = ollamaMessages.length - 1;
+    if (
+      lastMessageIndex >= 0 &&
+      ollamaMessages[lastMessageIndex].role === "user"
+    ) {
+      ollamaMessages[lastMessageIndex].content +=
+        "\n\nPlease respond with valid JSON that matches the required schema.";
+    }
+  }
+
+  // Prepare the chat request
+  const chatRequest = {
+    model: OLLAMA_MODEL ?? "gpt-oss:120b",
+    messages: ollamaMessages,
+    options: {
+      temperature,
+    },
+    stream: false as const,
+    ...(responseFormat && {
+      format: zodToJsonSchema(responseFormat, "responseSchema"),
+    }),
+  };
+
   try {
-    const response = await ollama.chat({
-      model: OLLAMA_MODEL ?? "gpt-oss:120b",
-      messages: ollamaMessages,
-      options: {
-        temperature,
-      },
-    });
+    const response = await ollama.chat(chatRequest);
+
+    let content = response.message?.content || "";
+
+    // If we have a responseFormat, try to parse and validate the response
+    if (responseFormat && content) {
+      try {
+        const parsed = JSON.parse(content);
+        const validated = responseFormat.parse(parsed);
+        content = JSON.stringify(validated);
+      } catch (parseError) {
+        console.warn(
+          "Failed to parse/validate structured response from Ollama:",
+          parseError
+        );
+        // Fall back to returning the raw content
+      }
+    }
 
     return {
       role: "assistant",
-      content: response.message.content,
+      content,
     };
   } catch (error) {
     console.error("Ollama API call failed:", error);
@@ -128,6 +172,7 @@ async function getOpenAiCompletion({
         temperature,
       });
     }
+    // console.log(completion);
 
     const assistantMessage = completion.choices[0]?.message;
     if (!assistantMessage) {

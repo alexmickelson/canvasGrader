@@ -252,6 +252,30 @@ export const canvasRouter = createTRPCRouter({
 
     return filteredCourses;
   }),
+
+  refreshCourses: publicProcedure.mutation(
+    async (): Promise<CanvasCourse[]> => {
+      console.log("Force refreshing courses from Canvas API");
+
+      const url = `${canvasBaseUrl}/api/v1/courses?per_page=100`;
+      const courses = await paginatedRequest<CanvasCourse[]>({
+        url,
+        params: { include: "term" },
+      });
+      const filteredCourses = courses
+        .filter((course) => !course.access_restricted_by_date)
+        .map((course) =>
+          parseSchema(CanvasCourseSchema, course, "CanvasCourse")
+        );
+
+      // Store each course's JSON data in storage/term/courseName/course.json
+      await persistCoursesToStorage(filteredCourses);
+
+      console.log(`Successfully refreshed ${filteredCourses.length} courses`);
+      return filteredCourses;
+    }
+  ),
+
   getAssignmentsInCourse: publicProcedure
     .input(z.object({ courseId: z.coerce.number() }))
     .query(async ({ input }) => {

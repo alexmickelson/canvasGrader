@@ -30,7 +30,11 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
 
   return (
     <li
-      className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-blue-900 to-blue-800 hover:from-blue-800 hover:to-blue-700 transition-all border border-blue-700 cursor-pointer"
+      className={
+        "flex items-center justify-between p-3 rounded-lg " +
+        "bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 " +
+        "transition-all border border-slate-500 cursor-pointer"
+      }
       onClick={() => navigate(`/course/${course.canvasId}`)}
       role="button"
       tabIndex={0}
@@ -41,7 +45,7 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
         }
       }}
     >
-      <span className="font-medium truncate text-gray-200">{course.name}</span>
+      <span className="font-medium truncate text-gray-100">{course.name}</span>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -50,11 +54,14 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
           });
         }}
         disabled={isPending}
-        className="p-1.5 rounded-full text-red-400 hover:bg-gray-700 transition-colors"
+        className={
+          "unstyled" +
+          " p-1.5 rounded-full text-red-300 hover:bg-slate-600 transition-colors"
+        }
         title="Remove course"
       >
         {isPending ? (
-          <Spinner size={20} className="text-red-400" />
+          <Spinner size={20} className="text-red-300" />
         ) : (
           <RemoveIcon />
         )}

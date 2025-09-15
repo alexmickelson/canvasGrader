@@ -1,7 +1,8 @@
 import type { FC } from "react";
 import { useState } from "react";
-import { AICriterionAnalysis } from "./AICriterionAnalysis";
+import { AiCriterionAnalysisDisplay } from "../shared/AiCriterionAnalysisDisplay";
 import { CriterionPointInput } from "./CriterionPointInput";
+import { CriterionPreviousAnalysis } from "./CriterionPreviousAnalysis";
 import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const GradingRubricCriterion: FC<{
@@ -151,7 +152,7 @@ export const GradingRubricCriterion: FC<{
                 Hide
               </button>
             </div>
-            <AICriterionAnalysis
+            <AiCriterionAnalysisDisplay
               courseId={courseId}
               assignmentId={assignmentId}
               studentName={studentName}
@@ -166,6 +167,18 @@ export const GradingRubricCriterion: FC<{
             />
           </div>
         )}
+      </div>
+
+      {/* Previous Analysis Section */}
+      <div className="px-1 pb-2">
+        <CriterionPreviousAnalysis
+          criterion={criterion}
+          assignmentId={assignmentId}
+          assignmentName={assignmentName}
+          courseName={courseName}
+          termName={termName}
+          studentName={studentName}
+        />
       </div>
     </div>
   );

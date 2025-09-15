@@ -92,30 +92,31 @@ export const useAiAnalysisQuery = ({
   courseName,
   assignmentName,
 }: {
-  courseId: number;
+  courseId?: number;
   assignmentId: number;
   studentName: string;
-  criterionDescription: string;
-  criterionPoints: number;
+  criterionDescription?: string;
+  criterionPoints?: number;
   criterionId?: string;
   termName: string;
   courseName: string;
   assignmentName: string;
 }) => {
   const trpc = useTRPC();
-  return useQuery(
-    trpc.rubricAiReport.analyzeRubricCriterion.queryOptions({
-      courseId,
+  return useQuery({
+    ...trpc.rubricAiReport.analyzeRubricCriterion.queryOptions({
+      courseId: courseId!,
       assignmentId,
       studentName,
-      criterionDescription,
-      criterionPoints,
+      criterionDescription: criterionDescription!,
+      criterionPoints: criterionPoints!,
       criterionId,
       termName,
       courseName,
       assignmentName,
-    })
-  );
+    }),
+    enabled: !!(courseId && criterionDescription && criterionPoints),
+  });
 };
 
 export const useExistingEvaluationsQuery = ({

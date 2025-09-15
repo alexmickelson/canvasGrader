@@ -233,6 +233,7 @@ Provide specific file references, line numbers for text files, and page numbers 
 
   // Parse the final result
   if (!finalMessage.content) {
+    console.log(finalMessage);
     throw new Error("No content in final response from AI service");
   }
 

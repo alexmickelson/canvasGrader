@@ -33,6 +33,10 @@ p {
     leading-relaxed;
 }
 
+button {
+  @apply cursor-pointer;
+}
+
 button:not(.unstyled) {
   @apply py-2 
     px-4 
@@ -79,6 +83,22 @@ details[open] summary {
   overflow-y: auto;
   max-height: 200px; 
 } */
+
+ul {
+  @apply list-disc pl-6 mb-4;
+}
+
+ul ul {
+  @apply list-circle mb-2;
+}
+
+ul ul ul {
+  @apply list-square;
+}
+
+li {
+  @apply mb-1;
+}
 
 
 .canvas-description {

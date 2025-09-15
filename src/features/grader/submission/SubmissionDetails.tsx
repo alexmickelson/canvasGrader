@@ -6,6 +6,9 @@ import { useAssignmentsQuery } from "../../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../../home/canvasHooks";
 import { SubmissionFileExplorer } from "./fileViewer/SubmissionFileExplorer";
 import { useDownloadAttachmentsQuery } from "../graderHooks";
+import { useViewingItem } from "../shared/viewingItemContext/ViewingItemContext";
+import { ViewFileComponent } from "./fileViewer/ViewFileComponent";
+import { AiCriterionAnalysisDisplay } from "../shared/AiCriterionAnalysisDisplay";
 
 export const SubmissionDetailsWrapper: FC<{
   submission: CanvasSubmission;
@@ -29,6 +32,7 @@ export const SubmissionDetailsWrapper: FC<{
     return <span className="text-gray-400">Unknown Assignment</span>;
   }
   if (!course) {
+    console.log("cannot find course",courseId, courses);
     return <span className="text-gray-400">Unknown Course</span>;
   }
 
@@ -50,6 +54,8 @@ export const SubmissionDetails: FC<{
   termName: string;
   courseName: string;
 }> = ({ submission, courseId, assignmentName, termName, courseName }) => {
+  const { viewingItem } = useViewingItem();
+
   return (
     <div className="h-full flex flex-col space-y-4 w-full">
       <div className="flex gap-4 flex-1 min-h-0">
@@ -66,13 +72,37 @@ export const SubmissionDetails: FC<{
           />
         </div>
         <div className="flex-1 flex flex-col min-h-0">
-          <SubmissionFileExplorer
-            assignmentId={submission.assignment_id}
-            assignmentName={assignmentName}
-            studentName={submission.user.name}
-            termName={termName}
-            courseName={courseName}
-          />
+          <div className={`space-y-4  flex flex-row w-full`}>
+            <SubmissionFileExplorer
+              assignmentId={submission.assignment_id}
+              assignmentName={assignmentName}
+              studentName={submission.user.name}
+              termName={termName}
+              courseName={courseName}
+            />
+            <div className="flex-1 overflow-x-auto w-96">
+              {viewingItem?.type === "file" && viewingItem.name && (
+                <ViewFileComponent
+                  assignmentId={submission.assignment_id}
+                  assignmentName={assignmentName}
+                  studentName={submission.user.name}
+                  termName={termName}
+                  courseName={courseName}
+                  filePath={viewingItem.name}
+                />
+              )}
+              {viewingItem?.type === "analysis" && viewingItem.name && (
+                <AiCriterionAnalysisDisplay
+                  assignmentId={submission.assignment_id}
+                  assignmentName={assignmentName}
+                  studentName={submission.user.name}
+                  termName={termName}
+                  courseName={courseName}
+                  analysisName={viewingItem.name}
+                />
+              )}
+            </div>
+          </div>
 
           {submission.submission_comments &&
             submission.submission_comments.length > 0 && (

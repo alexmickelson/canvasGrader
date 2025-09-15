@@ -1,11 +1,28 @@
 import type { FC } from "react";
 import { RubricRatings } from "./RubricRatings";
-import type { CanvasRubricCriterion, CanvasRubricAssessment } from "../../../server/trpc/routers/canvas/canvasModels";
+import { CriterionPreviousAnalysis } from "./CriterionPreviousAnalysis";
+import type {
+  CanvasRubricCriterion,
+  CanvasRubricAssessment,
+} from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const RubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
   assessment?: CanvasRubricAssessment | null;
-}> = ({ criterion, assessment }) => {
+  assignmentId?: number;
+  assignmentName?: string;
+  courseName?: string;
+  termName?: string;
+  studentName?: string;
+}> = ({
+  criterion,
+  assessment,
+  assignmentId,
+  assignmentName,
+  courseName,
+  termName,
+  studentName,
+}) => {
   const criterionAssessment = assessment?.[criterion.id];
 
   const selectedRating = criterionAssessment?.rating_id
@@ -75,6 +92,24 @@ export const RubricCriterion: FC<{
             })}
         </div>
       </div>
+
+      {/* Previous Analysis Section */}
+      {assignmentId &&
+        assignmentName &&
+        courseName &&
+        termName &&
+        studentName && (
+          <div className="px-3 pb-1">
+            <CriterionPreviousAnalysis
+              criterion={criterion}
+              assignmentId={assignmentId}
+              assignmentName={assignmentName}
+              courseName={courseName}
+              termName={termName}
+              studentName={studentName}
+            />
+          </div>
+        )}
     </div>
   );
 };

@@ -10,6 +10,8 @@ import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
 import { AnalysisWrapper } from "./analysis/AnalysisWrapper";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../home/canvasHooks";
+import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
+import { useSubmissionsQuery } from "./graderHooks";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -36,11 +38,14 @@ export const AssignmentGraderPage = () => {
     "submission"
   );
 
+  useSubmissionsQuery(parsedCourseId!, parsedAssignmentId!);
+
   if (!parsedCourseId || !parsedAssignmentId) {
     return (
       <div className="p-4 text-gray-200">Missing courseId or assignmentId</div>
     );
   }
+
 
   return (
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
@@ -146,8 +151,13 @@ export const AssignmentGraderPage = () => {
             </button>
           </div>
           <div className="p-4 space-y-3 text-sm flex-1 min-h-0">
-            {selected && courseId && (
-              <>
+            {selected && courseId && canvasCourse && assignment ? (
+              <ViewingItemProvider
+                submission={selected}
+                assignmentName={assignment.name}
+                courseName={canvasCourse.name}
+                studentName={userName(selected)}
+              >
                 {currentView === "submission" ? (
                   <SubmissionDetailsWrapper
                     submission={selected}
@@ -159,7 +169,24 @@ export const AssignmentGraderPage = () => {
                     courseId={Number(courseId)}
                   />
                 )}
-              </>
+              </ViewingItemProvider>
+            ) : (
+              selected &&
+              courseId && (
+                <>
+                  {currentView === "submission" ? (
+                    <SubmissionDetailsWrapper
+                      submission={selected}
+                      courseId={Number(courseId)}
+                    />
+                  ) : (
+                    <AnalysisWrapper
+                      submission={selected}
+                      courseId={Number(courseId)}
+                    />
+                  )}
+                </>
+              )
             )}
           </div>
         </div>
