@@ -5,6 +5,8 @@ import { useAssignmentsQuery } from "./canvasAssignmentHooks";
 import { GitHubMappingPanelWithClassroomId } from "./githubClassroomConfig/GitHubMappingPanelWithClassroomId";
 import { useAssignmentGroups } from "./useAssignmentGroups";
 import { AssignmentListItem } from "./AssignmentListItem";
+import { useAssignmentGradingStatus } from "./useAssignmentGradingStatus";
+import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -24,6 +26,7 @@ export const CoursePage = () => {
 export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
   const { data: assignments } = useAssignmentsQuery(courseId);
   const [filter, setFilter] = useState("");
+  const [hideGraded, setHideGraded] = useState(true);
 
   const filtered = useMemo(() => {
     if (!assignments) return assignments;
@@ -47,13 +50,43 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
     <div className="mt-4">
       <GitHubMappingPanelWithClassroomId courseId={courseId} />
 
-      <div className="mb-3">
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter assignments..."
-          className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-700"
-        />
+      <div className="mb-3 space-y-3 flex">
+        <div className="flex-1">
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter assignments..."
+            className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-700"
+          />
+        </div>
+        <div className="flex flex-col items-center">
+          <label
+            className="
+            flex align-middle p-2 cursor-pointer
+            text-gray-300
+            hover:text-fuchsia-400
+            transition-colors duration-200 ease-in-out
+          "
+          >
+            <input
+              type="checkbox"
+              className="appearance-none peer"
+              onChange={() => setHideGraded((h) => !h)}
+            />
+            <span
+              className={`
+                w-12 h-6 flex items-center flex-shrink-0 mx-3 p-1
+                bg-gray-600 rounded-full
+                duration-300 ease-in-out
+                peer-checked:bg-fuchsia-600
+                after:w-4 after:h-4 after:bg-white after:rounded-full after:shadow-md
+                after:duration-300 peer-checked:after:translate-x-6
+                group-hover:after:translate-x-1
+              `}
+            ></span>
+            <span className="">Hide fully graded assignments</span>
+          </label>
+        </div>
       </div>
 
       <div className="">
@@ -72,10 +105,11 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
               </div>
               <div>
                 {group.items.map((assignment) => (
-                  <AssignmentListItem
+                  <ConditionalAssignmentItem
                     key={assignment.id}
                     assignment={assignment}
                     courseId={courseId}
+                    hideGraded={hideGraded}
                   />
                 ))}
               </div>
@@ -85,4 +119,19 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
       </div>
     </div>
   );
+};
+
+const ConditionalAssignmentItem: FC<{
+  assignment: CanvasAssignment;
+  courseId: number;
+  hideGraded: boolean;
+}> = ({ assignment, courseId, hideGraded }) => {
+  const { status } = useAssignmentGradingStatus(courseId, assignment.id);
+
+  // If hideGraded is true and the assignment is graded, don't render it
+  if (hideGraded && status === "graded") {
+    return null;
+  }
+
+  return <AssignmentListItem assignment={assignment} courseId={courseId} />;
 };

@@ -109,7 +109,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         courseName: z.string(),
       })
     )
-    .query(async ({ input }) => {
+    .mutation(async ({ input }): Promise<AnalyzeRubricCriterionResponse> => {
       const {
         courseId,
         assignmentId,
@@ -310,6 +310,7 @@ Provide specific file references, line numbers for text files, and page numbers 
         return validatedResponse;
       } catch (error) {
         handleRubricAnalysisError(error);
+        throw error; // This line should never be reached, but satisfies TypeScript
       }
     }),
 

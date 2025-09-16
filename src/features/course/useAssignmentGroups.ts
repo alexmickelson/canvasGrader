@@ -7,7 +7,11 @@ export const useAssignmentGroups = (
   return useMemo(() => {
     if (!assignments) return [];
 
-    const result: { items: CanvasAssignment[]; key: string; weekStart: Date | undefined }[] = [];
+    const result: {
+      items: CanvasAssignment[];
+      key: string;
+      weekStart: Date | undefined;
+    }[] = [];
     const map = new Map<
       string,
       { items: CanvasAssignment[]; key: string; weekStart: Date | undefined }

@@ -81,42 +81,11 @@ export const useGitHubClassroomMutation = () => {
   );
 };
 
-export const useAiAnalysisQuery = ({
-  courseId,
-  assignmentId,
-  studentName,
-  criterionDescription,
-  criterionPoints,
-  criterionId,
-  termName,
-  courseName,
-  assignmentName,
-}: {
-  courseId?: number;
-  assignmentId: number;
-  studentName: string;
-  criterionDescription?: string;
-  criterionPoints?: number;
-  criterionId?: string;
-  termName: string;
-  courseName: string;
-  assignmentName: string;
-}) => {
+export const useAiAnalysisMutation = () => {
   const trpc = useTRPC();
-  return useQuery({
-    ...trpc.rubricAiReport.analyzeRubricCriterion.queryOptions({
-      courseId: courseId!,
-      assignmentId,
-      studentName,
-      criterionDescription: criterionDescription!,
-      criterionPoints: criterionPoints!,
-      criterionId,
-      termName,
-      courseName,
-      assignmentName,
-    }),
-    enabled: !!(courseId && criterionDescription && criterionPoints),
-  });
+  return useMutation(
+    trpc.rubricAiReport.analyzeRubricCriterion.mutationOptions()
+  );
 };
 
 export const useExistingEvaluationsQuery = ({

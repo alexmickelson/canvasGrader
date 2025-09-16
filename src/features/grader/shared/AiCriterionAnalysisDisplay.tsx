@@ -1,10 +1,13 @@
 import type { FC } from "react";
-import { useMemo } from "react";
-import { useAllEvaluationsQuery, useAiAnalysisQuery } from "../graderHooks";
+import { useMemo, useState } from "react";
+import { useAllEvaluationsQuery, useAiAnalysisMutation } from "../graderHooks";
 import { AnalysisSummary } from "./AnalysisSummary";
 import { EvidenceSection } from "./EvidenceSection";
 import { ConversationHistory } from "./ConversationHistory";
 import Spinner from "../../../utils/Spinner";
+import type {
+  AnalyzeRubricCriterionResponse,
+} from "../../../server/trpc/routers/rubricAI/rubricAiReportModels";
 
 export const AiCriterionAnalysisDisplay: FC<{
   // Common props
@@ -39,18 +42,34 @@ export const AiCriterionAnalysisDisplay: FC<{
     !analysisName && courseId && criterionDescription && criterionPoints;
   const isViewingExistingMode = !!analysisName;
 
-  // Live AI analysis query - only call when we have all required parameters
-  const liveAnalysisQuery = useAiAnalysisQuery({
-    courseId,
-    assignmentId,
-    studentName,
-    criterionDescription,
-    criterionPoints,
-    criterionId,
-    termName,
-    courseName,
-    assignmentName,
-  });
+  // State for live analysis results
+  const [analysisResult, setAnalysisResult] =
+    useState<AnalyzeRubricCriterionResponse | null>(null);
+
+  // Live AI analysis mutation
+  const liveAnalysisMutation = useAiAnalysisMutation();
+
+  const handleRunAnalysis = async () => {
+    if (!isLiveAnalysisMode) return;
+
+    try {
+      const data = await liveAnalysisMutation.mutateAsync({
+        courseId: courseId!,
+        assignmentId,
+        studentName,
+        criterionDescription: criterionDescription!,
+        criterionPoints: criterionPoints!,
+        criterionId,
+        termName,
+        courseName,
+        assignmentName,
+      });
+      setAnalysisResult(data);
+    } catch (error) {
+      // Error is handled by the mutation state
+      console.error("Analysis failed:", error);
+    }
+  };
 
   // Existing analysis query
   const { data: allEvaluations, isLoading: evaluationsLoading } =
@@ -78,7 +97,8 @@ export const AiCriterionAnalysisDisplay: FC<{
 
   // Handle live analysis mode
   if (isLiveAnalysisMode) {
-    if (liveAnalysisQuery.isLoading) {
+    // Show loading state during mutation
+    if (liveAnalysisMutation.isPending) {
       return (
         <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
@@ -94,49 +114,84 @@ export const AiCriterionAnalysisDisplay: FC<{
       );
     }
 
-    if (liveAnalysisQuery.isError) {
+    // Show error state
+    if (liveAnalysisMutation.isError) {
       return (
-        <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg">
-          <h4 className="font-medium text-red-300 mb-2">Analysis Error</h4>
-          <p className="text-sm text-red-400">
-            {liveAnalysisQuery.error?.message || "Failed to analyze criterion"}
-          </p>
+        <div className="space-y-4">
+          <button
+            onClick={handleRunAnalysis}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Run AI Analysis
+          </button>
+          <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg">
+            <h4 className="font-medium text-red-300 mb-2">Analysis Error</h4>
+            <p className="text-sm text-red-400">
+              {liveAnalysisMutation.error?.message ||
+                "Failed to analyze criterion"}
+            </p>
+          </div>
         </div>
       );
     }
 
-    if (!liveAnalysisQuery.data) {
-      return null;
-    }
+    // Show analysis results if we have them
+    if (analysisResult) {
+      const { analysis } = analysisResult;
 
-    const { analysis } = liveAnalysisQuery.data;
+      return (
+        <div className="space-y-4">
+          <button
+            onClick={handleRunAnalysis}
+            disabled={liveAnalysisMutation.isPending}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+          >
+            Run New Analysis
+          </button>
 
-    return (
-      <div className="p-4 bg-purple-900/20 border border-purple-700 rounded-lg space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">
-              Confidence: {analysis.confidence}%
-            </span>
+          <div className="p-4 bg-purple-900/20 border border-purple-700 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-400">
+                  Confidence: {analysis.confidence}%
+                </span>
+              </div>
+            </div>
+
+            <AnalysisSummary
+              confidence={analysis.confidence}
+              recommendedPoints={analysis.recommendedPoints}
+              totalPoints={criterionPoints}
+              description={analysis.description}
+            />
+
+            <EvidenceSection
+              evidence={analysis.evidence}
+              assignmentId={assignmentId}
+              studentName={studentName}
+              termName={termName}
+              courseName={courseName}
+              assignmentName={assignmentName}
+              title="Evidence"
+            />
           </div>
         </div>
+      );
+    }
 
-        <AnalysisSummary
-          confidence={analysis.confidence}
-          recommendedPoints={analysis.recommendedPoints}
-          totalPoints={criterionPoints}
-          description={analysis.description}
-        />
-
-        <EvidenceSection
-          evidence={analysis.evidence}
-          assignmentId={assignmentId}
-          studentName={studentName}
-          termName={termName}
-          courseName={courseName}
-          assignmentName={assignmentName}
-          title="Evidence"
-        />
+    // Show initial button to start analysis
+    return (
+      <div className="p-4 bg-gray-800 border border-gray-700 rounded-lg">
+        <button
+          onClick={handleRunAnalysis}
+          disabled={liveAnalysisMutation.isPending}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+        >
+          Run AI Analysis
+        </button>
+        <p className="text-sm text-gray-400 mt-2">
+          Click to analyze this submission against the criterion.
+        </p>
       </div>
     );
   }
@@ -174,9 +229,9 @@ export const AiCriterionAnalysisDisplay: FC<{
     return (
       <div className="space-y-6 max-w-4xl">
         <div className="border-b border-gray-700 pb-4">
-          <h2 className="text-xl font-semibold text-gray-200 mb-2">
-            Analysis: {selectedAnalysis.fileName}
-          </h2>
+          <span className="text-sm font-semibold text-gray-200 mb-2">
+            {selectedAnalysis.fileName}
+          </span>
           <div className="text-sm text-gray-400">
             {selectedAnalysis.metadata.timestamp && (
               <span>
