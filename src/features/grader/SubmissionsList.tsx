@@ -34,7 +34,7 @@ export const SubmissionsList: FC<{
       <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">
         {submissions?.length ?? 0} submissions
       </div>
-      <ul className="space-y-2 flex-1 overflow-y-auto">
+      <div className="space-y-2 flex-1 overflow-y-auto">
         {submissions.map((s) => {
           const name = userName(s);
           const isActive = selectedId === s.id;
@@ -57,7 +57,7 @@ export const SubmissionsList: FC<{
           })();
 
           return (
-            <li
+            <div
               key={s.id}
               className={`group cursor-pointer rounded-md border transition-colors ${
                 isActive
@@ -122,10 +122,10 @@ export const SubmissionsList: FC<{
                   </div>
                 </div>
               </div>
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 };

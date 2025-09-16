@@ -89,11 +89,11 @@ ul {
 }
 
 ul ul {
-  @apply list-circle mb-2;
+  @apply list-disc mb-2;
 }
 
 ul ul ul {
-  @apply list-square;
+  @apply list-disc;
 }
 
 li {

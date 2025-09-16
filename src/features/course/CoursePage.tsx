@@ -1,8 +1,10 @@
 import type { FC } from "react";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useParams } from "react-router";
 import { useAssignmentsQuery } from "./canvasAssignmentHooks";
 import { GitHubMappingPanelWithClassroomId } from "./githubClassroomConfig/GitHubMappingPanelWithClassroomId";
+import { useAssignmentGroups } from "./useAssignmentGroups";
+import { AssignmentListItem } from "./AssignmentListItem";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -22,7 +24,6 @@ export const CoursePage = () => {
 export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
   const { data: assignments } = useAssignmentsQuery(courseId);
   const [filter, setFilter] = useState("");
-  const navigate = useNavigate();
 
   const filtered = useMemo(() => {
     if (!assignments) return assignments;
@@ -40,59 +41,7 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
     });
   }, [assignments, filter]);
 
-  const fmt = (iso?: string | null) =>
-    iso
-      ? new Date(iso).toLocaleString(undefined, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : "No due date";
-
-  // Group assignments by week. Assumption: week starts on Monday.
-  type Assignment = NonNullable<typeof filtered>[number];
-
-  const groups = useMemo(() => {
-    if (!filtered)
-      return [] as { key: string; weekStart?: Date; items: Assignment[] }[];
-
-    const result: { key: string; weekStart?: Date; items: Assignment[] }[] = [];
-    const map = new Map<
-      string,
-      { key: string; weekStart?: Date; items: Assignment[] }
-    >();
-
-    const getWeekKey = (iso?: string | null) => {
-      if (!iso) return "__nodue";
-      const d = new Date(iso);
-      // Normalize to start of week (Monday)
-      const day = (d.getDay() + 6) % 7; // Monday=0 .. Sunday=6
-      const weekStart = new Date(d);
-      weekStart.setDate(d.getDate() - day);
-      weekStart.setHours(0, 0, 0, 0);
-      return weekStart.toISOString();
-    };
-
-    for (const a of filtered) {
-      const key = getWeekKey(a.due_at);
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          weekStart: key === "__nodue" ? undefined : new Date(key),
-          items: [],
-        });
-      }
-      map.get(key)!.items.push(a);
-    }
-
-    // Keep order consistent with filtered (which is already sorted)
-    for (const a of filtered) {
-      const key = getWeekKey(a.due_at);
-      const g = map.get(key)!;
-      if (!result.includes(g)) result.push(g);
-    }
-
-    return result;
-  }, [filtered]);
+  const groups = useAssignmentGroups(filtered);
 
   return (
     <div className="mt-4">
@@ -107,7 +56,7 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
         />
       </div>
 
-      <ul className="">
+      <div className="">
         {groups.map((group) => {
           // For the header label show the day of the first assignment in the group
           const headerLabel = group.weekStart
@@ -117,46 +66,23 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
             : "No due date";
 
           return (
-            <li key={group.key}>
+            <div key={group.key}>
               <div className="p-2 text-sm text-gray-500 font-medium text-end border-b-2 border-slate-800">
                 {headerLabel}
               </div>
-              <ul>
+              <div>
                 {group.items.map((assignment) => (
-                  <li
+                  <AssignmentListItem
                     key={assignment.id}
-                    className="p-3 hover:bg-gray-800/60 cursor-pointer rounded"
-                    onClick={() =>
-                      navigate(
-                        `/course/${courseId}/assignment/${assignment.id}`
-                      )
-                    }
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        navigate(
-                          `/course/${courseId}/assignment/${assignment.id}`
-                        );
-                      }
-                    }}
-                  >
-                    <div className="">
-                      <div className="font-medium text-gray-100">
-                        {assignment.name}
-                      </div>
-                      <span className="ps-5 text-xs text-gray-400">
-                        {fmt(assignment.due_at)}
-                      </span>
-                    </div>
-                  </li>
+                    assignment={assignment}
+                    courseId={courseId}
+                  />
                 ))}
-              </ul>
-            </li>
+              </div>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 };

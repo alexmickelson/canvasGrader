@@ -278,7 +278,7 @@ export const canvasRouter = createTRPCRouter({
 
   getAssignmentsInCourse: publicProcedure
     .input(z.object({ courseId: z.coerce.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input }): Promise<CanvasAssignment[]> => {
       const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments?per_page=100`;
       const assignments = await paginatedRequest<CanvasAssignment[]>({
         url,
