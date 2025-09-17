@@ -1,9 +1,9 @@
 import type { FC } from "react";
 import { useState } from "react";
-import { AiCriterionAnalysisDisplay } from "../shared/AiCriterionAnalysisDisplay";
 import { CriterionPointInput } from "./CriterionPointInput";
 import { CriterionPreviousAnalysis } from "./CriterionPreviousAnalysis";
 import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
+import { RunAnalysisButton } from "./RunAnalysisButton";
 
 export const GradingRubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
@@ -37,7 +37,6 @@ export const GradingRubricCriterion: FC<{
   const [localComments, setLocalComments] = useState(
     assessment?.comments || ""
   );
-  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
 
   const selectedRating = assessment?.rating_id
     ? criterion.ratings.find((r) => r.id === assessment.rating_id)
@@ -128,45 +127,19 @@ export const GradingRubricCriterion: FC<{
 
       {/* AI Analysis Section */}
       <div className="px-1 pb-2">
-        {!showAiAnalysis ? (
-          <button
-            onClick={() => setShowAiAnalysis(true)}
-            className={
-              " unstyled cursor-pointer w-full " +
-              "  bg-purple-950 hover:bg-purple-900 text-purple-200 " +
-              "  rounded p-1"
-            }
-          >
-            AI Report
-          </button>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <h4 className="text-sm font-medium text-purple-300">
-                AI Analysis
-              </h4>
-              <button
-                onClick={() => setShowAiAnalysis(false)}
-                className="text-xs text-gray-400 hover:text-gray-300"
-              >
-                Hide
-              </button>
-            </div>
-            <AiCriterionAnalysisDisplay
-              courseId={courseId}
-              assignmentId={assignmentId}
-              studentName={studentName}
-              criterionDescription={
-                criterion.description || `Criterion ${criterion.id}`
-              }
-              criterionPoints={criterion.points}
-              termName={termName}
-              courseName={courseName}
-              assignmentName={assignmentName}
-              criterionId={criterion.id}
-            />
-          </div>
-        )}
+        <RunAnalysisButton
+          courseId={courseId}
+          assignmentId={assignmentId}
+          studentName={studentName}
+          criterionDescription={
+            criterion.description || `Criterion ${criterion.id}`
+          }
+          criterionPoints={criterion.points}
+          termName={termName}
+          courseName={courseName}
+          assignmentName={assignmentName}
+          criterionId={criterion.id}
+        />
       </div>
 
       {/* Previous Analysis Section */}

@@ -1,5 +1,10 @@
-import { useQuery, useSuspenseQuery, useMutation } from "@tanstack/react-query";
-import { useTRPC } from "../../server/trpc/trpcClient";
+import {
+  useQuery,
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
 
 export const useSubmissionsQuery = (courseId: number, assignmentId: number) => {
   const trpc = useTRPC();
@@ -83,32 +88,15 @@ export const useGitHubClassroomMutation = () => {
 
 export const useAiAnalysisMutation = () => {
   const trpc = useTRPC();
+  const _trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
   return useMutation(
-    trpc.rubricAiReport.analyzeRubricCriterion.mutationOptions()
-  );
-};
-
-export const useExistingEvaluationsQuery = ({
-  assignmentId,
-  assignmentName,
-  courseName,
-  termName,
-  studentName,
-}: {
-  assignmentId: number;
-  assignmentName: string;
-  courseName: string;
-  termName: string;
-  studentName: string;
-}) => {
-  const trpc = useTRPC();
-  return useQuery(
-    trpc.rubricAiReport.getExistingEvaluations.queryOptions({
-      assignmentId,
-      assignmentName,
-      courseName,
-      termName,
-      studentName,
+    trpc.rubricAiReport.analyzeRubricCriterion.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.rubricAiReport.getAllEvaluations.queryKey(),
+        });
+      },
     })
   );
 };

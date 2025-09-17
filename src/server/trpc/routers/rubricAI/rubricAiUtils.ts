@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import {
   type AnalysisResult,
+  AnalysisResultSchema,
   type FullEvaluation,
   FullEvaluationSchema,
   type ConversationMessage,
@@ -139,7 +140,7 @@ export function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
   };
 }
 
-export async function getRubricAnalysisConversation({
+export async function* getRubricAnalysisConversation({
   startingMessages,
   tools,
   resultSchema,
@@ -147,13 +148,22 @@ export async function getRubricAnalysisConversation({
   startingMessages: ConversationMessage[];
   tools: AiTool[];
   resultSchema: z.ZodTypeAny;
-}): Promise<{
-  conversation: ConversationMessage[];
-  result: z.infer<typeof resultSchema>;
-}> {
+}): AsyncGenerator<
+  ConversationMessage,
+  {
+    conversation: ConversationMessage[];
+    result: z.infer<typeof resultSchema>;
+  },
+  unknown
+> {
   const conversationMessages: ConversationMessage[] = [...startingMessages];
   const maxRounds = 10; // Prevent infinite loops
   let round = 0;
+
+  // Yield the starting messages
+  for (const message of startingMessages) {
+    yield message;
+  }
 
   while (round < maxRounds) {
     round++;
@@ -165,6 +175,7 @@ export async function getRubricAnalysisConversation({
     });
 
     conversationMessages.push(assistantMessage);
+    yield assistantMessage;
 
     if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
       // Execute tool calls and add results
@@ -185,28 +196,32 @@ export async function getRubricAnalysisConversation({
           })
       );
 
-      // Add tool messages directly to conversation (they're already in domain model format)
-      toolMessages.forEach((msg) =>
-        conversationMessages.push({
+      // Add tool messages directly to conversation and yield them
+      for (const msg of toolMessages) {
+        const toolMessage = {
           role: msg.role,
           content: msg.content,
           tool_call_id: msg.tool_call_id,
-        })
-      );
+        };
+        conversationMessages.push(toolMessage);
+        yield toolMessage;
+      }
     } else {
       // No tool calls means we're done with this exploration round
       break;
     }
 
-    conversationMessages.push({
-      role: "user",
+    const continueMessage = {
+      role: "user" as const,
       content: `Continue your analysis if you need more information, or provide your final structured JSON analysis when you have gathered enough evidence.`,
-    });
+    };
+    conversationMessages.push(continueMessage);
+    yield continueMessage;
   }
 
   // Add final prompt for structured output
-  conversationMessages.push({
-    role: "user",
+  const finalPromptMessage = {
+    role: "user" as const,
     content: `Now please provide your final analysis in the required JSON format. Based on your exploration of the submission files, analyze how well this submission meets the rubric criterion. 
 
 IMPORTANT: Your response must be valid JSON that matches the required schema. Include:
@@ -218,7 +233,9 @@ IMPORTANT: Your response must be valid JSON that matches the required schema. In
 - additionalFilesNeeded: array of any additional files you'd like to examine (optional)
 
 Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.`,
-  });
+  };
+  conversationMessages.push(finalPromptMessage);
+  yield finalPromptMessage;
 
   console.log(
     "About to call OpenAI with zodResponseFormat for structured output"
@@ -230,6 +247,10 @@ Provide specific file references, line numbers for text files, and page numbers 
     responseFormat: resultSchema,
     temperature: 0.1,
   });
+
+  // Add the final response to conversation and yield it
+  conversationMessages.push(finalMessage);
+  yield finalMessage;
 
   // Parse the final result
   if (!finalMessage.content) {
@@ -273,12 +294,102 @@ Provide specific file references, line numbers for text files, and page numbers 
     throw new Error(`AI service schema validation failed: ${error}`);
   }
 
-  // Add the final response to conversation and return both conversation and result
-  conversationMessages.push(finalMessage);
+  // Return both conversation and result
   return {
     conversation: conversationMessages,
     result,
   };
+}
+
+// Generator utility function that yields messages and returns analysis
+export async function* analyzeSubmissionWithStreaming({
+  textSubmission,
+  fileSystemTree,
+  criterionDescription,
+  criterionPoints,
+  tools,
+}: {
+  submissionDir: string;
+  textSubmission: string | null;
+  fileSystemTree: string[];
+  criterionDescription: string;
+  criterionPoints: number;
+  tools: AiTool[];
+}): AsyncGenerator<ConversationMessage, AnalysisResult, unknown> {
+  const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
+
+RUBRIC CRITERION TO EVALUATE:
+- Description: ${criterionDescription}
+- Maximum Points: ${criterionPoints}
+
+STUDENT SUBMISSION OVERVIEW:
+File System Structure:
+${fileSystemTree}
+
+${
+  textSubmission
+    ? `Text Submission Content:
+${textSubmission}
+`
+    : "No text submission found."
+}
+
+AVAILABLE TOOLS:
+- get_file_system_tree: Get the complete file system structure
+- read_file: Read specific files from the submission
+
+EVALUATION PROCESS:
+1. Start by examining the file system structure and any text submission provided
+2. Use the read_file tool to examine relevant files that might contain evidence for the criterion
+3. You can call tools multiple times to explore different files as needed
+4. For text files, pay attention to line numbers when referencing specific content
+5. For PDFs, reference specific pages when citing evidence
+6. For images, note their presence and relevance even though content can't be analyzed
+7. Focus on concrete evidence and provide confidence levels for your assessments
+
+Take your time to thoroughly explore the submission before providing your final structured analysis.
+
+Use the available tools to explore the submission thoroughly. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis in JSON format. Include:
+- satisfied: boolean indicating if criterion is met
+- confidence: number 0-100 for your confidence level
+- recommendedPoints: number of points to award
+- explanation: detailed explanation of your assessment
+- evidence: array of evidence objects with fileName, fileType, relevantContent, meetsRequirement, confidence, and reasoning
+- additionalFilesNeeded: array of any additional files you'd like to examine (optional)
+
+Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.
+`;
+
+  const messages: ConversationMessage[] = [
+    { role: "system", content: systemPrompt },
+    {
+      role: "user",
+      content: `Please analyze this student submission against the rubric criterion. Start by examining the file system structure and any provided text submission, then use the available tools to read additional files as needed. When you have gathered sufficient evidence, provide your final structured analysis in JSON format without making any more tool calls.`,
+    },
+  ];
+
+  // Create the generator
+  const generator = getRubricAnalysisConversation({
+    startingMessages: messages,
+    tools,
+    resultSchema: AnalysisResultSchema,
+  });
+
+  // Yield all messages as they're generated
+  for await (const message of generator) {
+    yield message;
+  }
+
+  // Get the final result
+  const generatorResult = await generator.next();
+  if (!generatorResult.done || !generatorResult.value) {
+    throw new Error("Generator did not complete properly");
+  }
+
+  const { result: analysis } = generatorResult.value;
+
+  // Return the analysis result
+  return analysis;
 }
 
 // Helper function to handle rubric analysis errors
@@ -343,63 +454,6 @@ export function handleRubricAnalysisError(error: unknown) {
 
   // Generic fallback with original error details
   throw new Error(`Failed to analyze rubric criterion: ${message}`);
-} // Get existing evaluation files for a student
-export async function getExistingEvaluations({
-  termName,
-  courseName,
-  assignmentId,
-  assignmentName,
-  studentName,
-}: {
-  termName: string;
-  courseName: string;
-  assignmentId: number;
-  assignmentName: string;
-  studentName: string;
-}): Promise<string[]> {
-  try {
-    const sanitizedStudentName = sanitizeName(studentName);
-    const submissionDir = getMetadataSubmissionDirectory({
-      termName,
-      courseName,
-      assignmentId,
-      assignmentName,
-      studentName,
-    });
-
-    console.log("Looking for evaluations in:", {
-      submissionDir,
-      sanitizedStudentName,
-      termName,
-      courseName,
-      assignmentId,
-      assignmentName,
-      studentName,
-    });
-
-    // Check if the directory exists
-    if (!fs.existsSync(submissionDir)) {
-      console.log("Submission directory does not exist:", submissionDir);
-      return [];
-    }
-
-    // Get all files that match the pattern: <student-name>.rubric.*.json
-    const allFiles = fs.readdirSync(submissionDir);
-    console.log("All files in directory:", allFiles);
-
-    const pattern = new RegExp(
-      `^${sanitizedStudentName}\\.rubric\\..+\\.json$`
-    );
-    console.log("Looking for pattern:", pattern.toString());
-
-    const evaluationFiles = allFiles.filter((file) => file.match(pattern));
-    console.log("Found evaluation files:", evaluationFiles);
-
-    return evaluationFiles.map((file) => path.join(submissionDir, file));
-  } catch (error) {
-    console.error("Error getting existing evaluations:", error);
-    return [];
-  }
 }
 
 // Save the evaluation results to a JSON file

@@ -102,44 +102,6 @@ export const ConversationMessageSchema = z.object({
 
 export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
 
-// Schema for evaluation summary (used in getExistingEvaluations)
-export const EvaluationSummarySchema = z.object({
-  satisfied: z.boolean().optional(),
-  confidence: z.number().min(0).max(100).optional(),
-  recommendedPoints: z.number().min(0).optional(),
-});
-
-export type EvaluationSummary = z.infer<typeof EvaluationSummarySchema>;
-
-// Schema for existing evaluation (lighter version without full conversation)
-export const ExistingEvaluationSchema = z.object({
-  filePath: z.string(),
-  fileName: z.string(),
-  metadata: EvaluationMetadataSchema,
-  evaluationSummary: EvaluationSummarySchema,
-});
-
-export type ExistingEvaluation = z.infer<typeof ExistingEvaluationSchema>;
-
-// Schema for the response from getExistingEvaluations
-export const ExistingEvaluationsResponseSchema = z.object({
-  studentName: z.string(),
-  evaluations: z.array(
-    z.union([
-      ExistingEvaluationSchema,
-      z.object({
-        filePath: z.string(),
-        fileName: z.string(),
-        error: z.string(),
-      }),
-    ])
-  ),
-});
-
-export type ExistingEvaluationsResponse = z.infer<
-  typeof ExistingEvaluationsResponseSchema
->;
-
 // Schema for full evaluation data
 export const FullEvaluationSchema = z.object({
   filePath: z.string().describe("Full path to the evaluation file"),

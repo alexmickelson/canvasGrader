@@ -11,20 +11,16 @@ import {
 import { createAiTool } from "../../../../utils/aiUtils/createAiTool";
 import { getAllFilePaths } from "../../utils/fileUtils";
 import {
-  AnalysisResultSchema,
   type FullEvaluation,
   FullEvaluationSchema,
-  type ExistingEvaluationsResponse,
-  ExistingEvaluationsResponseSchema,
   AnalyzeRubricCriterionResponseSchema,
   type AnalyzeRubricCriterionResponse,
   type ConversationMessage,
 } from "./rubricAiReportModels";
 import {
-  getExistingEvaluations,
-  getRubricAnalysisConversation,
   handleRubricAnalysisError,
   saveEvaluationResults,
+  analyzeSubmissionWithStreaming,
 } from "./rubricAiUtils";
 import {
   extractTextFromPdf,
@@ -197,64 +193,32 @@ export const rubricAiReportRouter = createTRPCRouter({
         });
         const tools = [getFileSystemTreeTool, readFileTool];
 
-        const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
+        // Use the streaming analysis generator
+        const analysisGenerator = analyzeSubmissionWithStreaming({
+          submissionDir,
+          textSubmission,
+          fileSystemTree,
+          criterionDescription,
+          criterionPoints,
+          tools,
+        });
 
-RUBRIC CRITERION TO EVALUATE:
-- Description: ${criterionDescription}
-- Maximum Points: ${criterionPoints}
+        // Collect conversation messages as they're yielded
+        const conversationMessages: ConversationMessage[] = [];
 
-STUDENT SUBMISSION OVERVIEW:
-File System Structure:
-${fileSystemTree}
+        // Consume all yielded messages
+        for await (const message of analysisGenerator) {
+          conversationMessages.push(message);
+          // Could stream these to client in real-time here
+        }
 
-${
-  textSubmission
-    ? `Text Submission Content:
-${textSubmission}
-`
-    : "No text submission found."
-}
+        // Get the final analysis result
+        const analysisResult = await analysisGenerator.next();
+        if (!analysisResult.done || !analysisResult.value) {
+          throw new Error("Analysis generator did not complete properly");
+        }
 
-AVAILABLE TOOLS:
-- get_file_system_tree: Get the complete file system structure
-- read_file: Read specific files from the submission
-
-EVALUATION PROCESS:
-1. Start by examining the file system structure and any text submission provided
-2. Use the read_file tool to examine relevant files that might contain evidence for the criterion
-3. You can call tools multiple times to explore different files as needed
-4. For text files, pay attention to line numbers when referencing specific content
-5. For PDFs, reference specific pages when citing evidence
-6. For images, note their presence and relevance even though content can't be analyzed
-7. Focus on concrete evidence and provide confidence levels for your assessments
-
-Take your time to thoroughly explore the submission before providing your final structured analysis.
-
-Use the available tools to explore the submission thoroughly. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis in JSON format. Include:
-- satisfied: boolean indicating if criterion is met
-- confidence: number 0-100 for your confidence level
-- recommendedPoints: number of points to award
-- explanation: detailed explanation of your assessment
-- evidence: array of evidence objects with fileName, fileType, relevantContent, meetsRequirement, confidence, and reasoning
-- additionalFilesNeeded: array of any additional files you'd like to examine (optional)
-
-Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.
-`;
-
-        const messages: ConversationMessage[] = [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Please analyze this student submission against the rubric criterion. Start by examining the file system structure and any provided text submission, then use the available tools to read additional files as needed. When you have gathered sufficient evidence, provide your final structured analysis in JSON format without making any more tool calls.`,
-          },
-        ];
-
-        const { conversation, result: analysis } =
-          await getRubricAnalysisConversation({
-            startingMessages: messages,
-            tools,
-            resultSchema: AnalysisResultSchema,
-          });
+        const analysis = analysisResult.value;
 
         // Save the evaluation results to a JSON file
         console.log("Saving evaluation results...");
@@ -264,7 +228,7 @@ Provide specific file references, line numbers for text files, and page numbers 
           studentName,
           criterionId,
           criterionDescription,
-          conversationMessages: conversation,
+          conversationMessages,
           analysis,
           courseName,
           assignmentName,
@@ -311,111 +275,6 @@ Provide specific file references, line numbers for text files, and page numbers 
       } catch (error) {
         handleRubricAnalysisError(error);
         throw error; // This line should never be reached, but satisfies TypeScript
-      }
-    }),
-
-  getExistingEvaluations: publicProcedure
-    .input(
-      z.object({
-        assignmentId: z.number(),
-        assignmentName: z.string(),
-        courseName: z.string(),
-        termName: z.string(),
-        studentName: z.string(),
-      })
-    )
-    .query(async ({ input }) => {
-      const {
-        courseName,
-        termName,
-        assignmentName,
-        assignmentId,
-        studentName,
-      } = input;
-
-      try {
-        const evaluationFiles = await getExistingEvaluations({
-          assignmentId,
-          studentName,
-          courseName,
-          termName,
-          assignmentName,
-        });
-
-        const evaluations = evaluationFiles.map((filePath) => {
-          try {
-            const content = fs.readFileSync(filePath, "utf-8");
-            let data;
-            try {
-              data = JSON.parse(content);
-            } catch (error) {
-              console.error("Failed to parse evaluation file as JSON:", {
-                filePath,
-                error: error,
-                content: content.substring(0, 500),
-              });
-              throw new Error(
-                `Failed to parse evaluation file as JSON: ${filePath}. Error: ${error}`
-              );
-            }
-
-            // Validate the full evaluation data first
-            let validatedEvaluation;
-            try {
-              validatedEvaluation = FullEvaluationSchema.parse(data);
-            } catch (error) {
-              console.error("FullEvaluationSchema validation failed:", {
-                filePath,
-                error: error,
-                data: JSON.stringify(data, null, 2),
-              });
-              throw new Error(
-                `FullEvaluationSchema validation failed for file: ${filePath}. Data: ${JSON.stringify(
-                  data,
-                  null,
-                  2
-                )}. Error: ${error}`
-              );
-            }
-
-            return {
-              filePath,
-              fileName: path.basename(filePath),
-              metadata: validatedEvaluation.metadata,
-              evaluationSummary: {
-                confidence: validatedEvaluation.evaluation.confidence,
-                recommendedPoints:
-                  validatedEvaluation.evaluation.recommendedPoints,
-              },
-            };
-          } catch (error) {
-            console.error(`Error reading evaluation file ${filePath}:`, error);
-            return {
-              filePath,
-              fileName: path.basename(filePath),
-              error: "Failed to read evaluation file",
-            };
-          }
-        });
-
-        const response: ExistingEvaluationsResponse = {
-          studentName,
-          evaluations: evaluations.sort((a, b) => {
-            // Sort by timestamp, newest first
-            const aTime = "metadata" in a ? a.metadata?.timestamp : "";
-            const bTime = "metadata" in b ? b.metadata?.timestamp : "";
-            return (bTime || "").localeCompare(aTime || "");
-          }),
-        };
-
-        return ExistingEvaluationsResponseSchema.parse(response);
-      } catch (error) {
-        console.error("Error getting existing evaluations:", error);
-        throw new Error(
-          `Failed to get existing evaluations: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
       }
     }),
 
