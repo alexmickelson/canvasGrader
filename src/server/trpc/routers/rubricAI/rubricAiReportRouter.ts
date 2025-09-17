@@ -6,93 +6,14 @@ import fs from "fs";
 import path from "path";
 import {
   getMetadataSubmissionDirectory,
-  getSubmissionDirectory,
   sanitizeName,
 } from "../canvas/canvasStorageUtils";
-import { createAiTool } from "../../../../utils/aiUtils/createAiTool";
-import { getAllFilePaths } from "../../utils/fileUtils";
 import {
-  type AnalysisResult,
   type FullEvaluation,
   FullEvaluationSchema,
-  AnalyzeRubricCriterionResponseSchema,
   type AnalyzeRubricCriterionResponse,
-  type ConversationMessage,
-  AnalysisResultSchema,
 } from "./rubricAiReportModels";
-import {
-  handleRubricAnalysisError,
-  saveEvaluationResults,
-  analyzeSubmissionWithStreaming,
-  parseResultFromMessage,
-} from "./rubricAiUtils";
-import {
-  extractTextFromPdf,
-  combinePageTranscriptions,
-  storeTranscriptionPage,
-} from "../../../../utils/aiUtils/extractTextFromPdf";
-
-// Helper function to check if file is an image
-function isImageFile(filename: string): boolean {
-  const imageExtensions = [
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".bmp",
-    ".webp",
-    ".svg",
-  ];
-  return imageExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
-}
-
-// Helper function to check if file is a PDF
-function isPdfFile(filename: string): boolean {
-  return filename.toLowerCase().endsWith(".pdf");
-}
-
-// Helper function to read text files with line numbers
-function readTextFile(filePath: string): string {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const lines = content.split("\n");
-    return lines.map((line, index) => `${index + 1}: ${line}`).join("\n");
-  } catch (error) {
-    console.error(`Error reading text file ${filePath}:`, error);
-    return `[Error reading file: ${filePath}]`;
-  }
-}
-
-// Get text submission from submission.json if it exists
-function getTextSubmission(submissionDir: string): string | null {
-  const submissionJsonPath = path.join(submissionDir, "submission.json");
-  if (fs.existsSync(submissionJsonPath)) {
-    try {
-      const rawData = fs.readFileSync(submissionJsonPath, "utf-8");
-      let submissionData;
-      try {
-        submissionData = JSON.parse(rawData);
-      } catch (error) {
-        console.error("Failed to parse submission.json as JSON:", {
-          submissionJsonPath,
-          error: error,
-          rawData: rawData.substring(0, 500),
-        });
-        throw new Error(
-          `Failed to parse submission.json as JSON: ${submissionJsonPath}. Error: ${error}. Data: ${rawData.substring(
-            0,
-            500
-          )}...`
-        );
-      }
-      return submissionData.body || null;
-    } catch (error) {
-      console.error("Error reading submission.json:", error);
-      return null;
-    }
-  }
-  return null;
-}
+import { analyzeRubricCriterion } from "./rubricAiUtils";
 
 export const rubricAiReportRouter = createTRPCRouter({
   analyzeRubricCriterion: publicProcedure
@@ -110,202 +31,30 @@ export const rubricAiReportRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input }): Promise<AnalyzeRubricCriterionResponse> => {
-      const {
-        courseId,
-        assignmentId,
-        studentName,
-        criterionDescription,
-        criterionPoints,
-        criterionId,
-        termName,
-        courseName,
-        assignmentName,
-      } = input;
+      // Use the generator and consume all messages to get the final result
+      const generator = analyzeRubricCriterion(input);
 
-      try {
-        // Get submission directory
-        const submissionDir = getSubmissionDirectory({
-          termName,
-          courseName,
-          assignmentId,
-          assignmentName,
-          studentName,
-        });
+      let finalResult: AnalyzeRubricCriterionResponse | undefined;
 
-        // Get text submission if available
-        const textSubmission = getTextSubmission(submissionDir);
+      // Consume the generator completely
+      while (true) {
+        const { value, done } = await generator.next();
 
-        // Generate initial file system tree
-        const fileSystemTree = getAllFilePaths(submissionDir, submissionDir);
-
-        // Create file system exploration tools
-        const getFileSystemTreeTool = createAiTool({
-          name: "get_file_system_tree",
-          description:
-            "Get the complete file system tree structure of the submission folder",
-          paramsSchema: z.object({}),
-          fn: async () => {
-            console.log("reading directory", submissionDir);
-            console.log("files", fileSystemTree);
-            return fileSystemTree;
-          },
-        });
-
-        const readFileTool = createAiTool({
-          name: "read_file",
-          description:
-            "Read the contents of a specific file from the submission folder",
-          paramsSchema: z.object({
-            fileName: z
-              .string()
-              .describe(
-                "Name of the file to read (relative to submission folder)"
-              ),
-          }),
-          fn: async (params) => {
-            const filePath = path.join(submissionDir, params.fileName);
-
-            if (!fs.existsSync(filePath)) {
-              return `Error: File '${params.fileName}' not found in submission folder`;
-            }
-
-            const stat = fs.statSync(filePath);
-            if (!stat.isFile()) {
-              return `Error: '${params.fileName}' is not a file`;
-            }
-
-            if (isPdfFile(params.fileName)) {
-              const pageTranscriptions = await extractTextFromPdf(filePath);
-
-              // Store each page transcription
-              for (const page of pageTranscriptions) {
-                await storeTranscriptionPage(
-                  filePath,
-                  page.pageNumber,
-                  page.transcription
-                );
-              }
-
-              // Return combined transcription for the AI tool
-              return combinePageTranscriptions(filePath, pageTranscriptions);
-            } else if (isImageFile(params.fileName)) {
-              return `[Image file: ${params.fileName} - Visual analysis not available, but file is present]`;
-            } else {
-              return readTextFile(filePath);
-            }
-          },
-        });
-        const tools = [getFileSystemTreeTool, readFileTool];
-
-        // Use the streaming analysis generator
-        console.log("🚀 Starting analysis with streaming generator...");
-        const analysisGenerator = analyzeSubmissionWithStreaming({
-          submissionDir,
-          textSubmission,
-          fileSystemTree,
-          criterionDescription,
-          criterionPoints,
-          tools,
-        });
-
-        // Collect conversation messages as they're yielded
-        const conversationMessages: ConversationMessage[] = [];
-        let analysis: AnalysisResult | null = null;
-
-        try {
-          console.log("📨 Starting to consume generator messages...");
-
-          // Consume all yielded messages and get the return value
-          for await (const message of analysisGenerator) {
-            console.log(
-              `📤 Received message: ${message.role} (total: ${
-                conversationMessages.length + 1
-              })`
-            );
-            conversationMessages.push(message);
-          }
-
-          const parsed = parseResultFromMessage(
-            conversationMessages[conversationMessages.length - 1],
-            AnalysisResultSchema
-          );
-          analysis = {
-            ...parsed,
-            evidence: parsed.evidence || [],
-          };
-        } catch (error) {
-          console.error("💥 Error during generator consumption:");
-          throw error;
+        if (done) {
+          // The value here is the return value of the generator
+          finalResult = value;
+          break;
         }
 
-        if (!analysis) {
-          console.error("❌ No analysis result obtained from generator");
-          throw new Error("Failed to obtain analysis result from generator");
-        }
-
-        console.log("✅ Analysis completed successfully:", {
-          conversationLength: conversationMessages.length,
-          confidence: analysis.confidence,
-          evidenceCount: analysis.evidence.length,
-        }); // Save the evaluation results to a JSON file
-        console.log("Saving evaluation results...");
-        await saveEvaluationResults({
-          courseId,
-          assignmentId,
-          studentName,
-          criterionId,
-          criterionDescription,
-          conversationMessages,
-          analysis,
-          courseName,
-          assignmentName,
-          termName,
-        });
-
-        // Prepare and validate the response
-        const responseData: AnalyzeRubricCriterionResponse = {
-          analysis,
-          submissionPath: submissionDir,
-          fileSystemTree,
-          textSubmission,
-        };
-
-        console.log("Analysis completed successfully:", {
-          confidence: analysis.confidence,
-          evidenceCount: analysis.evidence.length,
-        });
-
-        // Validate the response data before returning
-        let validatedResponse;
-        try {
-          validatedResponse = parseSchema(
-            AnalyzeRubricCriterionResponseSchema,
-            responseData,
-            "AnalyzeRubricCriterionResponse validation"
-          );
-        } catch (error) {
-          console.error(
-            "AnalyzeRubricCriterionResponseSchema validation failed:",
-            {
-              error: error,
-              responseData: JSON.stringify(responseData, null, 2),
-              analysis: JSON.stringify(analysis, null, 2),
-            }
-          );
-          throw new Error(
-            `AnalyzeRubricCriterionResponseSchema validation failed. Response data: ${JSON.stringify(
-              responseData,
-              null,
-              2
-            )}. Error: ${error}`
-          );
-        }
-
-        return validatedResponse;
-      } catch (error) {
-        handleRubricAnalysisError(error);
-        throw error; // This line should never be reached, but satisfies TypeScript
+        // value here is a yielded ConversationMessage
+        console.log(`📤 Processing message: ${value.role}`);
       }
+
+      if (!finalResult) {
+        throw new Error("Failed to get analysis result from generator");
+      }
+
+      return finalResult;
     }),
 
   getAllEvaluations: publicProcedure

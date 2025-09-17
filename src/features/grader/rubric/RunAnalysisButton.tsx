@@ -1,6 +1,7 @@
-import type { FC } from "react";
+import { useState, type FC } from "react";
 import { useAiAnalysisMutation } from "../graderHooks";
 import Spinner from "../../../utils/Spinner";
+import { useTRPCClient } from "../../../server/trpc/trpcClient";
 
 export const RunAnalysisButton: FC<{
   courseId: number;
@@ -24,10 +25,14 @@ export const RunAnalysisButton: FC<{
   assignmentName,
 }) => {
   const liveAnalysisMutation = useAiAnalysisMutation();
+  const [status, setStatus] = useState("");
+   const trpcClient = useTRPCClient();
 
   return (
     <button
       onClick={() =>
+      {
+        // tr
         liveAnalysisMutation.mutate({
           courseId,
           assignmentId,
@@ -39,6 +44,7 @@ export const RunAnalysisButton: FC<{
           courseName,
           assignmentName,
         })
+      }
       }
       disabled={liveAnalysisMutation.isPending}
       className="
@@ -56,6 +62,11 @@ export const RunAnalysisButton: FC<{
     >
       {liveAnalysisMutation.isPending && <Spinner size="sm" />}
       {liveAnalysisMutation.isPending ? "Analyzing..." : "Run AI Analysis"}
+      {liveAnalysisMutation.isPending && status && (
+        <>
+          <Spinner /> {status}
+        </>
+      )}
     </button>
   );
 };

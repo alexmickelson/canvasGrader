@@ -4,7 +4,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
+import { useTRPC } from "../../server/trpc/trpcClient";
 
 export const useSubmissionsQuery = (courseId: number, assignmentId: number) => {
   const trpc = useTRPC();
@@ -88,7 +88,7 @@ export const useGitHubClassroomMutation = () => {
 
 export const useAiAnalysisMutation = () => {
   const trpc = useTRPC();
-  const _trpcClient = useTRPCClient();
+ 
   const queryClient = useQueryClient();
   return useMutation(
     trpc.rubricAiReport.analyzeRubricCriterion.mutationOptions({

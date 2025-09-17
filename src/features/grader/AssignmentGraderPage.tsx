@@ -7,7 +7,6 @@ import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasMo
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
 import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
-import { AnalysisWrapper } from "./analysis/AnalysisWrapper";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../home/canvasHooks";
 import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
@@ -33,11 +32,6 @@ export const AssignmentGraderPage = () => {
   // Selected submission for slide-over panel
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
 
-  // View toggle: 'submission' or 'analysis'
-  const [currentView, setCurrentView] = useState<"submission" | "analysis">(
-    "submission"
-  );
-
   useSubmissionsQuery(parsedCourseId!, parsedAssignmentId!);
 
   if (!parsedCourseId || !parsedAssignmentId) {
@@ -45,7 +39,6 @@ export const AssignmentGraderPage = () => {
       <div className="p-4 text-gray-200">Missing courseId or assignmentId</div>
     );
   }
-
 
   return (
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
@@ -82,7 +75,6 @@ export const AssignmentGraderPage = () => {
               assignment={assignment ?? null}
               onSelect={(submission) => {
                 setSelected(submission);
-                setCurrentView("submission"); // Reset to submission view when selecting new student
               }}
             />
           </Suspense>
@@ -101,32 +93,6 @@ export const AssignmentGraderPage = () => {
               <div id="submission-details-title" className="truncate">
                 {selected ? userName(selected) : ""}
               </div>
-
-              {/* View Toggle Buttons */}
-              {selected && (
-                <div className="flex rounded-md border border-gray-600 overflow-hidden">
-                  <button
-                    onClick={() => setCurrentView("submission")}
-                    className={`unstyled px-3 py-1 text-xs font-medium transition-colors cursor-pointer  ${
-                      currentView === "submission"
-                        ? "bg-blue-800 text-white"
-                        : "text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    Submission
-                  </button>
-                  <button
-                    onClick={() => setCurrentView("analysis")}
-                    className={`unstyled px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
-                      currentView === "analysis"
-                        ? "bg-blue-800 text-white"
-                        : "text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    AI Analysis
-                  </button>
-                </div>
-              )}
             </div>
 
             <button
@@ -158,34 +124,18 @@ export const AssignmentGraderPage = () => {
                 courseName={canvasCourse.name}
                 studentName={userName(selected)}
               >
-                {currentView === "submission" ? (
-                  <SubmissionDetailsWrapper
-                    submission={selected}
-                    courseId={Number(courseId)}
-                  />
-                ) : (
-                  <AnalysisWrapper
-                    submission={selected}
-                    courseId={Number(courseId)}
-                  />
-                )}
+                <SubmissionDetailsWrapper
+                  submission={selected}
+                  courseId={Number(courseId)}
+                />
               </ViewingItemProvider>
             ) : (
               selected &&
               courseId && (
-                <>
-                  {currentView === "submission" ? (
-                    <SubmissionDetailsWrapper
-                      submission={selected}
-                      courseId={Number(courseId)}
-                    />
-                  ) : (
-                    <AnalysisWrapper
-                      submission={selected}
-                      courseId={Number(courseId)}
-                    />
-                  )}
-                </>
+                <SubmissionDetailsWrapper
+                  submission={selected}
+                  courseId={Number(courseId)}
+                />
               )
             )}
           </div>
