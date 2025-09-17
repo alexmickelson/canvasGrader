@@ -148,41 +148,49 @@ async function getOpenAiCompletion({
     })
   );
 
-  try {
-    let completion;
+  let completion;
 
-    if (responseFormat) {
-      // Use structured output with zodResponseFormat
-      completion = await openai.chat.completions.parse({
-        model: aiModel,
-        messages: openaiMessages,
-        response_format: zodResponseFormat(
-          responseFormat,
-          "structured_response"
-        ),
-        tools: toolsSchema,
-        temperature,
-      });
-    } else {
-      // Regular completion
-      completion = await openai.chat.completions.create({
-        model: aiModel,
-        messages: openaiMessages,
-        tools: toolsSchema,
-        temperature,
-      });
+  if (responseFormat) {
+    // Use structured output with zodResponseFormat
+    const res = await openai.chat.completions.create({
+      model: aiModel,
+      messages: openaiMessages,
+      response_format: zodResponseFormat(responseFormat, "structured_response"),
+      tools: toolsSchema,
+      temperature,
+    });
+
+    completion = res;
+    if (responseFormat && res.choices[0]?.message?.content) {
+      try {
+        const parsed = JSON.parse(res.choices[0].message.content);
+        const validated = responseFormat.parse(parsed);
+        res.choices[0].message.content = JSON.stringify(validated);
+      } catch (parseError) {
+        console.log(JSON.stringify(res.choices, null, 2));
+        console.warn(
+          "Failed to parse/validate structured response from OpenAI:",
+          parseError
+        );
+        // Fall back to returning the raw response
+      }
     }
-    // console.log(completion);
-
-    const assistantMessage = completion.choices[0]?.message;
-    if (!assistantMessage) {
-      throw new Error("No response from AI service");
-    }
-
-    // Convert back to domain model and return
-    return fromOpenAIMessage(assistantMessage);
-  } catch (error) {
-    console.error("OpenAI API call failed:", error);
-    throw new Error(`AI completion failed: ${error}`);
+  } else {
+    // Regular completion
+    completion = await openai.chat.completions.create({
+      model: aiModel,
+      messages: openaiMessages,
+      tools: toolsSchema,
+      temperature,
+    });
   }
+  // console.log(completion);
+
+  const assistantMessage = completion.choices[0]?.message;
+  if (!assistantMessage) {
+    throw new Error("No response from AI service");
+  }
+
+  // Convert back to domain model and return
+  return fromOpenAIMessage(assistantMessage);
 }

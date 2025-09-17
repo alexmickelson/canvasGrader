@@ -13,10 +13,12 @@ import {
   type FullEvaluation,
   FullEvaluationSchema,
   type ConversationMessage,
+  evidenceSchemaPrompt,
 } from "./rubricAiReportModels";
 import OpenAI from "openai";
 import { getAiCompletion } from "../../../../utils/aiUtils/getAiCompletion";
 import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient";
+import { parseSchema } from "../parseSchema";
 
 // Helper functions to convert between domain model and OpenAI types
 export function toOpenAIMessage(
@@ -72,6 +74,44 @@ export function toOpenAIMessage(
   }
 
   return baseMessage as unknown as OpenAI.Chat.ChatCompletionMessageParam;
+}
+
+// Function to parse a resultSchema object from a ConversationMessage
+export function parseResultFromMessage<T>(
+  message: ConversationMessage,
+  resultSchema: z.ZodType<T>
+): T {
+  // Parse the final result
+  if (!message.content) {
+    console.log(message);
+    throw new Error("No content in final response from AI service");
+  }
+
+  // Convert content to string if it's an array (shouldn't happen for structured responses, but safety check)
+  const contentStr =
+    typeof message.content === "string"
+      ? message.content
+      : JSON.stringify(message.content);
+
+  const parsedResult = JSON.parse(contentStr);
+  console.log("📋 Parsed AI response:", JSON.stringify(parsedResult, null, 2));
+
+  // Validate the result against the schema
+  try {
+    const result = parseSchema(
+      resultSchema,
+      parsedResult,
+      "AI response validation"
+    );
+
+    return result;
+  } catch (error) {
+    console.error(
+      "Failed to parse AI response:",
+      JSON.stringify(message, null, 2)
+    );
+    throw error;
+  }
 }
 
 export function fromOpenAIMessage(openaiMessage: unknown): ConversationMessage {
@@ -148,22 +188,10 @@ export async function* getRubricAnalysisConversation({
   startingMessages: ConversationMessage[];
   tools: AiTool[];
   resultSchema: z.ZodTypeAny;
-}): AsyncGenerator<
-  ConversationMessage,
-  {
-    conversation: ConversationMessage[];
-    result: z.infer<typeof resultSchema>;
-  },
-  unknown
-> {
+}): AsyncGenerator<ConversationMessage> {
   const conversationMessages: ConversationMessage[] = [...startingMessages];
   const maxRounds = 10; // Prevent infinite loops
   let round = 0;
-
-  // Yield the starting messages
-  for (const message of startingMessages) {
-    yield message;
-  }
 
   while (round < maxRounds) {
     round++;
@@ -172,6 +200,8 @@ export async function* getRubricAnalysisConversation({
     const assistantMessage = await getAiCompletion({
       messages: conversationMessages,
       tools,
+      responseFormat: resultSchema,
+      temperature: 0.1,
     });
 
     conversationMessages.push(assistantMessage);
@@ -208,7 +238,8 @@ export async function* getRubricAnalysisConversation({
       }
     } else {
       // No tool calls means we're done with this exploration round
-      break;
+
+      return;
     }
 
     const continueMessage = {
@@ -222,17 +253,7 @@ export async function* getRubricAnalysisConversation({
   // Add final prompt for structured output
   const finalPromptMessage = {
     role: "user" as const,
-    content: `Now please provide your final analysis in the required JSON format. Based on your exploration of the submission files, analyze how well this submission meets the rubric criterion. 
-
-IMPORTANT: Your response must be valid JSON that matches the required schema. Include:
-- satisfied: boolean indicating if criterion is met
-- confidence: number 0-100 for your confidence level
-- recommendedPoints: number of points to award
-- explanation: detailed explanation of your assessment
-- evidence: array of evidence objects with fileName, fileType, relevantContent, meetsRequirement, confidence, and reasoning
-- additionalFilesNeeded: array of any additional files you'd like to examine (optional)
-
-Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.`,
+    content: `Please provide your final analysis of how well this submission meets the rubric criterion. Base your assessment on the files you've examined and provide specific evidence to support your evaluation.`,
   };
   conversationMessages.push(finalPromptMessage);
   yield finalPromptMessage;
@@ -252,53 +273,14 @@ Provide specific file references, line numbers for text files, and page numbers 
   conversationMessages.push(finalMessage);
   yield finalMessage;
 
-  // Parse the final result
-  if (!finalMessage.content) {
-    console.log(finalMessage);
-    throw new Error("No content in final response from AI service");
-  }
-
-  // Convert content to string if it's an array (shouldn't happen for structured responses, but safety check)
-  const contentStr =
-    typeof finalMessage.content === "string"
-      ? finalMessage.content
-      : JSON.stringify(finalMessage.content);
-
-  let parsedResult;
-  try {
-    parsedResult = JSON.parse(contentStr);
-  } catch (error) {
-    console.error("Failed to parse AI response as JSON:", {
-      error: error,
-      content: contentStr,
-      contentLength: contentStr.length,
-    });
-    throw new Error(
-      `Failed to parse final response as JSON: ${error}. Content: ${contentStr.substring(
-        0,
-        500
-      )}...`
-    );
-  }
-
-  // Validate the result against the schema
-  let result;
-  try {
-    result = resultSchema.parse(parsedResult);
-  } catch (error) {
-    console.error("Schema validation failed:", {
-      error: error,
-      parsedResult: JSON.stringify(parsedResult, null, 2),
-      schema: resultSchema._def,
-    });
-    throw new Error(`AI service schema validation failed: ${error}`);
-  }
+  // Parse the final result using the extracted function
+  // const result = parseResultFromMessage(finalMessage, resultSchema);
 
   // Return both conversation and result
-  return {
-    conversation: conversationMessages,
-    result,
-  };
+  // return {
+  //   conversation: conversationMessages,
+  //   result,
+  // };
 }
 
 // Generator utility function that yields messages and returns analysis
@@ -315,7 +297,12 @@ export async function* analyzeSubmissionWithStreaming({
   criterionDescription: string;
   criterionPoints: number;
   tools: AiTool[];
-}): AsyncGenerator<ConversationMessage, AnalysisResult, unknown> {
+}): AsyncGenerator<
+  ConversationMessage,
+  { conversation: ConversationMessage[]; analysis: AnalysisResult }
+> {
+  console.log("🚀 Starting streaming analysis...");
+
   const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
 
 RUBRIC CRITERION TO EVALUATE:
@@ -347,17 +334,15 @@ EVALUATION PROCESS:
 6. For images, note their presence and relevance even though content can't be analyzed
 7. Focus on concrete evidence and provide confidence levels for your assessments
 
+${evidenceSchemaPrompt}
+
 Take your time to thoroughly explore the submission before providing your final structured analysis.
 
-Use the available tools to explore the submission thoroughly. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis in JSON format. Include:
-- satisfied: boolean indicating if criterion is met
-- confidence: number 0-100 for your confidence level
-- recommendedPoints: number of points to award
-- explanation: detailed explanation of your assessment
-- evidence: array of evidence objects with fileName, fileType, relevantContent, meetsRequirement, confidence, and reasoning
-- additionalFilesNeeded: array of any additional files you'd like to examine (optional)
+Use the available tools to explore the submission thoroughly. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis.
 
-Provide specific file references, line numbers for text files, and page numbers for PDFs, and confidence levels for each piece of evidence.
+Analyze how well this submission meets the rubric criterion. Provide a confidence level, recommended points, brief description of your assessment, and cite specific evidence from the files you examined.
+
+CRITICAL: Only include evidence entries for actual files you have examined with the read_file tool. Do not create evidence entries based solely on the file system structure or absence of files.
 `;
 
   const messages: ConversationMessage[] = [
@@ -368,28 +353,42 @@ Provide specific file references, line numbers for text files, and page numbers 
     },
   ];
 
+  console.log("📨 Created initial messages, starting AI conversation...");
+
   // Create the generator
   const generator = getRubricAnalysisConversation({
-    startingMessages: messages,
+    startingMessages: [...messages],
     tools,
     resultSchema: AnalysisResultSchema,
   });
 
+  console.log("🔄 Generator created, beginning message iteration...");
+  let messageCount = 0;
+
   // Yield all messages as they're generated
   for await (const message of generator) {
+    messageCount++;
+    console.log(`📤 Yielding message ${messageCount}: ${message.role}`);
+    messages.push(message);
     yield message;
   }
 
-  // Get the final result
-  const generatorResult = await generator.next();
-  if (!generatorResult.done || !generatorResult.value) {
-    throw new Error("Generator did not complete properly");
-  }
+  console.log(
+    "🔚 Generator has finished yielding messages.",
+    messages,
+    messages[messages.length - 1]
+  );
 
-  const { result: analysis } = generatorResult.value;
+  const parsed = parseResultFromMessage(
+    messages[messages.length - 1],
+    AnalysisResultSchema
+  );
+  const analysis: AnalysisResult = {
+    ...parsed,
+    evidence: parsed.evidence || [],
+  };
 
-  // Return the analysis result
-  return analysis;
+  return { conversation: messages, analysis };
 }
 
 // Helper function to handle rubric analysis errors
@@ -551,7 +550,11 @@ export async function saveEvaluationResults({
     };
 
     // Validate the data against the schema before saving
-    const validatedData = FullEvaluationSchema.parse(evaluationData);
+    const validatedData = parseSchema(
+      FullEvaluationSchema,
+      evaluationData,
+      "Full evaluation data"
+    );
 
     // Ensure the directory exists
     fs.mkdirSync(path.dirname(evaluationFilePath), { recursive: true });

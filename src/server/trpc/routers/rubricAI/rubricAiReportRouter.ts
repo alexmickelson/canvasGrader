@@ -1,5 +1,6 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../../utils/trpc";
+import { parseSchema } from "../parseSchema";
 
 import fs from "fs";
 import path from "path";
@@ -11,16 +12,19 @@ import {
 import { createAiTool } from "../../../../utils/aiUtils/createAiTool";
 import { getAllFilePaths } from "../../utils/fileUtils";
 import {
+  type AnalysisResult,
   type FullEvaluation,
   FullEvaluationSchema,
   AnalyzeRubricCriterionResponseSchema,
   type AnalyzeRubricCriterionResponse,
   type ConversationMessage,
+  AnalysisResultSchema,
 } from "./rubricAiReportModels";
 import {
   handleRubricAnalysisError,
   saveEvaluationResults,
   analyzeSubmissionWithStreaming,
+  parseResultFromMessage,
 } from "./rubricAiUtils";
 import {
   extractTextFromPdf,
@@ -194,6 +198,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         const tools = [getFileSystemTreeTool, readFileTool];
 
         // Use the streaming analysis generator
+        console.log("🚀 Starting analysis with streaming generator...");
         const analysisGenerator = analyzeSubmissionWithStreaming({
           submissionDir,
           textSubmission,
@@ -205,22 +210,44 @@ export const rubricAiReportRouter = createTRPCRouter({
 
         // Collect conversation messages as they're yielded
         const conversationMessages: ConversationMessage[] = [];
+        let analysis: AnalysisResult | null = null;
 
-        // Consume all yielded messages
-        for await (const message of analysisGenerator) {
-          conversationMessages.push(message);
-          // Could stream these to client in real-time here
+        try {
+          console.log("📨 Starting to consume generator messages...");
+
+          // Consume all yielded messages and get the return value
+          for await (const message of analysisGenerator) {
+            console.log(
+              `📤 Received message: ${message.role} (total: ${
+                conversationMessages.length + 1
+              })`
+            );
+            conversationMessages.push(message);
+          }
+
+          const parsed = parseResultFromMessage(
+            conversationMessages[conversationMessages.length - 1],
+            AnalysisResultSchema
+          );
+          analysis = {
+            ...parsed,
+            evidence: parsed.evidence || [],
+          };
+        } catch (error) {
+          console.error("💥 Error during generator consumption:");
+          throw error;
         }
 
-        // Get the final analysis result
-        const analysisResult = await analysisGenerator.next();
-        if (!analysisResult.done || !analysisResult.value) {
-          throw new Error("Analysis generator did not complete properly");
+        if (!analysis) {
+          console.error("❌ No analysis result obtained from generator");
+          throw new Error("Failed to obtain analysis result from generator");
         }
 
-        const analysis = analysisResult.value;
-
-        // Save the evaluation results to a JSON file
+        console.log("✅ Analysis completed successfully:", {
+          conversationLength: conversationMessages.length,
+          confidence: analysis.confidence,
+          evidenceCount: analysis.evidence.length,
+        }); // Save the evaluation results to a JSON file
         console.log("Saving evaluation results...");
         await saveEvaluationResults({
           courseId,
@@ -251,8 +278,11 @@ export const rubricAiReportRouter = createTRPCRouter({
         // Validate the response data before returning
         let validatedResponse;
         try {
-          validatedResponse =
-            AnalyzeRubricCriterionResponseSchema.parse(responseData);
+          validatedResponse = parseSchema(
+            AnalyzeRubricCriterionResponseSchema,
+            responseData,
+            "AnalyzeRubricCriterionResponse validation"
+          );
         } catch (error) {
           console.error(
             "AnalyzeRubricCriterionResponseSchema validation failed:",
@@ -384,14 +414,18 @@ export const rubricAiReportRouter = createTRPCRouter({
             // Validate the evaluation data against the schema
             let validatedEvaluation;
             try {
-              validatedEvaluation = FullEvaluationSchema.parse({
-                filePath,
-                fileName,
-                metadata: evaluationData.metadata,
-                conversation: evaluationData.conversation,
-                evaluation: evaluationData.evaluation,
-                submissionPath: evaluationData.submissionPath,
-              });
+              validatedEvaluation = parseSchema(
+                FullEvaluationSchema,
+                {
+                  filePath,
+                  fileName,
+                  metadata: evaluationData.metadata,
+                  conversation: evaluationData.conversation,
+                  evaluation: evaluationData.evaluation,
+                  submissionPath: evaluationData.submissionPath,
+                },
+                `FullEvaluation validation for ${fileName}`
+              );
               console.log(`✅ Successfully validated schema for: ${fileName}`);
             } catch (error) {
               console.error("❌ FullEvaluationSchema validation failed:", {

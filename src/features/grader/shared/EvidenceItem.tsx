@@ -50,10 +50,10 @@ export const EvidenceItem: FC<{
           termName={termName}
           courseName={courseName}
           filePath={evidence.fileName}
-          startLine={evidence.lineNumbers?.start.line}
-          startColumn={evidence.lineNumbers?.start.column}
-          endLine={evidence.lineNumbers?.end.line}
-          endColumn={evidence.lineNumbers?.end.column}
+          startLine={evidence.lineStart ?? undefined}
+          startColumn={undefined}
+          endLine={evidence.lineEnd ?? undefined}
+          endColumn={undefined}
         />
       </Expandable>
     </div>

@@ -96,7 +96,7 @@ export const AnalysisView: React.FC<{
             />
 
             <EvidenceSection
-              evidence={selectedAnalysis.evaluation?.evidence || []}
+              evidence={selectedAnalysis.evaluation?.evidence ?? []}
               assignmentId={assignmentId}
               studentName={studentName}
               termName={termName}
