@@ -72,7 +72,7 @@ export const SubmissionDetails: FC<{
           />
         </div>
         <div className="flex-1 flex flex-col min-h-0">
-          <div className={`space-y-4  flex flex-row w-full`}>
+          <div className={`space-y-4  flex flex-row w-full min-h-0`}>
             <SubmissionFileExplorer
               assignmentId={submission.assignment_id}
               assignmentName={assignmentName}
@@ -80,7 +80,7 @@ export const SubmissionDetails: FC<{
               termName={termName}
               courseName={courseName}
             />
-            <div className="flex-1 overflow-x-auto w-96">
+            <div className="flex-1  w-96 min-h-0">
               {viewingItem?.type === "file" && viewingItem.name && (
                 <ViewFileComponent
                   assignmentId={submission.assignment_id}

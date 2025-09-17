@@ -195,8 +195,6 @@ export async function* getRubricAnalysisConversation({
 
   while (round < maxRounds) {
     round++;
-
-    // Use the reusable completion function
     const assistantMessage = await getAiCompletion({
       messages: conversationMessages,
       tools,
@@ -237,20 +235,12 @@ export async function* getRubricAnalysisConversation({
         yield toolMessage;
       }
     } else {
-      // No tool calls means we're done with this exploration round
+      // No tool calls means we got structured responses
 
       return;
     }
-
-    const continueMessage = {
-      role: "user" as const,
-      content: `Continue your analysis if you need more information, or provide your final structured JSON analysis when you have gathered enough evidence.`,
-    };
-    conversationMessages.push(continueMessage);
-    yield continueMessage;
   }
 
-  // Add final prompt for structured output
   const finalPromptMessage = {
     role: "user" as const,
     content: `Please provide your final analysis of how well this submission meets the rubric criterion. Base your assessment on the files you've examined and provide specific evidence to support your evaluation.`,
@@ -262,25 +252,11 @@ export async function* getRubricAnalysisConversation({
     "About to call OpenAI with zodResponseFormat for structured output"
   );
 
-  // Use the reusable completion function with structured output
-  const finalMessage = await getAiCompletion({
+  yield await getAiCompletion({
     messages: conversationMessages,
     responseFormat: resultSchema,
     temperature: 0.1,
   });
-
-  // Add the final response to conversation and yield it
-  conversationMessages.push(finalMessage);
-  yield finalMessage;
-
-  // Parse the final result using the extracted function
-  // const result = parseResultFromMessage(finalMessage, resultSchema);
-
-  // Return both conversation and result
-  // return {
-  //   conversation: conversationMessages,
-  //   result,
-  // };
 }
 
 // Generator utility function that yields messages and returns analysis
@@ -336,13 +312,11 @@ EVALUATION PROCESS:
 
 ${evidenceSchemaPrompt}
 
-Take your time to thoroughly explore the submission before providing your final structured analysis.
+Use the available tools to explore the submission. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis.
 
-Use the available tools to explore the submission thoroughly. When you have gathered sufficient evidence and no longer need to call any tools, your next response will be interpreted as your final structured analysis.
+Keep your descriptions and summaries short and effective.
 
-Analyze how well this submission meets the rubric criterion. Provide a confidence level, recommended points, brief description of your assessment, and cite specific evidence from the files you examined.
-
-CRITICAL: Only include evidence entries for actual files you have examined with the read_file tool. Do not create evidence entries based solely on the file system structure or absence of files.
+When there is doubt, favor giving points to students. Provide caveats and conditions in your description.
 `;
 
   const messages: ConversationMessage[] = [
