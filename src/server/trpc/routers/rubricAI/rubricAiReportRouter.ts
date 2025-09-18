@@ -47,7 +47,9 @@ export const rubricAiReportRouter = createTRPCRouter({
         }
 
         // value here is a yielded ConversationMessage
-        console.log(`📤 Processing message: ${value.role}`);
+        if (value && "role" in value) {
+          console.log(`📤 Processing message: ${value.role}`);
+        }
       }
 
       if (!finalResult) {

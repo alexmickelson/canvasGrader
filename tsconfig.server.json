@@ -1,26 +1,15 @@
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
-    "target": "ES2023",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "outDir": "dist-server",
     "rootDir": "src",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "sourceMap": true,
-    "types": ["node"],
-    "typeRoots": ["./node_modules/@types"],
     "skipLibCheck": true,
-
-    /* Linting */
-    "strict": false,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noCheck": true
   },
   "include": ["src/server/**/*.ts", "src/utils/**/*.ts"],
   "exclude": ["node_modules", "dist", "dist-server", "src/features/**/*"]

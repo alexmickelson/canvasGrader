@@ -19,7 +19,7 @@ Make sure to set your `CANVAS_TOKEN` environment variable before running:
 
 ```bash
 export CANVAS_TOKEN=your_canvas_token_here
-nix run github:alexmickelson/canvasGrader#production
+nix run --refresh github:alexmickelson/canvasGrader#production
 ```
 
 ### Local Development
