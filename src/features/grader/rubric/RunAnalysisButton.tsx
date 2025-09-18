@@ -1,7 +1,6 @@
 import { useState, type FC } from "react";
 import { useAiAnalysisMutation } from "../graderHooks";
 import Spinner from "../../../utils/Spinner";
-import { useTRPCClient } from "../../../server/trpc/trpcClient";
 
 export const RunAnalysisButton: FC<{
   courseId: number;
@@ -25,13 +24,12 @@ export const RunAnalysisButton: FC<{
   assignmentName,
 }) => {
   const liveAnalysisMutation = useAiAnalysisMutation();
-  const [status, setStatus] = useState("");
-   const trpcClient = useTRPCClient();
+  const [status, _setStatus] = useState("");
+  // const _trpcClient = useTRPCClient();
 
   return (
     <button
-      onClick={() =>
-      {
+      onClick={() => {
         // tr
         liveAnalysisMutation.mutate({
           courseId,
@@ -43,9 +41,8 @@ export const RunAnalysisButton: FC<{
           termName,
           courseName,
           assignmentName,
-        })
-      }
-      }
+        });
+      }}
       disabled={liveAnalysisMutation.isPending}
       className="
         unstyled
