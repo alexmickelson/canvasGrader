@@ -15,19 +15,11 @@ This tool loads data in bulk, which makes it faster than speedgrader.
 
 You can run the application directly without cloning the repository using Nix flakes:
 
-```bash
-# Run in development mode
-nix run github:alexmickelson/canvasGrader
-
-# Run in production mode (builds and serves optimized version)
-nix run github:alexmickelson/canvasGrader#production
-```
-
 Make sure to set your `CANVAS_TOKEN` environment variable before running:
 
 ```bash
 export CANVAS_TOKEN=your_canvas_token_here
-nix run github:alexmickelson/canvasGrader
+nix run github:alexmickelson/canvasGrader#production
 ```
 
 ### Local Development
