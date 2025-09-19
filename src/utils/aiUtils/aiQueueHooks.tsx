@@ -41,7 +41,7 @@ export const useAiQueueStatusSubscription = () => {
             setStatus("connected");
           } catch (validationError) {
             console.error("Queue status validation error:", validationError);
-            console.error("Received data:", queueStatus);
+            console.error("Received data:", trackedData.data);
             setError("Invalid queue status data received");
             setStatus("error");
           }
