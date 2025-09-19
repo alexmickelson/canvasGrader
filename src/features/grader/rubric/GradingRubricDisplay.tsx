@@ -9,6 +9,7 @@ import type {
   CanvasRubricAssessment,
   CanvasRubricCriterion,
 } from "../../../server/trpc/routers/canvas/canvasModels.js";
+import { RunAllAnalysis } from "./RunAllAnalysis.js";
 
 export const GradingRubricDisplay: FC<{
   courseId: number;
@@ -162,13 +163,23 @@ export const GradingRubricDisplay: FC<{
 
   return (
     <section className="px-1 pb-1 bg-slate-950 rounded h-full flex flex-col">
-      <div className="flex items-center justify-end mb-4 ">
-        <div className="text-xs uppercase tracking-wide text-gray-400 pe-3">
-          Total Grade
+      <div className="flex items-center justify-between my-2 ">
+        <div className="">
+          <RunAllAnalysis
+            courseId={courseId}
+            assignmentId={assignmentId}
+            studentName={submission.user.name}
+            termName={termName}
+            courseName={courseName}
+            assignmentName={assignmentName}
+          />
         </div>
-        <div className="text-sm text-gray-400">
-          <span className="font-bold text-green-400">{totalScore}</span>/
-          <span className="font-bold">{rubric.points_possible}</span> pts
+        <div className=" text-gray-400 pe-3">
+          <span className=" font-bold text-green-400">{totalScore}</span>/
+          <span className=" font-bold text-gray-400">
+            {rubric.points_possible}
+          </span>{" "}
+          pts total
         </div>
       </div>
 
@@ -185,11 +196,7 @@ export const GradingRubricDisplay: FC<{
             }) => handleCriterionChange(criterion.id, assessment)}
             courseId={courseId}
             assignmentId={assignmentId}
-            studentName={
-              typeof submission.user === "object" && submission.user?.name
-                ? submission.user.name
-                : `User ${submission.user_id}`
-            }
+            studentName={submission.user.name}
             termName={termName}
             courseName={courseName}
             assignmentName={assignmentName}
