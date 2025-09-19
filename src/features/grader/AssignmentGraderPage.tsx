@@ -170,7 +170,7 @@ const InnerAssignmentPage: FC<{
       </div>{" "}
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
       <div className="flex gap-4 items-stretch flex-1 min-h-0 w-full">
-        <div className="w-64">
+        <div className="w-52">
           <Suspense
             fallback={<div className="text-gray-400">Loading submissions…</div>}
           >

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Spinner from "../../../utils/Spinner";
-import { useAllEvaluationsQuery } from "../graderHooks";
+import { useAllEvaluationsQuery, useRubricQuery } from "../graderHooks";
 import type { FullEvaluation } from "../../../server/trpc/routers/rubricAI/rubricAiReportModels";
 import { AnalysisSummary } from "../shared/AnalysisSummary";
 import { EvidenceSection } from "../shared/EvidenceSection";
@@ -23,6 +23,23 @@ export const AnalysisView: React.FC<{
 
   const [selectedAnalysis, setSelectedAnalysis] =
     useState<FullEvaluation | null>(null);
+
+  // Load rubric data to get criterion details
+  const { data: rubric } = useRubricQuery(
+    selectedAnalysis?.metadata.courseId || 0,
+    assignmentId
+  );
+
+  // Find the specific criterion from the rubric
+  const criterion = useMemo(() => {
+    if (!rubric || !selectedAnalysis?.metadata.criterionId) return null;
+
+    return (
+      rubric.data.find(
+        (crit) => crit.id === selectedAnalysis.metadata.criterionId
+      ) || null
+    );
+  }, [rubric, selectedAnalysis?.metadata.criterionId]);
 
   if (!allEvaluations)
     return (
@@ -67,13 +84,6 @@ export const AnalysisView: React.FC<{
                       : "Unknown time"}
                   </div>
                 </div>
-                <div className="ml-2 text-xs">
-                  {analysis.evaluation?.confidence !== undefined && (
-                    <span className="px-2 py-1 bg-gray-700 rounded">
-                      {analysis.evaluation.confidence}% confidence
-                    </span>
-                  )}
-                </div>
               </div>
             </button>
           ))}
@@ -84,16 +94,16 @@ export const AnalysisView: React.FC<{
       <div className="flex-1 min-h-0 overflow-auto">
         {selectedAnalysis ? (
           <div className="p-4 space-y-6">
-            <AnalysisSummary
-              criterionDescription={
-                selectedAnalysis.metadata?.criterionDescription
-              }
-              model={selectedAnalysis.metadata?.model}
-              confidence={selectedAnalysis.evaluation?.confidence}
-              recommendedPoints={selectedAnalysis.evaluation?.recommendedPoints}
-              description={selectedAnalysis.evaluation?.description}
-              timestamp={selectedAnalysis.metadata?.timestamp}
-            />
+            {criterion && (
+              <AnalysisSummary
+                criterion={criterion}
+                model={selectedAnalysis.metadata?.model}
+                recommendedPoints={
+                  selectedAnalysis.evaluation?.recommendedPoints
+                }
+                description={selectedAnalysis.evaluation?.description}
+              />
+            )}
 
             <EvidenceSection
               evidence={selectedAnalysis.evaluation?.evidence ?? []}

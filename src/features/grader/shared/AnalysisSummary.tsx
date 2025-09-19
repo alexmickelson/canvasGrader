@@ -1,66 +1,43 @@
 import type { FC } from "react";
+import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const AnalysisSummary: FC<{
-  criterionDescription?: string;
+  criterion: CanvasRubricCriterion;
   model?: string;
-  confidence?: number;
   recommendedPoints?: number;
-  totalPoints?: number;
   description?: string;
-  timestamp?: string;
-}> = ({
-  criterionDescription,
-  model,
-  confidence,
-  recommendedPoints,
-  totalPoints,
-  description,
-  timestamp,
-}) => {
+}> = ({ criterion, model, recommendedPoints, description }) => {
   return (
     <div className="bg-gray-800 rounded-lg p-4">
-      <h4 className="font-semibold mb-3">Analysis Summary</h4>
-      <div className="grid grid-cols-2 gap-4 text-sm">
-        {criterionDescription && (
-          <div>
-            <span className="text-gray-400">Criterion:</span>
-            <div className="font-medium">{criterionDescription}</div>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm mb-3">
+        <div className="font-medium text-blue-300">
+          {criterion.description || criterion.long_description}
+        </div>
+        {recommendedPoints !== undefined && (
+          <div
+            className={`
+            ${(() => {
+              const percentage = (recommendedPoints / criterion.points) * 100;
+              if (percentage >= 80) return "text-green-400";
+              if (percentage >= 60) return "text-yellow-400";
+              if (percentage >= 40) return "text-orange-400";
+              return "text-red-400";
+            })()}
+          `}
+          >
+            {recommendedPoints} / {criterion.points} pts
           </div>
         )}
         {model && (
-          <div>
-            <span className="text-gray-400">Model:</span>
-            <div className="font-medium">{model}</div>
-          </div>
-        )}
-        {confidence !== undefined && (
-          <div>
-            <span className="text-gray-400">Confidence:</span>
-            <div className="font-medium">{confidence}%</div>
-          </div>
-        )}
-        {recommendedPoints !== undefined && (
-          <div>
-            <span className="text-gray-400">Recommended Points:</span>
-            <div className="font-medium">
-              {recommendedPoints}
-              {totalPoints !== undefined && ` / ${totalPoints}`}
-            </div>
-          </div>
-        )}
-        {timestamp && (
-          <div className="col-span-2">
-            <span className="text-gray-400">Timestamp:</span>
-            <div className="font-medium">
-              {new Date(timestamp).toLocaleString()}
-            </div>
+          <div className="text-gray-300 bg-gray-700 px-2 py-1 rounded text-xs">
+            {model}
           </div>
         )}
       </div>
+
       {description && (
-        <div className="mt-4">
-          <span className="text-gray-400">Description:</span>
-          <div className="mt-1 text-sm whitespace-pre-wrap">{description}</div>
+        <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap border-t border-gray-700 pt-3">
+          {description}
         </div>
       )}
     </div>

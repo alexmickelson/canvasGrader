@@ -4,7 +4,7 @@ import type {
   CanvasAssignment,
 } from "../../server/trpc/routers/canvas/canvasModels";
 import { useSubmissionsQuery } from "./graderHooks";
-import { userName, initials } from "./userUtils";
+import { userName } from "./userUtils";
 import { describeTimeDifference } from "../../utils/timeUtils";
 import { getSubmissionStatusChips } from "./submission/submissionUtils";
 
@@ -80,10 +80,6 @@ export const SubmissionsList: FC<{
               }}
             >
               <div className="p-3 flex items-start gap-3">
-                {/* Avatar */}
-                <div className="shrink-0 h-9 w-9 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 grid place-items-center text-sm font-semibold text-white">
-                  {initials(name)}
-                </div>
                 {/* Content */}
                 <div className="min-w-0 flex-1">
                   {/* Top row: name + chips + grade */}

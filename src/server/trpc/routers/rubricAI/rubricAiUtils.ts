@@ -318,7 +318,6 @@ EVALUATION PROCESS:
 4. For text files, pay attention to line numbers when referencing specific content
 5. For PDFs, reference specific pages when citing evidence
 6. For images, note their presence and relevance even though content can't be analyzed
-7. Focus on concrete evidence and provide confidence levels for your assessments
 
 ${evidenceSchemaPrompt}
 
@@ -763,7 +762,6 @@ export async function* analyzeRubricCriterion({
 
     console.log("✅ Analysis completed successfully:", {
       conversationLength: conversationMessages.length,
-      confidence: analysis.confidence,
       evidenceCount: analysis.evidence.length,
     });
 
@@ -791,7 +789,6 @@ export async function* analyzeRubricCriterion({
     };
 
     console.log("Analysis completed successfully:", {
-      confidence: analysis.confidence,
       evidenceCount: analysis.evidence.length,
     });
 

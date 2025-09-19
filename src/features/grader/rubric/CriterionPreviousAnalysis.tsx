@@ -110,9 +110,7 @@ const AnalysisItem: FC<{
           <div className="text-lg font-bold text-green-300">
             {analysis.recommendedPoints} pts
           </div>
-          <div className="text-xs text-gray-400">
-            {analysis.confidence}% confidence
-          </div>
+        
         </div>
       </div>
     </button>

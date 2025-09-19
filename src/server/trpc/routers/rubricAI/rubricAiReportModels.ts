@@ -20,7 +20,6 @@ EXAMPLES:
 
 Example 1 - Full Credit (criterion met with evidence):
 {
-  "confidence": 95,
   "recommendedPoints": 2,
   "description": "Student successfully implemented the required functionality with proper code structure",
   "evidence": [
@@ -41,7 +40,6 @@ Example 1 - Full Credit (criterion met with evidence):
 
 Example 2 - No Credit (evidence not found):
 {
-  "confidence": 90,
   "recommendedPoints": 0,
   "description": "The required functionality is not present in the submission",
   "evidence": []
@@ -78,11 +76,6 @@ export type Evidence = z.infer<typeof EvidenceSchema>;
 // Define structured output schema for AI analysis
 export const AnalysisResultSchema = z
   .object({
-    confidence: z
-      .number()
-      .min(0)
-      .max(100)
-      .describe("Confidence level (0-100) in this assessment"),
     recommendedPoints: z
       .number()
       .min(0)

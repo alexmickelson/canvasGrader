@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import { useMemo } from "react";
-import { useAllEvaluationsQuery } from "../graderHooks";
+import { useAllEvaluationsQuery, useRubricQuery } from "../graderHooks";
 import { AnalysisSummary } from "./AnalysisSummary";
 import { EvidenceSection } from "./EvidenceSection";
 import { ConversationHistory } from "./ConversationHistory";
@@ -45,6 +45,23 @@ export const AiCriterionAnalysisDisplay: FC<{
     );
   }, [allEvaluations, analysisName]);
 
+  // Load rubric data to get criterion details
+  const { data: rubric } = useRubricQuery(
+    selectedAnalysis?.metadata.courseId || 0,
+    assignmentId
+  );
+
+  // Find the specific criterion from the rubric
+  const criterion = useMemo(() => {
+    if (!rubric || !selectedAnalysis?.metadata.criterionId) return null;
+
+    return (
+      rubric.data.find(
+        (crit) => crit.id === selectedAnalysis.metadata.criterionId
+      ) || null
+    );
+  }, [rubric, selectedAnalysis?.metadata.criterionId]);
+
   if (evaluationsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -71,27 +88,23 @@ export const AiCriterionAnalysisDisplay: FC<{
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="border-b border-gray-700 pb-4">
-        <h2 className="text-xl font-semibold text-gray-200 mb-2">
-          Analysis: {selectedAnalysis.fileName}
-        </h2>
-        <div className="text-sm text-gray-400">
-          {selectedAnalysis.metadata.timestamp && (
-            <span>
-              Created:{" "}
-              {new Date(selectedAnalysis.metadata.timestamp).toLocaleString()}
-            </span>
-          )}
+    <div className="space-y-2 ">
+      <h2 className="unstyled text-gray-400 text-lg">
+        Analysis: {selectedAnalysis.fileName}
+      </h2>
+      {criterion ? (
+        <AnalysisSummary
+          criterion={criterion}
+          model={selectedAnalysis.metadata.model}
+          recommendedPoints={selectedAnalysis.evaluation.recommendedPoints}
+          description={selectedAnalysis.evaluation.description}
+        />
+      ) : (
+        <div className="text-sm text-yellow-400">
+          Criterion with ID {selectedAnalysis?.metadata.criterionId} not found
+          in rubric.
         </div>
-      </div>
-
-      <AnalysisSummary
-        confidence={selectedAnalysis.evaluation.confidence}
-        recommendedPoints={selectedAnalysis.evaluation.recommendedPoints}
-        description={selectedAnalysis.evaluation.description}
-        timestamp={selectedAnalysis.metadata.timestamp}
-      />
+      )}
 
       <EvidenceSection
         evidence={selectedAnalysis.evaluation.evidence}

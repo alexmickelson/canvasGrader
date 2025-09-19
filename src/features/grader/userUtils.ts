@@ -20,13 +20,3 @@ export function userName(submission: CanvasSubmission): string {
   console.warn("Unexpected user structure:", user);
   return "Unknown student";
 }
-
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  const chars = parts
-    .map((p) => p[0])
-    .filter(Boolean)
-    .join("")
-    .toUpperCase();
-  return chars || "?";
-}
