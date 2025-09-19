@@ -126,7 +126,7 @@ const ConditionalAssignmentItem: FC<{
   courseId: number;
   hideGraded: boolean;
 }> = ({ assignment, courseId, hideGraded }) => {
-  const { status } = useAssignmentGradingStatus(courseId, assignment.id);
+  const { status } = useAssignmentGradingStatus(courseId, assignment.id, assignment.name);
 
   // If hideGraded is true and the assignment is graded, don't render it
   if (hideGraded && status === "graded") {

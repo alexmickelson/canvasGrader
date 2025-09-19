@@ -4,18 +4,22 @@ import type {
   CanvasAssignment,
 } from "../../server/trpc/routers/canvas/canvasModels";
 import { useSubmissionsQuery } from "./graderHooks";
-import { getSubmissionStatusChips } from "./submission/submissionUtils";
 import { userName, initials } from "./userUtils";
 import { describeTimeDifference } from "../../utils/timeUtils";
+import { getSubmissionStatusChips } from "./submission/submissionUtils";
 
 export const SubmissionsList: FC<{
   courseId: number;
   assignmentId: number;
-  selectedId: number | null;
-  assignment: CanvasAssignment | null;
+  selectedId: number | undefined;
+  assignment: CanvasAssignment;
   onSelect: (s: CanvasSubmission) => void;
 }> = ({ courseId, assignmentId, selectedId, assignment, onSelect }) => {
-  const { data: submissions } = useSubmissionsQuery(courseId, assignmentId);
+  const { data: submissions } = useSubmissionsQuery(
+    courseId,
+    assignmentId,
+    assignment.name
+  );
   if (!submissions?.length) {
     return (
       <>

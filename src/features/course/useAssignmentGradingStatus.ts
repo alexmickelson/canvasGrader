@@ -4,11 +4,13 @@ import { useSubmissionsQuery } from "../grader/graderHooks";
 
 export const useAssignmentGradingStatus = (
   courseId: number,
-  assignmentId: number
+  assignmentId: number,
+  assignmentName: string
 ) => {
   const { data: submissions, isLoading } = useSubmissionsQuery(
     courseId,
-    assignmentId
+    assignmentId,
+    assignmentName
   );
 
   const gradingStatus = useMemo(() => {

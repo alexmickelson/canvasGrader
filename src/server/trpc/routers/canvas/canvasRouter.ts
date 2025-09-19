@@ -335,6 +335,7 @@ export const canvasRouter = createTRPCRouter({
       z.object({
         courseId: z.coerce.number(),
         assignmentId: z.coerce.number(),
+        assignmentName: z.string(),
       })
     )
     .query(async ({ input }) => {
@@ -364,7 +365,8 @@ export const canvasRouter = createTRPCRouter({
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
-        filteredSubmissions
+        filteredSubmissions,
+        input.assignmentName    
       );
       return filteredSubmissions;
     }),
@@ -374,6 +376,7 @@ export const canvasRouter = createTRPCRouter({
       z.object({
         courseId: z.coerce.number(),
         assignmentId: z.coerce.number(),
+        assignmentName: z.string(),
       })
     )
     .mutation(async ({ input }) => {
@@ -393,7 +396,8 @@ export const canvasRouter = createTRPCRouter({
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
-        filteredSubmissions
+        filteredSubmissions,
+        input.assignmentName        
       );
       return filteredSubmissions;
     }),

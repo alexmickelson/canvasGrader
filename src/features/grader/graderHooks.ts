@@ -6,12 +6,17 @@ import {
 } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
-export const useSubmissionsQuery = (courseId: number, assignmentId: number) => {
+export const useSubmissionsQuery = (
+  courseId: number,
+  assignmentId: number,
+  assignmentName: string
+) => {
   const trpc = useTRPC();
   return useSuspenseQuery(
     trpc.canvas.getAssignmentSubmissions.queryOptions({
       courseId,
       assignmentId,
+      assignmentName,
     })
   );
 };

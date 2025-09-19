@@ -273,17 +273,79 @@ export async function persistCoursesToStorage(
 export async function persistSubmissionsToStorage(
   courseId: number,
   assignmentId: number,
-  submissions: CanvasSubmission[]
+  submissions: CanvasSubmission[],
+  assignmentName: string
 ): Promise<void> {
   try {
     const { courseName, termName } = await getCourseMeta(courseId);
-    const { data: assignment } = await axiosClient.get(
-      `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
-      {
-        headers: canvasRequestOptions.headers,
-      }
+
+    await Promise.all(
+      submissions.map(async (submission) => {
+        try {
+          const userName =
+            (typeof submission.user === "object" && submission.user?.name) ||
+            `User ${submission.user_id}`;
+          const parsedSubmission = parseSchema(
+            CanvasSubmissionSchema,
+            submission,
+            "CanvasSubmission"
+          );
+
+          storeSubmissionJson(parsedSubmission, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
+
+          // Convert HTML to markdown and store as submission.md
+          const markdown = storeSubmissionMarkdown(parsedSubmission, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
+
+          const images = extractAttachmentsFromMarkdown(markdown);
+          const imagesWithPaths = await dowloadSubmissionAttachments(images, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
+
+          // Transcribe the downloaded images
+          await transcribeAndStoreSubmissionAttachments(imagesWithPaths, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
+        } catch (err) {
+          console.warn(
+            "Failed to write submission.json for user",
+            submission.user_id,
+            err
+          );
+        }
+      })
     );
-    const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
+  } catch (err) {
+    console.warn("Failed to persist submissions to storage", err);
+  }
+}
+export async function transcribeSubmissionImages(
+  courseId: number,
+  assignmentId: number,
+  submissions: CanvasSubmission[],
+  assignmentName: string
+): Promise<void> {
+  try {
+    const { courseName, termName } = await getCourseMeta(courseId);
 
     await Promise.all(
       submissions.map(async (submission) => {

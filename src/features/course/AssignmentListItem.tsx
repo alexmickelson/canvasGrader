@@ -7,7 +7,7 @@ export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
   courseId: number;
 }> = ({ assignment, courseId }) => {
-  const { status } = useAssignmentGradingStatus(courseId, assignment.id);
+  const { status } = useAssignmentGradingStatus(courseId, assignment.id, assignment.name);
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -41,7 +41,8 @@ const SubmissionStatus: FC<{
 }> = ({ assignment, courseId }) => {
   const { percentage, status } = useAssignmentGradingStatus(
     courseId,
-    assignment.id
+    assignment.id,
+    assignment.name
   );
 
   const basePillClass = "inline-block px-3 py-1 text-xs rounded-full border";

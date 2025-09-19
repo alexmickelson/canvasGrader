@@ -1,9 +1,14 @@
-import { Suspense, useState } from "react";
+import { Suspense, useState, type FC } from "react";
 import { useParams } from "react-router";
 import { userName } from "./userUtils";
 import { SubmissionDetailsWrapper } from "./submission/SubmissionDetails";
 import { useSettingsQuery } from "../home/settingsHooks";
-import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
+import type {
+  CanvasAssignment,
+  CanvasCourse,
+  CanvasSubmission,
+} from "../../server/trpc/routers/canvas/canvasModels";
+import type { SettingsCourse } from "../../server/trpc/routers/settingsRouter";
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
 import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
@@ -32,37 +37,95 @@ export const AssignmentGraderPage = () => {
   const canvasCourse = canvasCourses?.find((c) => c.id === parsedCourseId);
   const assignment = assignments?.find((a) => a.id === parsedAssignmentId);
 
-  // Selected submission for slide-over panel
+  if (!courseId || !assignmentId) {
+    return (
+      <div className="p-4 text-red-400">Invalid course or assignment ID.</div>
+    );
+  }
+
+  if (!parsedCourseId || !parsedAssignmentId) {
+    return (
+      <div className="p-4 text-red-400">
+        Course ID and Assignment ID must be valid numbers.
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="p-4 text-red-400">
+        Course with ID {parsedCourseId} not found in settings.
+      </div>
+    );
+  }
+
+  if (!canvasCourse) {
+    return (
+      <div className="p-4 text-red-400">
+        Course with ID {parsedCourseId} not found in Canvas.
+      </div>
+    );
+  }
+
+  if (!assignment) {
+    return (
+      <div className="p-4 text-red-400">
+        Assignment with ID {parsedAssignmentId} not found in Canvas.
+      </div>
+    );
+  }
+
+  return (
+    <InnerAssignmentPage
+      courseId={parsedCourseId}
+      assignmentId={parsedAssignmentId}
+      assignmentName={assignment.name}
+      assignment={assignment}
+      canvasCourse={canvasCourse}
+      course={course}
+    />
+  );
+};
+
+const InnerAssignmentPage: FC<{
+  courseId: number;
+  assignmentId: number;
+  assignmentName: string;
+  assignment: CanvasAssignment;
+  canvasCourse: CanvasCourse;
+  course: SettingsCourse;
+}> = ({
+  courseId,
+  assignmentId,
+  assignmentName,
+  assignment,
+  course,
+  canvasCourse,
+}) => {
+  // Get Canvas course and assignment data for GitHub Classroom integration
+
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
 
   // Mutation for refreshing submissions
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
-  useSubmissionsQuery(parsedCourseId!, parsedAssignmentId!);
-
-  if (!parsedCourseId || !parsedAssignmentId) {
-    return (
-      <div className="p-4 text-gray-200">Missing courseId or assignmentId</div>
-    );
-  }
+  useSubmissionsQuery(courseId, assignmentId, assignmentName);
 
   return (
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h1 className="text-xl font-semibold">
           Grade{" "}
-          <AssignmentName
-            assignmentId={parsedAssignmentId}
-            courseId={parsedCourseId}
-          />
+          <AssignmentName assignmentId={assignmentId} courseId={courseId} />
         </h1>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() =>
               updateSubmissionsMutation.mutate({
-                courseId: parsedCourseId,
-                assignmentId: parsedAssignmentId,
+                courseId: courseId,
+                assignmentId: assignmentId,
+                assignmentName,
               })
             }
             disabled={updateSubmissionsMutation.isPending}
@@ -75,8 +138,8 @@ export const AssignmentGraderPage = () => {
 
           {course && canvasCourse && assignment && (
             <GitHubClassroomDownload
-              courseId={parsedCourseId}
-              assignmentId={parsedAssignmentId}
+              courseId={courseId}
+              assignmentId={assignmentId}
               course={course}
               termName={canvasCourse.term?.name || "Unknown Term"}
               courseName={canvasCourse.name}
@@ -92,10 +155,10 @@ export const AssignmentGraderPage = () => {
             fallback={<div className="text-gray-400">Loading submissions…</div>}
           >
             <SubmissionsList
-              courseId={parsedCourseId}
-              assignmentId={parsedAssignmentId}
-              selectedId={selected?.id ?? null}
-              assignment={assignment ?? null}
+              courseId={courseId}
+              assignmentId={assignmentId}
+              selectedId={selected?.id}
+              assignment={assignment}
               onSelect={(submission) => {
                 setSelected(submission);
               }}
@@ -118,7 +181,7 @@ export const AssignmentGraderPage = () => {
               </div>
               {selected && (
                 <a
-                  href={`https://snow.instructure.com/courses/${parsedCourseId}/gradebook/speed_grader?assignment_id=${parsedAssignmentId}&student_id=${selected.user_id}`}
+                  href={`https://snow.instructure.com/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}&student_id=${selected.user_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-400 hover:text-blue-300 text-sm underline"
