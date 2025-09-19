@@ -18,6 +18,7 @@ import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemCont
 import {
   useSubmissionsQuery,
   useUpdateSubmissionsMutation,
+  useTranscribeSubmissionImagesMutation,
 } from "./graderHooks";
 
 export const AssignmentGraderPage = () => {
@@ -109,6 +110,9 @@ const InnerAssignmentPage: FC<{
   // Mutation for refreshing submissions
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
+  // Mutation for transcribing submission images
+  const transcribeImagesMutation = useTranscribeSubmissionImagesMutation();
+
   useSubmissionsQuery(courseId, assignmentId, assignmentName);
 
   return (
@@ -134,6 +138,22 @@ const InnerAssignmentPage: FC<{
             {updateSubmissionsMutation.isPending
               ? "Refreshing..."
               : "Refresh Submissions"}
+          </button>
+
+          <button
+            onClick={() =>
+              transcribeImagesMutation.mutate({
+                courseId: courseId,
+                assignmentId: assignmentId,
+                assignmentName,
+              })
+            }
+            disabled={transcribeImagesMutation.isPending}
+            className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white rounded-md text-sm font-medium transition-colors"
+          >
+            {transcribeImagesMutation.isPending
+              ? "Transcribing..."
+              : "Transcribe Images"}
           </button>
 
           {course && canvasCourse && assignment && (

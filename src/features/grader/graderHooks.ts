@@ -166,3 +166,18 @@ export const useUpdateSubmissionsMutation = () => {
     })
   );
 };
+
+export const useTranscribeSubmissionImagesMutation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.canvas.transcribeSubmissionImages.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
+        });
+      },
+    })
+  );
+};

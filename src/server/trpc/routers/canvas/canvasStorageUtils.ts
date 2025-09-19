@@ -126,6 +126,11 @@ export function sanitizeImageTitle(title: string): string {
   return title.replace(/[^a-z0-9._-]/gi, "_");
 }
 
+export function convertHtmlToMarkdown(htmlContent: string): string {
+  const turndownService = new TurndownService();
+  return turndownService.turndown(htmlContent);
+}
+
 export async function getCourseMeta(courseId: number): Promise<{
   courseName: string;
   termName: string;
@@ -276,67 +281,37 @@ export async function persistSubmissionsToStorage(
   submissions: CanvasSubmission[],
   assignmentName: string
 ): Promise<void> {
-  try {
-    const { courseName, termName } = await getCourseMeta(courseId);
+  const { courseName, termName } = await getCourseMeta(courseId);
 
-    await Promise.all(
-      submissions.map(async (submission) => {
-        try {
-          const userName =
-            (typeof submission.user === "object" && submission.user?.name) ||
-            `User ${submission.user_id}`;
-          const parsedSubmission = parseSchema(
-            CanvasSubmissionSchema,
-            submission,
-            "CanvasSubmission"
-          );
+  await Promise.all(
+    submissions.map(async (submission) => {
+      const userName =
+        (typeof submission.user === "object" && submission.user?.name) ||
+        `User ${submission.user_id}`;
+      const parsedSubmission = parseSchema(
+        CanvasSubmissionSchema,
+        submission,
+        "CanvasSubmission"
+      );
 
-          storeSubmissionJson(parsedSubmission, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
+      storeSubmissionJson(parsedSubmission, {
+        termName,
+        courseName,
+        assignmentId,
+        assignmentName,
+        studentName: userName,
+      });
 
-          // Convert HTML to markdown and store as submission.md
-          const markdown = storeSubmissionMarkdown(parsedSubmission, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-
-          const images = extractAttachmentsFromMarkdown(markdown);
-          const imagesWithPaths = await dowloadSubmissionAttachments(images, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-
-          // Transcribe the downloaded images
-          await transcribeAndStoreSubmissionAttachments(imagesWithPaths, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-        } catch (err) {
-          console.warn(
-            "Failed to write submission.json for user",
-            submission.user_id,
-            err
-          );
-        }
-      })
-    );
-  } catch (err) {
-    console.warn("Failed to persist submissions to storage", err);
-  }
+      // Convert HTML to markdown and store as submission.md
+      storeSubmissionMarkdown(parsedSubmission, {
+        termName,
+        courseName,
+        assignmentId,
+        assignmentName,
+        studentName: userName,
+      });
+    })
+  );
 }
 export async function transcribeSubmissionImages(
   courseId: number,
@@ -359,23 +334,7 @@ export async function transcribeSubmissionImages(
             "CanvasSubmission"
           );
 
-          storeSubmissionJson(parsedSubmission, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-
-          // Convert HTML to markdown and store as submission.md
-          const markdown = storeSubmissionMarkdown(parsedSubmission, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-
+          const markdown = convertHtmlToMarkdown(parsedSubmission.body);
           const images = extractAttachmentsFromMarkdown(markdown);
           const imagesWithPaths = await dowloadSubmissionAttachments(images, {
             termName,
@@ -385,7 +344,6 @@ export async function transcribeSubmissionImages(
             studentName: userName,
           });
 
-          // Transcribe the downloaded images
           await transcribeAndStoreSubmissionAttachments(imagesWithPaths, {
             termName,
             courseName,
@@ -520,7 +478,6 @@ export async function loadSubmissionsFromStorage(
         const metadataDir = path.join(assignmentDir, entry.name);
         const submissionJsonPath = path.join(metadataDir, "submission.json");
 
-
         if (fs.existsSync(submissionJsonPath)) {
           try {
             const submissionData = fs.readFileSync(submissionJsonPath, "utf8");
@@ -531,7 +488,6 @@ export async function loadSubmissionsFromStorage(
               "CanvasSubmission"
             );
             submissions.push(parsedSubmission);
-         
           } catch (err) {
             console.warn(
               `Failed to parse submission file: ${submissionJsonPath}`,
@@ -589,8 +545,7 @@ export function storeSubmissionMarkdown(
   });
 
   // Convert HTML to markdown
-  const turndownService = new TurndownService();
-  const markdown = turndownService.turndown(submission.body);
+  const markdown = convertHtmlToMarkdown(submission.body);
 
   const submissionMdPath = path.join(submissionDir, "submission.md");
   fs.writeFileSync(submissionMdPath, markdown, "utf8");

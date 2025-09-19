@@ -16,7 +16,7 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
 const provider: "openai" | "ollama" = "openai";
 // const provider: "openai" | "ollama" = "ollama";
 
-const ratelimtBackoff = 1000 * 5;
+const ratelimtBackoff = 1000 * 15;
 
 export async function getAiCompletion({
   messages,

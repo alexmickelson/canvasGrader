@@ -13,6 +13,7 @@ import {
   persistAssignmentsToStorage,
   persistCoursesToStorage,
   persistSubmissionsToStorage,
+  transcribeSubmissionImages,
   persistRubricToStorage,
   getSubmissionDirectory,
   loadSubmissionsFromStorage,
@@ -99,7 +100,6 @@ const fetchSubmissionsFromCanvas = async (
 
   return filteredSubmissions;
 };
-
 
 // Utility function to fetch assignment rubric with proper error handling
 const fetchAssignmentRubric = async (
@@ -366,7 +366,7 @@ export const canvasRouter = createTRPCRouter({
         input.courseId,
         input.assignmentId,
         filteredSubmissions,
-        input.assignmentName    
+        input.assignmentName
       );
       return filteredSubmissions;
     }),
@@ -397,10 +397,51 @@ export const canvasRouter = createTRPCRouter({
         input.courseId,
         input.assignmentId,
         filteredSubmissions,
-        input.assignmentName        
+        input.assignmentName
       );
       return filteredSubmissions;
     }),
+
+  transcribeSubmissionImages: publicProcedure
+    .input(
+      z.object({
+        courseId: z.coerce.number(),
+        assignmentId: z.coerce.number(),
+        assignmentName: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      console.log(
+        `Transcribing submission images for assignment ${input.assignmentId}`
+      );
+
+      // Load existing submissions from storage
+      const submissions = await loadSubmissionsFromStorage(
+        input.courseId,
+        input.assignmentId
+      );
+
+      if (!submissions || submissions.length === 0) {
+        throw new Error(
+          "No submissions found. Please refresh submissions first."
+        );
+      }
+
+      // Transcribe images for all submissions
+      await transcribeSubmissionImages(
+        input.courseId,
+        input.assignmentId,
+        submissions,
+        input.assignmentName
+      );
+
+      console.log(
+        `Successfully transcribed images for ${submissions.length} submissions`
+      );
+
+      return { transcribedCount: submissions.length };
+    }),
+
   // Build a preview PDF by fetching the submission and combining its attachments into a single PDF.
 
   downloadAllAttachments: publicProcedure
