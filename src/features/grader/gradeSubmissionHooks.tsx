@@ -8,7 +8,6 @@ export const useGradeSubmissionMutation = () => {
   return useMutation(
     trpc.canvas.gradeSubmissionWithRubric.mutationOptions({
       onSuccess: (result, variables) => {
-        console.log("✅ Submission graded successfully:", result);
 
         // Invalidate related queries to refresh the UI
         queryClient.invalidateQueries({

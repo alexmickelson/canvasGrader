@@ -5,7 +5,12 @@ import {
   QueryClientProvider,
   QueryCache,
 } from "@tanstack/react-query";
-import { createTRPCClient, httpBatchStreamLink } from "@trpc/client";
+import {
+  createTRPCClient,
+  httpBatchStreamLink,
+  httpSubscriptionLink,
+  splitLink,
+} from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "./utils/main";
 import { toast } from "react-hot-toast";
@@ -64,15 +69,22 @@ export function getQueryClient() {
   }
 }
 export const trpcLinks = [
-  httpBatchStreamLink({
-    transformer: SuperJSON,
-    maxURLLength: 10_000,
-    url: "/trpc",
-    headers() {
-      const headers = new Headers();
-      headers.set("x-trpc-source", "react");
-      return headers;
-    },
+  splitLink({
+    condition: (op) => op.type === "subscription",
+    true: httpSubscriptionLink({
+      url: "/trpc",
+      transformer: SuperJSON,
+    }),
+    false: httpBatchStreamLink({
+      transformer: SuperJSON,
+      maxURLLength: 10_000,
+      url: "/trpc",
+      headers() {
+        const headers = new Headers();
+        headers.set("x-trpc-source", "react");
+        return headers;
+      },
+    }),
   }),
 ];
 

@@ -78,17 +78,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         studentName,
       } = input;
 
-      console.log("=== getAllEvaluations Debug Info ===");
-      console.log("Input parameters:", {
-        courseName,
-        termName,
-        assignmentName,
-        assignmentId,
-        studentName,
-      });
-
       try {
-        // Get the submission directory
         const submissionDir = getMetadataSubmissionDirectory({
           termName,
           courseName,
@@ -98,9 +88,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         });
         const sanitizedStudentName = sanitizeName(studentName);
 
-        // Read all files in the directory
         const files = fs.readdirSync(submissionDir);
-        console.log(`Found ${files.length} files in directory:`, files);
 
         // Filter for evaluation files (format: <student-name>.rubric.<criterion-id>-<timestamp>.json)
         const evaluationFiles = files.filter(
@@ -109,29 +97,10 @@ export const rubricAiReportRouter = createTRPCRouter({
             file.endsWith(".json")
         );
 
-        console.log("Filter criteria:", {
-          startsWith: `${sanitizedStudentName}.rubric.`,
-          endsWith: ".json",
-        });
 
-        console.log(
-          `Found ${evaluationFiles.length} evaluation files:`,
-          evaluationFiles
-        );
-
-        // Load and parse each evaluation file
         const evaluations: FullEvaluation[] = [];
 
         if (evaluationFiles.length === 0) {
-          // console.log("❌ No evaluation files found matching the criteria");
-          // console.log(
-          //   "Files that didn't match:",
-          //   files.filter(
-          //     (file) =>
-          //       !file.startsWith(`${sanitizedStudentName}.rubric.`) ||
-          //       !file.endsWith(".json")
-          //   )
-          // );
           return [];
         }
 
@@ -139,14 +108,12 @@ export const rubricAiReportRouter = createTRPCRouter({
 
         for (const fileName of evaluationFiles) {
           try {
-            console.log(`📁 Processing file: ${fileName}`);
             const filePath = path.join(submissionDir, fileName);
             const content = fs.readFileSync(filePath, "utf-8");
 
             let evaluationData;
             try {
               evaluationData = JSON.parse(content);
-              console.log(`✅ Successfully parsed JSON for: ${fileName}`);
             } catch (error) {
               console.error("❌ Failed to parse evaluation file as JSON:", {
                 fileName,
@@ -177,7 +144,6 @@ export const rubricAiReportRouter = createTRPCRouter({
                 },
                 `FullEvaluation validation for ${fileName}`
               );
-              console.log(`✅ Successfully validated schema for: ${fileName}`);
             } catch (error) {
               console.error("❌ FullEvaluationSchema validation failed:", {
                 fileName,
@@ -195,7 +161,6 @@ export const rubricAiReportRouter = createTRPCRouter({
             }
 
             evaluations.push(validatedEvaluation);
-            console.log(`✅ Added evaluation to results: ${fileName}`);
           } catch (error) {
             console.error(
               `❌ Error reading evaluation file ${fileName}:`,
@@ -216,11 +181,6 @@ export const rubricAiReportRouter = createTRPCRouter({
           return bTime.localeCompare(aTime);
         });
 
-        console.log(
-          `✅ Returning ${evaluations.length} evaluations (sorted by timestamp)`
-        );
-        console.log("=== getAllEvaluations Debug Info End ===");
-
         return evaluations;
       } catch (error) {
         console.error("❌ Error loading all evaluations:", error);
@@ -228,7 +188,6 @@ export const rubricAiReportRouter = createTRPCRouter({
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        console.log("=== getAllEvaluations Debug Info End (Error) ===");
         throw new Error(
           `Failed to load evaluations: ${
             error instanceof Error ? error.message : String(error)

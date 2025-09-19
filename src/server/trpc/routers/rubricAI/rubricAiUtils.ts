@@ -287,7 +287,6 @@ export async function* analyzeSubmissionWithStreaming({
   ConversationMessage,
   { conversation: ConversationMessage[]; analysis: AnalysisResult }
 > {
-  console.log("🚀 Starting streaming analysis...");
 
   const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
 
@@ -336,7 +335,6 @@ When there is doubt, favor giving points to students. Provide caveats and condit
     },
   ];
 
-  console.log("📨 Created initial messages, starting AI conversation...");
 
   // Create the generator
   const generator = getRubricAnalysisConversation({
@@ -345,22 +343,12 @@ When there is doubt, favor giving points to students. Provide caveats and condit
     resultSchema: AnalysisResultSchema,
   });
 
-  console.log("🔄 Generator created, beginning message iteration...");
-  let messageCount = 0;
 
   // Yield all messages as they're generated
   for await (const message of generator) {
-    messageCount++;
-    console.log(`📤 Yielding message ${messageCount}: ${message.role}`);
     messages.push(message);
     yield message;
   }
-
-  console.log(
-    "🔚 Generator has finished yielding messages.",
-    messages,
-    messages[messages.length - 1]
-  );
 
   const parsed = parseResultFromMessage(
     messages[messages.length - 1],
@@ -714,7 +702,6 @@ export async function* analyzeRubricCriterion({
     const tools = [getFileSystemTreeTool, readFileTool];
 
     // Use the streaming analysis generator
-    console.log("🚀 Starting analysis with streaming generator...");
     const analysisGenerator = analyzeSubmissionWithStreaming({
       submissionDir,
       textSubmission,
@@ -729,7 +716,6 @@ export async function* analyzeRubricCriterion({
     let analysis: AnalysisResult | null = null;
 
     try {
-      console.log("📨 Starting to consume generator messages...");
 
       // Yield each message as it comes in and collect them
       for await (const message of analysisGenerator) {

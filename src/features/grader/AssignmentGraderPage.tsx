@@ -20,6 +20,7 @@ import {
   useUpdateSubmissionsMutation,
   useTranscribeSubmissionImagesMutation,
 } from "./graderHooks";
+import { AiQueueStatus } from "../home/AiQueueStatus";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -122,6 +123,7 @@ const InnerAssignmentPage: FC<{
           Grade{" "}
           <AssignmentName assignmentId={assignmentId} courseId={courseId} />
         </h1>
+        <AiQueueStatus />
 
         <div className="flex items-center gap-3">
           <button
