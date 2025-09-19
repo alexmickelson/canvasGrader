@@ -25,20 +25,21 @@ export const EvidenceItem: FC<{
     <div className=" bg-gray-900/50 border border-gray-700 rounded">
       <Expandable
         ExpandableElement={({ isExpanded, setIsExpanded }) => (
-          <div
-            className="flex flex-row justify-between cursor-pointer p-1"
-            role="button"
-            onClick={() => setIsExpanded((e) => !e)}
-          >
+          <div className="flex flex-row justify-between cursor-pointer p-1">
             <div>
               <div className="text-slate-400 text-sm">{evidence.fileName}</div>
               <div className="">{evidence.description}</div>
             </div>
-            <ExpandIcon
-              style={{
-                ...(isExpanded ? { rotate: "-90deg" } : {}),
-              }}
-            />
+            <button
+              className="unstyled"
+              onClick={() => setIsExpanded((e) => !e)}
+            >
+              <ExpandIcon
+                style={{
+                  ...(isExpanded ? { rotate: "-90deg" } : {}),
+                }}
+              />
+            </button>
           </div>
         )}
       >

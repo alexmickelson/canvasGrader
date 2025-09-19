@@ -4,6 +4,8 @@ import { CriterionPointInput } from "./CriterionPointInput";
 import { CriterionPreviousAnalysis } from "./CriterionPreviousAnalysis";
 import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
 import { RunAnalysisButton } from "./RunAnalysisButton";
+import { Expandable } from "../../../utils/Expandable";
+import ExpandIcon from "../../../utils/ExpandIcon";
 
 export const GradingRubricCriterion: FC<{
   criterion: CanvasRubricCriterion;
@@ -37,12 +39,12 @@ export const GradingRubricCriterion: FC<{
   const [localComments, setLocalComments] = useState(
     assessment?.comments || ""
   );
-
-  const selectedRating = assessment?.rating_id
-    ? criterion.ratings.find((r) => r.id === assessment.rating_id)
-    : null;
+  const [customPoints, setCustomPoints] = useState<number | undefined>(
+    assessment?.rating_id ? undefined : assessment?.points
+  );
 
   const handleRatingSelect = (ratingId: string, points: number) => {
+    setCustomPoints(points);
     onChange({
       ...assessment,
       rating_id: ratingId,
@@ -59,16 +61,16 @@ export const GradingRubricCriterion: FC<{
   };
 
   const handleCustomPointsChange = (points: number) => {
+    setCustomPoints(points);
     onChange({
       ...assessment,
-      rating_id: undefined, // Clear rating when using custom points
+      rating_id: criterion.ratings.find((r) => r.points === points)?.id,
       points: points,
     });
   };
 
   return (
-    <div className="overflow-hidden border-b-2 border-slate-800">
-      {/* Criterion Header */}
+    <div className=" ">
       <div className="px-1 pb-1 flex justify-between">
         <div>
           <div className="font-medium text-gray-300">
@@ -92,55 +94,98 @@ export const GradingRubricCriterion: FC<{
         </div>
       </div>
 
-      <div className="px-1">
-        {/* Custom Points Input and Rating Options */}
-        <CriterionPointInput
-          maxPoints={criterion.points}
-          currentPoints={assessment?.points}
-          selectedRating={selectedRating}
-          ratings={criterion.ratings}
-          onPointsChange={handleCustomPointsChange}
-          onRatingSelect={handleRatingSelect}
-        />
-      </div>
+      <Expandable
+        ExpandableElement={({ isExpanded, setIsExpanded }) => (
+          <div className="flex flex-row justify-between cursor-pointer p-1">
+            <div className="px-1 flex-1">
+              <CriterionPointInput
+                selectedRating={criterion.ratings.find(
+                  (r) => r.points === customPoints
+                )}
+                ratings={criterion.ratings}
+                onRatingSelect={handleRatingSelect}
+              />
+            </div>
+            <button
+              className="unstyled"
+              onClick={() => setIsExpanded((e) => !e)}
+            >
+              <ExpandIcon
+                style={{
+                  ...(isExpanded ? { rotate: "-90deg" } : {}),
+                }}
+              />
+            </button>
+          </div>
+        )}
+      >
+        <div className="rounded bg-slate-900 my-2 ms-2">
+          <div className="p-1 flex">
+            <textarea
+              value={localComments}
+              onChange={(e) => handleCommentsChange(e.target.value)}
+              placeholder="Add comments about this criterion..."
+              rows={2}
+              className="w-full px-2 py-1 text-xs border border-gray-600 rounded text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
 
-      {/* Comments */}
-      <div className="p-1">
-        <textarea
-          value={localComments}
-          onChange={(e) => handleCommentsChange(e.target.value)}
-          placeholder="Add comments about this criterion..."
-          rows={2}
-          className="w-full px-2 py-1 text-xs border border-gray-600 rounded text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
+            <div className=" min-w-24 ps-2">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
+                Custom Points
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  min="0"
+                  max={criterion.points}
+                  step="0.25"
+                  value={customPoints ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setCustomPoints(undefined);
+                    } else {
+                      const points = parseFloat(value);
+                      if (!isNaN(points)) {
+                        handleCustomPointsChange(points);
+                      }
+                    }
+                  }}
+                  className="w-16 px-1 py-1 border border-gray-600 rounded text-xs text-gray-100  focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="0"
+                />
+                <span className="text-xs text-gray-400">
+                  / {criterion.points}
+                </span>
+              </div>
+            </div>
+          </div>
 
-      {/* Show existing comments if any */}
-      {assessment?.comments && (
-        <div className="px-3 pb-2 bg-blue-500/10 rounded">
-          <div className="text-xs text-blue-300 mb-1">Current Comments:</div>
-          <div className="text-xs text-gray-300 whitespace-pre-wrap">
-            {assessment.comments}
+          {assessment?.comments && (
+            <div className="px-3 pb-2 bg-blue-500/10 rounded">
+              <div className="text-xs text-blue-300 mb-1">
+                Current Comments:
+              </div>
+              <div className="text-xs text-gray-300 whitespace-pre-wrap">
+                {assessment.comments}
+              </div>
+            </div>
+          )}
+          <div className="px-1 pb-2">
+            <RunAnalysisButton
+              courseId={courseId}
+              assignmentId={assignmentId}
+              studentName={studentName}
+              criterionDescription={criterion.description ?? ""}
+              criterionPoints={criterion.points}
+              termName={termName}
+              courseName={courseName}
+              assignmentName={assignmentName}
+              criterionId={criterion.id}
+            />
           </div>
         </div>
-      )}
-
-      {/* AI Analysis Section */}
-      <div className="px-1 pb-2">
-        <RunAnalysisButton
-          courseId={courseId}
-          assignmentId={assignmentId}
-          studentName={studentName}
-          criterionDescription={
-            criterion.description || `Criterion ${criterion.id}`
-          }
-          criterionPoints={criterion.points}
-          termName={termName}
-          courseName={courseName}
-          assignmentName={assignmentName}
-          criterionId={criterion.id}
-        />
-      </div>
+      </Expandable>
 
       {/* Previous Analysis Section */}
       <div className="px-1 pb-2">

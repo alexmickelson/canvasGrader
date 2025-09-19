@@ -179,7 +179,7 @@ export const GradingRubricDisplay: FC<{
           <span className=" font-bold text-gray-400">
             {rubric.points_possible}
           </span>{" "}
-          pts total
+          total
         </div>
       </div>
 

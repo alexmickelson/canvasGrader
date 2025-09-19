@@ -39,7 +39,7 @@ export const CriterionPreviousAnalysis: FC<{
   }
 
   return (
-    <div className="mt-2 border-t border-gray-600 pt-2">
+    <div className=" ps-3">
       <div className="mt-2 space-y-1">
         {isLoading ? (
           <div className="flex justify-center py-2">
@@ -47,9 +47,6 @@ export const CriterionPreviousAnalysis: FC<{
           </div>
         ) : (
           <>
-            <div className="text-xs text-gray-500 mb-2 px-1">
-              Click to view analysis:
-            </div>
             {criterionEvaluations.map((evaluation, index) => (
               <AnalysisItem
                 key={evaluation.filePath}
@@ -110,7 +107,6 @@ const AnalysisItem: FC<{
           <div className="text-lg font-bold text-green-300">
             {analysis.recommendedPoints} pts
           </div>
-        
         </div>
       </div>
     </button>
