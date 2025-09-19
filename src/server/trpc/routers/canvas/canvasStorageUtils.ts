@@ -11,6 +11,11 @@ import type {
 } from "./canvasModels.js";
 import { CanvasCourseSchema, CanvasSubmissionSchema } from "./canvasModels.js";
 import TurndownService from "turndown";
+import {
+  extractAttachmentsFromMarkdown,
+  dowloadSubmissionAttachments,
+  transcribeAndStoreSubmissionAttachments,
+} from "./canvasSubmissionAttachmentUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -115,6 +120,10 @@ export function sanitizeName(name: string): string {
     .replace(/[\\/:*?"<>|]/g, "_")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function sanitizeImageTitle(title: string): string {
+  return title.replace(/[^a-z0-9._-]/gi, "_");
 }
 
 export async function getCourseMeta(courseId: number): Promise<{
@@ -297,7 +306,25 @@ export async function persistSubmissionsToStorage(
           });
 
           // Convert HTML to markdown and store as submission.md
-          storeSubmissionMarkdown(parsedSubmission, {
+          const markdown = storeSubmissionMarkdown(parsedSubmission, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
+
+          const images = extractAttachmentsFromMarkdown(markdown);
+          const imagesWithPaths = await dowloadSubmissionAttachments(images, {
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
+
+          // Transcribe the downloaded images
+          await transcribeAndStoreSubmissionAttachments(imagesWithPaths, {
             termName,
             courseName,
             assignmentId,
@@ -431,7 +458,6 @@ export async function loadSubmissionsFromStorage(
         const metadataDir = path.join(assignmentDir, entry.name);
         const submissionJsonPath = path.join(metadataDir, "submission.json");
 
-        console.log(`Checking for submission.json at: ${submissionJsonPath}`);
 
         if (fs.existsSync(submissionJsonPath)) {
           try {
@@ -443,9 +469,7 @@ export async function loadSubmissionsFromStorage(
               "CanvasSubmission"
             );
             submissions.push(parsedSubmission);
-            console.log(
-              `Successfully loaded submission from: ${submissionJsonPath}`
-            );
+         
           } catch (err) {
             console.warn(
               `Failed to parse submission file: ${submissionJsonPath}`,
@@ -488,29 +512,26 @@ export function storeSubmissionMarkdown(
     assignmentName: string;
     studentName: string;
   }
-): void {
-  try {
-    if (!submission.body || !submission.body.trim()) {
-      console.log("No submission body to convert to markdown");
-      return;
-    }
-
-    const submissionDir = getSubmissionDirectory({
-      termName,
-      courseName,
-      assignmentId,
-      assignmentName,
-      studentName,
-    });
-
-    // Convert HTML to markdown
-    const turndownService = new TurndownService();
-    const markdown = turndownService.turndown(submission.body);
-
-    const submissionMdPath = path.join(submissionDir, "submission.md");
-    fs.writeFileSync(submissionMdPath, markdown, "utf8");
-    console.log("Saved submission.md to:", submissionMdPath);
-  } catch (err) {
-    console.warn("Failed to convert and store submission as markdown", err);
+): string {
+  if (!submission.body || !submission.body.trim()) {
+    console.log("No submission body to convert to markdown");
+    return "";
   }
+
+  const submissionDir = getSubmissionDirectory({
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+    studentName,
+  });
+
+  // Convert HTML to markdown
+  const turndownService = new TurndownService();
+  const markdown = turndownService.turndown(submission.body);
+
+  const submissionMdPath = path.join(submissionDir, "submission.md");
+  fs.writeFileSync(submissionMdPath, markdown, "utf8");
+  console.log("Saved submission.md to:", submissionMdPath);
+  return markdown;
 }

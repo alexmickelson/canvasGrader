@@ -64,6 +64,43 @@ const isTestStudentSubmission = (submission: { user?: { name?: string } }) => {
   return submission.user?.name === "Test Student";
 };
 
+// Helper function to fetch and process submissions from Canvas API
+const fetchSubmissionsFromCanvas = async (
+  courseId: number,
+  assignmentId: number
+): Promise<CanvasSubmission[]> => {
+  const url = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions`;
+  const submissions = await paginatedRequest<CanvasSubmission[]>({
+    url,
+    params: {
+      include: ["user", "submission_comments", "rubric_assessment"],
+    },
+  });
+
+  const parsedSubmissions = submissions.map((submission) =>
+    parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
+  );
+
+  // Filter out submissions from Test Student
+  const filteredSubmissions = parsedSubmissions.filter((submission) => {
+    if (isTestStudentSubmission(submission)) {
+      console.log(
+        `Filtering out Test Student submission (ID: ${submission.id})`
+      );
+      return false;
+    }
+    return true;
+  });
+
+  const filteredCount = parsedSubmissions.length - filteredSubmissions.length;
+  if (filteredCount > 0) {
+    console.log(`Filtered out ${filteredCount} Test Student submission(s)`);
+  }
+
+  return filteredSubmissions;
+};
+
+
 // Utility function to fetch assignment rubric with proper error handling
 const fetchAssignmentRubric = async (
   courseId: number,
@@ -319,42 +356,16 @@ export const canvasRouter = createTRPCRouter({
 
       console.log("No existing submissions found, fetching from Canvas API");
 
-      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions`;
-      const submissions = await paginatedRequest<CanvasSubmission[]>({
-        url,
-        params: {
-          include: ["user", "submission_comments", "rubric_assessment"],
-        },
-      });
-      const parsedSubmissions = submissions.map((submission) =>
-        parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
+      const filteredSubmissions = await fetchSubmissionsFromCanvas(
+        input.courseId,
+        input.assignmentId
       );
-
-      // Filter out submissions from Test Student
-      const filteredSubmissions = parsedSubmissions.filter((submission) => {
-        if (isTestStudentSubmission(submission)) {
-          console.log(
-            `Filtering out Test Student submission (ID: ${submission.id})`
-          );
-          return false;
-        }
-        return true;
-      });
-
-      const filteredCount =
-        parsedSubmissions.length - filteredSubmissions.length;
-      if (filteredCount > 0) {
-        console.log(`Filtered out ${filteredCount} Test Student submission(s)`);
-      }
-
-      // console.log(filteredSubmissions);
 
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
         filteredSubmissions
       );
-
       return filteredSubmissions;
     }),
 
@@ -370,42 +381,19 @@ export const canvasRouter = createTRPCRouter({
         `Force refreshing submissions from Canvas API for assignment ${input.assignmentId}`
       );
 
-      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments/${input.assignmentId}/submissions`;
-      const submissions = await paginatedRequest<CanvasSubmission[]>({
-        url,
-        params: {
-          include: ["user", "submission_comments", "rubric_assessment"],
-        },
-      });
-      const parsedSubmissions = submissions.map((submission) =>
-        parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
+      const filteredSubmissions = await fetchSubmissionsFromCanvas(
+        input.courseId,
+        input.assignmentId
       );
 
-      // Filter out submissions from Test Student
-      const filteredSubmissions = parsedSubmissions.filter((submission) => {
-        if (isTestStudentSubmission(submission)) {
-          console.log(
-            `Filtering out Test Student submission (ID: ${submission.id})`
-          );
-          return false;
-        }
-        return true;
-      });
-
-      const filteredCount =
-        parsedSubmissions.length - filteredSubmissions.length;
-      if (filteredCount > 0) {
-        console.log(`Filtered out ${filteredCount} Test Student submission(s)`);
-      }
+      console.log(
+        `Successfully refreshed ${filteredSubmissions.length} submissions`
+      );
 
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
         filteredSubmissions
-      );
-
-      console.log(
-        `Successfully refreshed ${filteredSubmissions.length} submissions`
       );
       return filteredSubmissions;
     }),

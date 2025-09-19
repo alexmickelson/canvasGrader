@@ -123,15 +123,15 @@ export const rubricAiReportRouter = createTRPCRouter({
         const evaluations: FullEvaluation[] = [];
 
         if (evaluationFiles.length === 0) {
-          console.log("❌ No evaluation files found matching the criteria");
-          console.log(
-            "Files that didn't match:",
-            files.filter(
-              (file) =>
-                !file.startsWith(`${sanitizedStudentName}.rubric.`) ||
-                !file.endsWith(".json")
-            )
-          );
+          // console.log("❌ No evaluation files found matching the criteria");
+          // console.log(
+          //   "Files that didn't match:",
+          //   files.filter(
+          //     (file) =>
+          //       !file.startsWith(`${sanitizedStudentName}.rubric.`) ||
+          //       !file.endsWith(".json")
+          //   )
+          // );
           return [];
         }
 

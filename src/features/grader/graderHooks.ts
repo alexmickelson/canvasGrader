@@ -88,7 +88,7 @@ export const useGitHubClassroomMutation = () => {
 
 export const useAiAnalysisMutation = () => {
   const trpc = useTRPC();
- 
+
   const queryClient = useQueryClient();
   return useMutation(
     trpc.rubricAiReport.analyzeRubricCriterion.mutationOptions({
@@ -142,4 +142,22 @@ export const useGitHubClassroomAssignmentsQuery = (
     }),
     enabled: !!classroomId,
   });
+};
+
+export const useUpdateSubmissionsMutation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.canvas.refreshAssignmentSubmissions.mutationOptions({
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.canvas.getAssignmentSubmissions.queryKey({
+            courseId: variables.courseId,
+            assignmentId: variables.assignmentId,
+          }),
+        });
+      },
+    })
+  );
 };

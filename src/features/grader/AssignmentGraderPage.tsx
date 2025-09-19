@@ -10,7 +10,10 @@ import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../home/canvasHooks";
 import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
-import { useSubmissionsQuery } from "./graderHooks";
+import {
+  useSubmissionsQuery,
+  useUpdateSubmissionsMutation,
+} from "./graderHooks";
 
 export const AssignmentGraderPage = () => {
   const { courseId, assignmentId } = useParams<{
@@ -32,6 +35,9 @@ export const AssignmentGraderPage = () => {
   // Selected submission for slide-over panel
   const [selected, setSelected] = useState<CanvasSubmission | null>(null);
 
+  // Mutation for refreshing submissions
+  const updateSubmissionsMutation = useUpdateSubmissionsMutation();
+
   useSubmissionsQuery(parsedCourseId!, parsedAssignmentId!);
 
   if (!parsedCourseId || !parsedAssignmentId) {
@@ -51,16 +57,33 @@ export const AssignmentGraderPage = () => {
           />
         </h1>
 
-        {course && canvasCourse && assignment && (
-          <GitHubClassroomDownload
-            courseId={parsedCourseId}
-            assignmentId={parsedAssignmentId}
-            course={course}
-            termName={canvasCourse.term?.name || "Unknown Term"}
-            courseName={canvasCourse.name}
-            assignmentName={assignment.name}
-          />
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() =>
+              updateSubmissionsMutation.mutate({
+                courseId: parsedCourseId,
+                assignmentId: parsedAssignmentId,
+              })
+            }
+            disabled={updateSubmissionsMutation.isPending}
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-md text-sm font-medium transition-colors"
+          >
+            {updateSubmissionsMutation.isPending
+              ? "Refreshing..."
+              : "Refresh Submissions"}
+          </button>
+
+          {course && canvasCourse && assignment && (
+            <GitHubClassroomDownload
+              courseId={parsedCourseId}
+              assignmentId={parsedAssignmentId}
+              course={course}
+              termName={canvasCourse.term?.name || "Unknown Term"}
+              courseName={canvasCourse.name}
+              assignmentName={assignment.name}
+            />
+          )}
+        </div>
       </div>{" "}
       {/* Main two-pane layout: submissions list (left) and details panel (right) */}
       <div className="flex gap-4 items-stretch flex-1 min-h-0 w-full">
@@ -93,6 +116,16 @@ export const AssignmentGraderPage = () => {
               <div id="submission-details-title" className="truncate">
                 {selected ? userName(selected) : ""}
               </div>
+              {selected && (
+                <a
+                  href={`https://snow.instructure.com/courses/${parsedCourseId}/gradebook/speed_grader?assignment_id=${parsedAssignmentId}&student_id=${selected.user_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 text-sm underline"
+                >
+                  View in Canvas
+                </a>
+              )}
             </div>
 
             <button

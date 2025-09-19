@@ -16,16 +16,20 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
 const provider: "openai" | "ollama" = "openai";
 // const provider: "openai" | "ollama" = "ollama";
 
+const ratelimtBackoff = 1000 * 5;
+
 export async function getAiCompletion({
   messages,
   tools,
   responseFormat,
   temperature = 0.1,
+  model,
 }: {
   messages: ConversationMessage[];
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
   temperature?: number;
+  model?: string;
 }): Promise<ConversationMessage> {
   if (provider === "ollama") {
     return getOllamaCompletion({
@@ -33,6 +37,7 @@ export async function getAiCompletion({
       tools,
       responseFormat,
       temperature,
+      model,
     });
   }
 
@@ -41,6 +46,7 @@ export async function getAiCompletion({
     tools,
     responseFormat,
     temperature,
+    model,
   });
 }
 
@@ -49,11 +55,13 @@ export async function getOllamaCompletion({
   tools: _tools,
   responseFormat,
   temperature = 0.1,
+  model,
 }: {
   messages: ConversationMessage[];
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
   temperature?: number;
+  model?: string;
 }): Promise<ConversationMessage> {
   const ollama = new Ollama({ host: OLLAMA_URL });
 
@@ -82,7 +90,7 @@ export async function getOllamaCompletion({
 
   // Prepare the chat request
   const chatRequest = {
-    model: OLLAMA_MODEL ?? "gpt-oss:120b",
+    model: model ?? OLLAMA_MODEL ?? "gpt-oss:120b",
     messages: ollamaMessages,
     options: {
       temperature,
@@ -128,69 +136,113 @@ async function getOpenAiCompletion({
   tools,
   responseFormat,
   temperature = 0.1,
+  model,
+  retryCount = 0,
 }: {
   messages: ConversationMessage[];
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
   temperature?: number;
+  model?: string;
+  retryCount?: number;
 }): Promise<ConversationMessage> {
-  const openai = getOpenaiClient();
+  const MAX_RETRIES = 10;
 
-  // Convert domain messages to OpenAI format
-  const openaiMessages = messages.map(toOpenAIMessage);
+  try {
+    const openai = getOpenaiClient();
 
-  // Prepare tools if provided
-  const toolsSchema = tools?.map((tool) =>
-    zodFunction({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.paramsSchema,
-    })
-  );
+    // Convert domain messages to OpenAI format
+    const openaiMessages = messages.map(toOpenAIMessage);
 
-  let completion;
+    // Prepare tools if provided
+    const toolsSchema = tools?.map((tool) =>
+      zodFunction({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.paramsSchema,
+      })
+    );
 
-  if (responseFormat) {
-    // Use structured output with zodResponseFormat
-    const res = await openai.chat.completions.create({
-      model: aiModel,
-      messages: openaiMessages,
-      response_format: zodResponseFormat(responseFormat, "structured_response"),
-      tools: toolsSchema,
-      temperature,
-    });
+    let completion;
 
-    completion = res;
-    if (responseFormat && res.choices[0]?.message?.content) {
-      try {
-        const parsed = JSON.parse(res.choices[0].message.content);
-        const validated = responseFormat.parse(parsed);
-        res.choices[0].message.content = JSON.stringify(validated);
-      } catch (parseError) {
-        console.log(JSON.stringify(res.choices, null, 2));
-        console.warn(
-          "Failed to parse/validate structured response from OpenAI:",
-          parseError
-        );
-        // Fall back to returning the raw response
+    if (responseFormat) {
+      // Use structured output with zodResponseFormat
+      const res = await openai.chat.completions.create({
+        model: model ?? aiModel,
+        messages: openaiMessages,
+        response_format: zodResponseFormat(
+          responseFormat,
+          "structured_response"
+        ),
+        tools: toolsSchema,
+        temperature,
+      });
+
+      completion = res;
+      if (responseFormat && res.choices[0]?.message?.content) {
+        try {
+          const parsed = JSON.parse(res.choices[0].message.content);
+          const validated = responseFormat.parse(parsed);
+          res.choices[0].message.content = JSON.stringify(validated);
+        } catch (parseError) {
+          console.log(JSON.stringify(res.choices, null, 2));
+          console.warn(
+            "Failed to parse/validate structured response from OpenAI:",
+            parseError
+          );
+          // Fall back to returning the raw response
+        }
       }
+    } else {
+      // Regular completion
+      completion = await openai.chat.completions.create({
+        model: model ?? aiModel,
+        messages: openaiMessages,
+        tools: toolsSchema,
+        temperature,
+      });
     }
-  } else {
-    // Regular completion
-    completion = await openai.chat.completions.create({
-      model: aiModel,
-      messages: openaiMessages,
-      tools: toolsSchema,
-      temperature,
-    });
-  }
-  // console.log(completion);
+    // console.log(completion);
 
-  const assistantMessage = completion.choices[0]?.message;
-  if (!assistantMessage) {
-    throw new Error("No response from AI service");
-  }
+    const assistantMessage = completion.choices[0]?.message;
+    if (!assistantMessage) {
+      throw new Error("No response from AI service");
+    }
 
-  // Convert back to domain model and return
-  return fromOpenAIMessage(assistantMessage);
+    // Convert back to domain model and return
+    return fromOpenAIMessage(assistantMessage);
+  } catch (error: unknown) {
+    // Check if it's a rate limit error
+    const errorObj = error as { status?: number; code?: string };
+    if (errorObj?.status === 429 || errorObj?.code === "rate_limit_exceeded") {
+      if (retryCount >= MAX_RETRIES) {
+        console.error(
+          `Rate limit exceeded. Maximum retries (${MAX_RETRIES}) reached.`
+        );
+        throw new Error(`Rate limit exceeded after ${MAX_RETRIES} retries`);
+      }
+
+      console.log(
+        `Rate limit hit (429). Retry attempt ${
+          retryCount + 1
+        }/${MAX_RETRIES}. Waiting 1 second...`
+      );
+
+      // Wait 1 second before retrying
+      await new Promise((resolve) => setTimeout(resolve, ratelimtBackoff));
+
+      // Recursive retry
+      return getOpenAiCompletion({
+        messages,
+        tools,
+        responseFormat,
+        temperature,
+        model,
+        retryCount: retryCount + 1,
+      });
+    }
+
+    // Re-throw other errors
+    throw error;
+  }
 }

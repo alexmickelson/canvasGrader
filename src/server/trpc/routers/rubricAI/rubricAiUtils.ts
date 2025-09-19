@@ -28,7 +28,7 @@ import {
   extractTextFromPdf,
   combinePageTranscriptions,
   storeTranscriptionPage,
-} from "../../../../utils/aiUtils/extractTextFromPdf";
+} from "../../../../utils/aiUtils/extractTextFromImages";
 
 // Helper functions to convert between domain model and OpenAI types
 export function toOpenAIMessage(
