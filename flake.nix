@@ -14,6 +14,69 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
+        
+        # Build the production package once
+        canvasGraderProd = pkgs.stdenv.mkDerivation (finalAttrs: {
+          pname = "canvasgrader";
+          version = "0.0.0";
+          
+          src = ./.;
+          
+          nativeBuildInputs = with pkgs; [
+            nodejs_20
+            pnpm_9.configHook
+          ];
+          
+          pnpmDeps = pkgs.pnpm_9.fetchDeps {
+            inherit (finalAttrs) pname version src;
+            fetcherVersion = 2;
+            hash = "sha256-P+hwz2N0nqfksJ8cdCwXTmr/fPrKaEyiFAo1nEPjb10=";
+          };
+          
+          buildPhase = ''
+            runHook preBuild
+            
+            # Build the application
+            pnpm run build:prod
+            
+            # Create package.json for server to use CommonJS
+            cat > dist-server/package.json << 'EOF'
+            {
+              "type": "commonjs"
+            }
+            EOF
+            
+            runHook postBuild
+          '';
+          
+          installPhase = ''
+            runHook preInstall
+            
+            mkdir -p $out/lib/canvasgrader
+            cp -r dist $out/lib/canvasgrader/
+            cp -r dist-server $out/lib/canvasgrader/
+            cp -r node_modules $out/lib/canvasgrader/
+            cp package.json $out/lib/canvasgrader/
+            
+            # Create wrapper script
+            mkdir -p $out/bin
+            cat > $out/bin/canvasgrader << 'EOF'
+            #!/bin/sh
+            export NODE_ENV=production
+            cd $out/lib/canvasgrader
+            exec ${pkgs.nodejs_20}/bin/node --enable-source-maps dist-server/server/server.js "$@"
+            EOF
+            chmod +x $out/bin/canvasgrader
+            
+            runHook postInstall
+          '';
+          
+          meta = with pkgs.lib; {
+            description = "Canvas grader application";
+            homepage = "https://github.com/alexmickelson/canvasGrader";
+          };
+        });
+
         startScript = pkgs.writeShellApplication {
           name = "run-canvasgrader";
           runtimeInputs = with pkgs; [ nodejs_20 pnpm gh gh-classroom graphicsmagick ];
@@ -58,44 +121,17 @@
           '';
         };
 
+        packages.default = canvasGraderProd;
+
         apps.default = {
           type = "app";
           program = "${startScript}/bin/run-canvasgrader";
         };
 
-        # Production app: build client and server, then run compiled server
-        apps.production = let
-          prodScript = pkgs.writeShellApplication {
-            name = "run-canvasgrader-prod";
-            runtimeInputs = with pkgs; [ nodejs_20 pnpm gh gh-classroom graphicsmagick ];
-            text = ''
-              set -euo pipefail
-
-              # Copy source to a writable temporary directory
-              TMPDIR=$(mktemp -d)
-              cp -r ${self}/* "$TMPDIR"
-              cd "$TMPDIR"
-
-              # install deps and build
-              pnpm install --frozen-lockfile || pnpm install
-              pnpm run build
-              pnpm run build:server
-
-              # Create a package.json for the server that uses CommonJS
-              cat > dist-server/package.json << 'EOF'
-              {
-                "type": "commonjs"
-              }
-              EOF
-
-              # run compiled server which also serves static dist
-              export NODE_ENV=production
-              exec node --enable-source-maps dist-server/server/server.js
-            '';
-          };
-        in {
+        # Production app: run the pre-built package
+        apps.production = {
           type = "app";
-          program = "${prodScript}/bin/run-canvasgrader-prod";
+          program = "${canvasGraderProd}/bin/canvasgrader";
         };
       });
 }
