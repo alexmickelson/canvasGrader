@@ -83,7 +83,7 @@
 
               # run compiled server which also serves static dist
               export NODE_ENV=production
-              exec node --enable-source-maps dist-server/server.js
+              exec node --enable-source-maps dist-server/server/server.js
             '';
           };
         in {
