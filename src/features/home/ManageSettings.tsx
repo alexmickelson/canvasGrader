@@ -172,7 +172,7 @@ export const ManageSettings = () => {
           </h3>
           {isLoadingCourses ? (
             <div className="flex justify-center p-4">
-              <Spinner size={24} className="text-blue-400" />
+              <Spinner className="text-blue-400" />
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
