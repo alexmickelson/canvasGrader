@@ -63,8 +63,8 @@
             cat > $out/bin/canvasgrader << EOF
             #!/bin/sh
             export NODE_ENV=production
-            cd $out/lib/canvasgrader
-            exec ${pkgs.nodejs_20}/bin/node --enable-source-maps dist-server/server/server.js "\$@"
+            export NODE_PATH=$out/lib/canvasgrader/node_modules
+            exec ${pkgs.nodejs_20}/bin/node --enable-source-maps $out/lib/canvasgrader/dist-server/server/server.js "\$@"
             EOF
             chmod +x $out/bin/canvasgrader
             
