@@ -1,9 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useTRPC } from "../../../server/trpc/trpcClient";
 import {
   useSettingsQuery,
   useUpdateSettingsMutation,
-} from "../../home/settingsHooks";
+} from "../../features/home/settingsHooks";
+import { useTRPC } from "../../server/trpc/trpcClient";
 
 export type CourseGithubMappingItem = {
   studentName: string;

@@ -1,12 +1,11 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 import {
   useSettingsQuery,
   useUpdateSettingsMutation,
-} from "../../home/settingsHooks";
+} from "../../features/home/settingsHooks";
+import { useTRPC } from "../../server/trpc/trpcClient";
 import { useScanGithubClassroomQuery } from "./githubMappingHooks";
-// Spinner not needed here
-import { useTRPC } from "../../../server/trpc/trpcClient";
-import { useSuspenseQuery } from "@tanstack/react-query";
 
 export const GitHubMappingPanel: FC<{
   courseId: number;
@@ -20,7 +19,9 @@ export const GitHubMappingPanel: FC<{
   const enrollmentsQuery = useSuspenseQuery(
     trpc.canvas.listCourseEnrollments.queryOptions({ courseId })
   );
-  const studentEnrollments = enrollmentsQuery.data.filter(e => e.type === "StudentEnrollment");
+  const studentEnrollments = enrollmentsQuery.data.filter(
+    (e) => e.type === "StudentEnrollment"
+  );
 
   const { data: scanUsernames } = useScanGithubClassroomQuery(
     classroomAssignmentId
@@ -34,9 +35,6 @@ export const GitHubMappingPanel: FC<{
 
   const assignedUsernames = new Set(
     mapping.map((m) => m.githubUsername.toLowerCase())
-  );
-  const availableUsernames = scanUsernames.filter(
-    (u) => !assignedUsernames.has(u.toLowerCase())
   );
 
   const assignUsername = (studentName: string, username: string) => {
@@ -76,37 +74,47 @@ export const GitHubMappingPanel: FC<{
   return (
     <div className="p-3 mb-4 bg-gray-900 rounded">
       <h3 className="font-semibold">GitHub username mappings</h3>
-      <p className="text-sm text-gray-400">
-        Edit mappings for students in this course (JSON array of objects:
-        [&#123; studentName: string, githubUsername: string &#125;])
-      </p>
       <div>
-        <div className="font-medium text-sm text-gray-300 mb-2">Students</div>
         <ul className="divide-y divide-gray-800 max-h-200 overflow-auto">
-          {/* Replace student list rendering */}
           {studentEnrollments.map((en) => {
             const name = en.user?.name || `User ${en.user_id}`;
             const assigned =
               (mapping.find((m) => m.studentName === name) || {})
                 .githubUsername || "";
-            // Skip rendering if already assigned a username
-            if (assigned) return null;
+
             return (
               <li key={en.user_id} className="p-2 flex flex-col">
                 <div className="flex items-center justify-between">
                   <div className="text-gray-200">{name}</div>
-                  <div className="text-sm text-gray-400">{assigned}</div>
+                  <div className="text-sm text-gray-400">
+                    {assigned || "Not assigned"}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {availableUsernames.map((u) => (
-                    <button
-                      key={u}
-                      className="px-2 py-1 bg-blue-600 rounded text-xs"
-                      onClick={() => assignUsername(name, u)}
-                    >
-                      {u}
-                    </button>
-                  ))}
+                  {scanUsernames.map((u) => {
+                    const isAssignedToOther =
+                      assignedUsernames.has(u.toLowerCase()) &&
+                      assigned.toLowerCase() !== u.toLowerCase();
+                    const isAssignedToThis =
+                      assigned.toLowerCase() === u.toLowerCase();
+
+                    return (
+                      <button
+                        key={u}
+                        className={`unstyled px-2 py-1 rounded text-xs transition-colors ${
+                          isAssignedToThis
+                            ? "bg-green-600 text-white"
+                            : isAssignedToOther
+                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                        }`}
+                        disabled={isAssignedToOther}
+                        onClick={() => assignUsername(name, u)}
+                      >
+                        {u}
+                      </button>
+                    );
+                  })}
                 </div>
               </li>
             );

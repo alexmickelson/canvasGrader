@@ -2,11 +2,12 @@ import type { FC } from "react";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useAssignmentsQuery } from "./canvasAssignmentHooks";
-import { GitHubMappingPanelWithClassroomId } from "./githubClassroomConfig/GitHubMappingPanelWithClassroomId";
 import { useAssignmentGroups } from "./useAssignmentGroups";
 import { AssignmentListItem } from "./AssignmentListItem";
 import { useAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
+import { GitHubMappingPanelWithClassroomId } from "../../components/githubClassroomConfig/GitHubMappingPanelWithClassroomId";
+import { CourseNameDisplay } from "../../components/CourseNameDisplay";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -14,10 +15,11 @@ export const CoursePage = () => {
 
   return (
     <div className="p-4 text-gray-200">
-      <h1 className="text-xl font-semibold">Course Page</h1>
-      <p className="mt-2 text-sm text-gray-400">
-        courseId: {courseId ?? "(missing)"}
-      </p>
+      <h2 className="unstyled text-2xl">
+        Course{" "}
+        {parsedCourseId && <CourseNameDisplay courseId={parsedCourseId} />}
+      </h2>
+
       {parsedCourseId && <CourseAssignments courseId={parsedCourseId} />}
     </div>
   );
@@ -126,7 +128,11 @@ const ConditionalAssignmentItem: FC<{
   courseId: number;
   hideGraded: boolean;
 }> = ({ assignment, courseId, hideGraded }) => {
-  const { status } = useAssignmentGradingStatus(courseId, assignment.id, assignment.name);
+  const { status } = useAssignmentGradingStatus(
+    courseId,
+    assignment.id,
+    assignment.name
+  );
 
   // If hideGraded is true and the assignment is graded, don't render it
   if (hideGraded && status === "graded") {
