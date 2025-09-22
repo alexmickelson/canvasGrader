@@ -38,18 +38,6 @@ chmod +x run.sh
 ./run.sh              # Normal run (uses cached version)
 ./run.sh --update     # Force update from GitHub
 ```
-```
 
-<!-- ### Without Cloning
 
-You can run the application directly without cloning the repository using Nix flakes:
-
-Make sure to set your `CANVAS_TOKEN` environment variable before running:
-
-```bash
-export CANVAS_TOKEN=your_canvas_token_here
-nix run --refresh github:alexmickelson/canvasGrader#production
-```
-
-### Local Development
- -->
+For local development, run `nix run .#default` after cloning.
