@@ -17,8 +17,6 @@ Make a directory to store your run script and all the downloaded submission data
 
 Make a `run.sh` script with the following:
 ```bash
-Make a `run.sh` script with the following:
-```bash
 #!/bin/bash
 export CANVAS_TOKEN=tokenvalue
 export AI_URL=openai compatible url
