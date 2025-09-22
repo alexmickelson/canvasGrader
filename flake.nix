@@ -127,7 +127,7 @@
 
         apps.default = {
           type = "app";
-          program = "${startScript}/bin/y";
+          program = "${startScript}/bin/run-canvasgrader";
         };
 
         # Production app: run the pre-built package
