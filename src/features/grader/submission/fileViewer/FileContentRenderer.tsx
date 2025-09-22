@@ -57,7 +57,7 @@ export const FileContentRenderer: FC<{
 
     return (
       <div className="flex items-center justify-center py-8">
-        <Spinner size={24} className="text-gray-400" />
+        <Spinner  className="text-gray-400" />
         <span className="ml-2 text-gray-400">{loadingMessage}</span>
       </div>
     );

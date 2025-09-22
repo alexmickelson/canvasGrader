@@ -47,7 +47,7 @@ const CanvasCourseItem = ({ course }: { course: CanvasCourse }) => {
         title="Add course"
       >
         {isPending ? (
-          <Spinner size={20} className="text-green-400" />
+          <Spinner className="text-green-400" />
         ) : (
           <AddIcon />
         )}

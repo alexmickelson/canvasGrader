@@ -35,7 +35,7 @@ export const useSubmitCommentMutation = () => {
 
   return useMutation(
     trpc.canvas.submitComment.mutationOptions({
-      onSuccess: (result, variables) => {
+      onSuccess: (_result, variables) => {
         // Invalidate related queries to refresh the UI
         queryClient.invalidateQueries({
           queryKey: trpc.canvas.getAssignmentSubmissions.queryKey({

@@ -61,7 +61,7 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
         title="Remove course"
       >
         {isPending ? (
-          <Spinner size={20} className="text-red-300" />
+          <Spinner className="text-red-300" />
         ) : (
           <RemoveIcon />
         )}
