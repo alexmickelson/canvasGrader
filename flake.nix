@@ -60,11 +60,11 @@
             
             # Create wrapper script
             mkdir -p $out/bin
-            cat > $out/bin/canvasgrader << 'EOF'
+            cat > $out/bin/canvasgrader << EOF
             #!/bin/sh
             export NODE_ENV=production
             cd $out/lib/canvasgrader
-            exec ${pkgs.nodejs_20}/bin/node --enable-source-maps dist-server/server/server.js "$@"
+            exec ${pkgs.nodejs_20}/bin/node --enable-source-maps dist-server/server/server.js "\$@"
             EOF
             chmod +x $out/bin/canvasgrader
             
@@ -125,7 +125,7 @@
 
         apps.default = {
           type = "app";
-          program = "${startScript}/bin/run-canvasgrader";
+          program = "${startScript}/bin/y";
         };
 
         # Production app: run the pre-built package
