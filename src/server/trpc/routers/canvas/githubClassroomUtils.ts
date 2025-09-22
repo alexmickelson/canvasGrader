@@ -4,7 +4,11 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import { axiosClient } from "../../../../utils/axiosUtils";
 import { canvasRequestOptions } from "./canvasServiceUtils";
-import { ensureDir, getSubmissionDirectory } from "./canvasStorageUtils";
+import {
+  ensureDir,
+  getSubmissionDirectory,
+  getAssignmentDirectory,
+} from "./canvasStorageUtils";
 
 const execAsync = promisify(exec);
 
@@ -23,7 +27,7 @@ export interface ProcessedRepoResult {
 export const prepareTempDir = async () => {
   const tempDir = path.join(process.cwd(), "temp", "github-classroom");
   console.log(`\n2. Creating temporary directory: ${tempDir}`);
-  await ensureDir(tempDir);
+  ensureDir(tempDir);
   console.log("   ✓ Temporary directory created/verified");
   return tempDir;
 };
@@ -166,6 +170,21 @@ export const organizeStudentRepositories = async ({
   let errorCount = 0;
   const errors: string[] = [];
 
+  // Check if student folder exists in assignment directory
+  const assignmentDirectory = getAssignmentDirectory({
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+  });
+
+  const assignmentDirContents = fs.existsSync(assignmentDirectory)
+    ? fs
+        .readdirSync(assignmentDirectory, { withFileTypes: true })
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name)
+    : [];
+
   for (const repoName of studentRepos) {
     const repoIndex = studentRepos.indexOf(repoName) + 1;
     console.log(
@@ -177,7 +196,7 @@ export const organizeStudentRepositories = async ({
 
       // Extract GitHub username from repository name
       // Repository names typically follow pattern: assignment-prefix-githubusername
-      // e.g., "exam1-1-EthanHintze" -> "EthanHintze"
+      // e.g., "exam1-1-StudentUser" -> "StudentUser"
 
       // First try to match against the github user map by checking if any username appears in the repo name
       for (const [username, mappedStudentName] of githubLookup) {
@@ -210,6 +229,23 @@ export const organizeStudentRepositories = async ({
       console.log(`     → GitHub username extracted: "${githubUsername}"`);
       console.log(`     → Student name resolved: "${studentName}"`);
 
+      if (!assignmentDirContents.includes(studentName)) {
+        const warningMsg = `Student folder "${studentName}" does not exist in assignment directory. Skipping repository: ${repoName}`;
+        console.log(`     ⚠️  ${warningMsg}`);
+        processedRepos.push({
+          repoName,
+          studentName,
+          status: "error",
+          reason: warningMsg,
+        });
+        errorCount++;
+        continue;
+      }
+
+      console.log(
+        `     ✓ Student folder "${studentName}" found in assignment directory`
+      );
+
       const sourceDir = path.join(reposDir, repoName);
       const submissionDirectory = getSubmissionDirectory({
         termName,
@@ -220,7 +256,7 @@ export const organizeStudentRepositories = async ({
       });
 
       const targetDir = path.join(submissionDirectory, "githubClassroom");
-      
+
       ensureDir(targetDir);
 
       console.log(`     → Source directory: ${sourceDir}`);

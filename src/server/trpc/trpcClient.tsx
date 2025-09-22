@@ -32,6 +32,7 @@ function makeQueryClient() {
       queries: {
         staleTime: 60 * 1000,
         retry: 0,
+        refetchOnWindowFocus: false,
       },
       mutations: {
         onError: (error: unknown) => {

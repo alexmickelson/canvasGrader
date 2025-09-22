@@ -86,7 +86,10 @@ export const SubmissionsList: FC<{
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2 min-w-0">
-                        <span className="truncate font-medium text-gray-100">
+                        <span
+                          className="truncate font-medium text-gray-100"
+                          title={name}
+                        >
                           {name}
                         </span>
                         <div className="flex flex-wrap gap-1">

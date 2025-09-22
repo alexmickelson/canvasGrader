@@ -52,40 +52,13 @@ export const useRubricQuery = (courseId: number, assignmentId: number) => {
 
 export const useGitHubClassroomMutation = () => {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   return useMutation(
     trpc.canvas.downloadAndOrganizeRepositories.mutationOptions({
-      onSuccess: (result) => {
-        console.log("=== GitHub Classroom Download Success ===");
-        console.log("Result:", result);
-        console.log(
-          `Successfully organized ${result.successCount} repositories`
-        );
-        if (result.errorCount > 0) {
-          console.log(
-            `${result.errorCount} repositories had errors:`,
-            result.errors
-          );
-        }
-        if (result.processedRepositories) {
-          console.log("Processed repositories:", result.processedRepositories);
-        }
-
-        // Show success message
-        alert(
-          `✅ GitHub Classroom Download Complete!\n\n${result.message}\n\nThe page will refresh to show the new submissions.`
-        );
-
-        // Refresh submissions after successful download
-        window.location.reload();
-      },
-      onError: (error) => {
-        console.error("=== GitHub Classroom Download Failed ===");
-        console.error("Error details:", error);
-
-        // Show error message
-        alert(
-          `❌ GitHub Classroom Download Failed!\n\n${error.message}\n\nCheck the console for more details.`
-        );
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
+        });
       },
     })
   );
