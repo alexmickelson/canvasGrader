@@ -5,7 +5,7 @@ import * as trpcExpress from "@trpc/server/adapters/express";
 import path from "path";
 import { appRouter } from "./trpc/utils/main.js";
 import cron from "node-cron";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 cron.schedule("0 2 * * *", async () => {
@@ -45,7 +45,8 @@ app.use(
 );
 
 // Serve built frontend from dist in production
-const distPath = path.resolve(process.cwd(), "dist");
+const distPath =
+  process.env.CANVAS_GRADER_DIST_PATH || path.resolve(process.cwd(), "dist");
 app.use(express.static(distPath));
 // SPA fallback to index.html for non-API routes
 app.get("*", (_req, res) => {

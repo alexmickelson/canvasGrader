@@ -60,10 +60,12 @@
             
             # Create wrapper script
             mkdir -p $out/bin
+
             cat > $out/bin/canvasgrader << EOF
             #!/bin/sh
             export NODE_ENV=production
             export NODE_PATH=$out/lib/canvasgrader/node_modules
+            export CANVAS_GRADER_DIST_PATH=$out/lib/canvasgrader/dist
             exec ${pkgs.nodejs_20}/bin/node --enable-source-maps $out/lib/canvasgrader/dist-server/server/server.js "\$@"
             EOF
             chmod +x $out/bin/canvasgrader

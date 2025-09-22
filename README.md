@@ -17,12 +17,13 @@ Make a directory to store your run script and all the downloaded submission data
 
 Make a `run.sh` script with the following:
 ```bash
+#!/bin/bash
 export CANVAS_TOKEN=tokenvalue
 export AI_URL=openai compatible url
 export AI_TOKEN=auth token
 export AI_MODEL=model with tool calling and structured output
 export AI_IMAGE_MODEL=model with image support for transcribing images
-nix run github:alexmickelson/canvasGrader#production
+nix run --refresh github:alexmickelson/canvasGrader#production
 ```
 
 <!-- ### Without Cloning
