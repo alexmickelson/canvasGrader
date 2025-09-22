@@ -73,24 +73,41 @@ export const CriterionPreviousAnalysis: FC<{
 const AnalysisItem: FC<{
   evaluation: FullEvaluation;
 }> = ({ evaluation }) => {
-  const { setViewingAnalysis } = useViewingItem();
+  const { setViewingAnalysis, viewingItem } = useViewingItem();
   const analysis = evaluation.evaluation;
+  const isSelected =
+    viewingItem?.type === "analysis" &&
+    viewingItem?.name === evaluation.fileName;
 
   return (
     <div className="w-full flex justify-end">
       <button
         onClick={() => setViewingAnalysis(evaluation.fileName)}
         className={
-          "unstyled cursor-pointer" +
-          " bg-gray-800/50 rounded px-2 py-1 text-sm" +
-          " hover:bg-gray-700/50 transition-colors " +
-          "flex"
+          "unstyled cursor-pointer " +
+          "rounded px-2 py-1 text-sm " +
+          "transition-colors flex " +
+          (isSelected
+            ? "bg-indigo-900/70  "
+            : "bg-gray-800/50 hover:bg-gray-700/50 ")
         }
       >
-        <div className="text-gray-500 hover:text-gray-300 truncate max-w-80">
+        <div
+          className={
+            "truncate max-w-80 " +
+            (isSelected
+              ? "text-indigo-200 hover:text-indigo-100"
+              : "text-gray-500 hover:text-gray-300")
+          }
+        >
           {analysis.description}
         </div>
-        <div className=" font-bold text-green-600 ps-3">
+        <div
+          className={
+            "font-bold ps-3 " +
+            (isSelected ? "text-green-400" : "text-green-600")
+          }
+        >
           {analysis.recommendedPoints} pts
         </div>
       </button>

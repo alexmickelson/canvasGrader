@@ -65,11 +65,52 @@ const isTestStudentSubmission = (submission: { user?: { name?: string } }) => {
   return submission.user?.name === "Test Student";
 };
 
+// Helper function to fetch a single submission by user ID
+const fetchSingleSubmissionByIdFromCanvas = async (
+  courseId: number,
+  assignmentId: number,
+  userId: number
+): Promise<CanvasSubmission | null> => {
+  console.log(`Fetching submission for user ID ${userId}`);
+
+  // Fetch the specific submission using the single submission endpoint
+  const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+
+  try {
+    const { data: submission } = await axiosClient.get(submissionUrl, {
+      headers: canvasRequestOptions.headers,
+      params: {
+        include: ["user", "submission_comments", "rubric_assessment"],
+      },
+    });
+
+    const parsedSubmission = parseSchema(
+      CanvasSubmissionSchema,
+      submission,
+      "CanvasSubmission"
+    );
+
+    // Filter out Test Student submissions
+    if (isTestStudentSubmission(parsedSubmission)) {
+      console.log(
+        `Filtering out Test Student submission (ID: ${parsedSubmission.id})`
+      );
+      return null;
+    }
+
+    return parsedSubmission;
+  } catch (error) {
+    console.error(`Failed to fetch submission for user ID ${userId}:`, error);
+    return null;
+  }
+};
+
 // Helper function to fetch and process submissions from Canvas API
 const fetchSubmissionsFromCanvas = async (
   courseId: number,
   assignmentId: number
 ): Promise<CanvasSubmission[]> => {
+  // Fetch all submissions using the submissions endpoint
   const url = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions`;
   const submissions = await paginatedRequest<CanvasSubmission[]>({
     url,
@@ -377,29 +418,40 @@ export const canvasRouter = createTRPCRouter({
         courseId: z.coerce.number(),
         assignmentId: z.coerce.number(),
         assignmentName: z.string(),
+        studentName: z.string().optional(),
+        studentId: z.coerce.number().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      console.log(
-        `Force refreshing submissions from Canvas API for assignment ${input.assignmentId}`
-      );
+      const logMessage = input.studentId
+        ? `Force refreshing submission from Canvas API for student ID ${input.studentId} in assignment ${input.assignmentId}`
+        : `Force refreshing submissions from Canvas API for assignment ${input.assignmentId}`;
 
-      const filteredSubmissions = await fetchSubmissionsFromCanvas(
-        input.courseId,
-        input.assignmentId
-      );
+      console.log(logMessage);
+
+      // Use ternary to determine which function to call and get submissions
+      const submissions = input.studentId
+        ? await fetchSingleSubmissionByIdFromCanvas(
+            input.courseId,
+            input.assignmentId,
+            input.studentId
+          ).then((sub: CanvasSubmission | null) => (sub ? [sub] : []))
+        : await fetchSubmissionsFromCanvas(input.courseId, input.assignmentId);
 
       console.log(
-        `Successfully refreshed ${filteredSubmissions.length} submissions`
+        `Successfully refreshed ${submissions.length} submission${
+          submissions.length === 1 ? "" : "s"
+        }`
       );
 
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
-        filteredSubmissions,
+        submissions,
         input.assignmentName
       );
-      return filteredSubmissions;
+
+      return submissions;
     }),
 
   transcribeSubmissionImages: publicProcedure
@@ -666,7 +718,9 @@ export const canvasRouter = createTRPCRouter({
       z.object({
         courseId: z.number(),
         assignmentId: z.number(),
-        userId: z.number(),
+        assignmentName: z.string(),
+        studentId: z.number(),
+        studentName: z.string(),
         rubricAssessment: z.record(
           z.string(), // criterion ID
           z.object({
@@ -679,25 +733,21 @@ export const canvasRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const { courseId, assignmentId, userId, rubricAssessment, comment } =
-        input;
-
-      console.log("=== Grading Submission with Rubric ===");
-      console.log(`Course ID: ${courseId}`);
-      console.log(`Assignment ID: ${assignmentId}`);
-      console.log(`User ID: ${userId}`);
-      console.log(`Rubric Assessment:`, rubricAssessment);
-      if (comment) {
-        console.log(`Comment: ${comment}`);
-      }
+      const {
+        courseId,
+        assignmentId,
+        studentId,
+        rubricAssessment,
+        comment,
+      } = input;
 
       try {
         // Validate required parameters
-        if (!userId) {
+        if (!studentId) {
           throw new Error("User ID is required for grading");
         }
 
-        console.log(`\n1. Using provided user_id: ${userId}`);
+        console.log(`\n1. Using provided user_id: ${studentId}`);
 
         // Calculate total points from rubric assessment
         const totalPoints = Object.values(rubricAssessment).reduce(
@@ -746,7 +796,7 @@ export const canvasRouter = createTRPCRouter({
 
         // Use the correct Canvas API endpoint: PUT /courses/:course_id/assignments/:assignment_id/submissions/:user_id
         // This endpoint handles both grading and rubric assessment in a single call
-        const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+        const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${studentId}`;
         const submissionResponse = await axiosClient.put(
           submissionUrl,
           submissionData,
@@ -771,7 +821,7 @@ export const canvasRouter = createTRPCRouter({
         console.log(
           "Refetching submission data to include user information..."
         );
-        const refetchUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+        const refetchUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${studentId}`;
         const refetchResponse = await axiosClient.get(refetchUrl, {
           ...canvasRequestOptions,
           params: {
@@ -816,6 +866,53 @@ export const canvasRouter = createTRPCRouter({
 
         throw new Error(
           `Failed to grade submission: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }),
+
+  submitComment: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        assignmentId: z.number(),
+        userId: z.number(),
+        comment: z.string().min(1, "Comment cannot be empty"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { courseId, assignmentId, userId, comment } = input;
+
+      try {
+        console.log(`Submitting comment for submission ${userId}...`);
+        console.log(`Comment: ${comment}`);
+
+        const submissionData = {
+          comment: {
+            text_comment: comment,
+          },
+        };
+
+        // Submit the comment to Canvas
+        const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+        await axiosClient.put(submissionUrl, submissionData, {
+          ...canvasRequestOptions,
+          params: {
+            include: ["user", "submission_comments"],
+          },
+        });
+
+        console.log("✅ Successfully submitted comment");
+
+        return {
+          success: true,
+          message: "Comment submitted successfully",
+        };
+      } catch (error) {
+        console.error("❌ Failed to submit comment:", error);
+        throw new Error(
+          `Failed to submit comment: ${
             error instanceof Error ? error.message : String(error)
           }`
         );
