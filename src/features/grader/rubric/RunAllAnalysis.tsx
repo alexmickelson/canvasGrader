@@ -65,7 +65,6 @@ export const RunAllAnalysis: FC<{
   };
 
   const isRunning = runningCount > 0;
-  const totalCriteria = rubric?.data?.length || 0;
 
   return (
     <button
@@ -88,8 +87,8 @@ export const RunAllAnalysis: FC<{
       {rubricLoading
         ? "Loading Rubric..."
         : isRunning
-        ? `Analyzing... (${completedCount}/${runningCount})`
-        : `Run All AI Analysis (${totalCriteria} criteria)`}
+        ? `${Math.round((completedCount / runningCount) * 100)}% complete`
+        : `Analyze Each Criterion`}
     </button>
   );
 };

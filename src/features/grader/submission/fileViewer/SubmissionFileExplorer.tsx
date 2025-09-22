@@ -112,7 +112,7 @@ export const SubmissionFileExplorer: FC<{
   if (isLoading) {
     return (
       <div className={`flex items-center gap-2 `}>
-        <Spinner size={16} className="text-gray-400" />
+        <Spinner className="text-gray-400" />
         <span className="text-gray-400">Loading files...</span>
       </div>
     );

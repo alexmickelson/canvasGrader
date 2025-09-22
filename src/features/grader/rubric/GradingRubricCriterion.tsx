@@ -71,26 +71,16 @@ export const GradingRubricCriterion: FC<{
 
   return (
     <div className=" ">
-      <div className="px-1 pb-1 flex justify-between">
-        <div>
-          <div className="font-medium text-gray-300">
-            {criterion.description || `Criterion ${criterion.id}`}
-          </div>
-          {criterion.long_description && (
-            <p className="mt-1 text-sm text-gray-400">
-              {criterion.long_description}
-            </p>
-          )}
+      <div className="px-1 pb-1 flex justify-between w-full ">
+        <div className="font-medium text-gray-300 flex-1 truncate">
+          {criterion.description}
         </div>
         <div className="text-gray-500">
-          <span>
-            <span className="font-bold text-green-300">
-              {assessment?.points ?? 0}
-            </span>
-            /
-            <span className="font-bold text-slate-200">{criterion.points}</span>{" "}
-            pts
+          <span className="font-bold text-green-300 ps-2">
+            {assessment?.points ?? 0}
           </span>
+          /<span className="font-bold text-slate-200">{criterion.points}</span>{" "}
+          pts
         </div>
       </div>
 
@@ -188,7 +178,7 @@ export const GradingRubricCriterion: FC<{
       </Expandable>
 
       {/* Previous Analysis Section */}
-      <div className="px-1 pb-2">
+      <div className="px-1 ms-8">
         <CriterionPreviousAnalysis
           criterion={criterion}
           assignmentId={assignmentId}

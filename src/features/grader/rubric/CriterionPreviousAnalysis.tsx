@@ -34,81 +34,66 @@ export const CriterionPreviousAnalysis: FC<{
       evaluation.fileName.includes(`rubric.${criterion.id}-`)
     ) ?? [];
 
-  if (criterionEvaluations.length === 0) {
+  // Sort by timestamp (newer first, older later)
+  const sortedEvaluations = criterionEvaluations.sort((a, b) => {
+    const getTimestamp = (evaluation: FullEvaluation) => {
+      if (evaluation.metadata.timestamp) {
+        return new Date(evaluation.metadata.timestamp).getTime();
+      }
+      // Fallback to extracting from filename if needed
+      const filenameTimestamp =
+        evaluation.fileName.split("-").pop()?.replace(".json", "") || "0";
+      return parseInt(filenameTimestamp);
+    };
+
+    return getTimestamp(b) - getTimestamp(a); // Descending order (newer first)
+  });
+
+  if (sortedEvaluations.length === 0) {
     return null;
   }
 
   return (
-    <div className=" ps-3">
-      <div className="mt-2 space-y-1">
-        {isLoading ? (
-          <div className="flex justify-center py-2">
-            <Spinner />
-          </div>
-        ) : (
-          <>
-            {criterionEvaluations.map((evaluation, index) => (
-              <AnalysisItem
-                key={evaluation.filePath}
-                evaluation={evaluation}
-                index={index}
-              />
-            ))}
-          </>
-        )}
-      </div>
+    <div className=" ps-3 mt-2 space-y-1">
+      {isLoading ? (
+        <div className="flex justify-center py-2">
+          <Spinner />
+        </div>
+      ) : (
+        <>
+          {sortedEvaluations.map((evaluation) => (
+            <AnalysisItem key={evaluation.filePath} evaluation={evaluation} />
+          ))}
+        </>
+      )}
     </div>
   );
 };
 
 const AnalysisItem: FC<{
   evaluation: FullEvaluation;
-  index: number;
-}> = ({ evaluation, index }) => {
+}> = ({ evaluation }) => {
   const { setViewingAnalysis } = useViewingItem();
   const analysis = evaluation.evaluation;
 
-  // Format timestamp from filename or metadata
-  const timestamp =
-    evaluation.metadata.timestamp ||
-    evaluation.fileName.split("-").pop()?.replace(".json", "") ||
-    "Unknown";
-
-  const formatTimestamp = (ts: string) => {
-    try {
-      const date = new Date(parseInt(ts));
-      return date.toLocaleString();
-    } catch {
-      return ts;
-    }
-  };
-
   return (
-    <button
-      onClick={() => setViewingAnalysis(evaluation.fileName)}
-      className={
-        "unstyled cursor-pointer w-full" +
-        " bg-gray-800/50 rounded p-3 text-sm" +
-        " hover:bg-gray-700/50 transition-colors " +
-        "text-left "
-      }
-    >
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="text-gray-300 font-medium hover:text-blue-300 flex items-center gap-1">
-            Analysis #{index + 1}
-            <span className="text-xs text-gray-500">→</span>
-          </div>
-          <div className="text-xs text-gray-400">
-            {formatTimestamp(timestamp)}
-          </div>
+    <div className="w-full flex justify-end">
+      <button
+        onClick={() => setViewingAnalysis(evaluation.fileName)}
+        className={
+          "unstyled cursor-pointer" +
+          " bg-gray-800/50 rounded px-2 py-1 text-sm" +
+          " hover:bg-gray-700/50 transition-colors " +
+          "flex"
+        }
+      >
+        <div className="text-gray-500 hover:text-gray-300 truncate max-w-80">
+          {analysis.description}
         </div>
-        <div className="text-right">
-          <div className="text-lg font-bold text-green-300">
-            {analysis.recommendedPoints} pts
-          </div>
+        <div className=" font-bold text-green-600 ps-3">
+          {analysis.recommendedPoints} pts
         </div>
-      </div>
-    </button>
+      </button>
+    </div>
   );
 };
