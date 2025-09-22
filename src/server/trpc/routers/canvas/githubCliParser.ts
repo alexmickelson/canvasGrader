@@ -22,26 +22,44 @@ export type GitHubAssignment = z.infer<typeof GitHubAssignmentSchema>;
 export function parseClassroomList(output: string): GitHubClassroom[] {
   const lines = output.trim().split("\n");
 
-  // Return empty array if no data or only header
-  if (lines.length <= 1) return [];
+  // Return empty array if no data
+  if (lines.length === 0) return [];
 
-  // Skip header line and parse data
+  // Find the header line that contains "ID", "Name", "URL"
+  let headerIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.includes("ID") && line.includes("Name") && line.includes("URL")) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  // If no header found, return empty array
+  if (headerIndex === -1) return [];
+
+  // Parse data lines after header
   return lines
-    .slice(1)
+    .slice(headerIndex + 1)
     .map((line) => {
-      // Split by whitespace but preserve multi-word names
-      const parts = line.trim().split(/\s+/);
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+
+      // Split by multiple whitespace to handle the tabular format
+      const parts = trimmed.split(/\s{2,}/);
       if (parts.length < 3) return null;
 
-      const id = parts[0];
-      const url = parts[parts.length - 1]; // URL is always last
-      // Name is everything between ID and URL
-      const name = parts.slice(1, -1).join(" ");
+      const id = parts[0]?.trim();
+      const name = parts[1]?.trim();
+      const url = parts[2]?.trim();
+
+      // Validate that ID is numeric and other fields exist
+      if (!id || !id.match(/^\d+$/) || !name || !url) return null;
 
       return {
         id,
-        name: name?.trim() || "",
-        url: url?.trim() || "",
+        name,
+        url,
       };
     })
     .filter(

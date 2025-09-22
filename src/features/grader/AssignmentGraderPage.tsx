@@ -19,10 +19,12 @@ import {
   useSubmissionsQuery,
   useUpdateSubmissionsMutation,
   useTranscribeSubmissionImagesMutation,
+  useLoadGithubClassroomDataQuery,
 } from "./graderHooks";
 import { AiQueueStatus } from "../home/AiQueueStatus";
 
 export const AssignmentGraderPage = () => {
+  useLoadGithubClassroomDataQuery();
   const { courseId, assignmentId } = useParams<{
     courseId: string;
     assignmentId: string;

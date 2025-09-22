@@ -30,3 +30,4 @@ dist-server/
 storage/
 .env
 temp/
+result/

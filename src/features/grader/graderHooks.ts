@@ -3,6 +3,7 @@ import {
   useSuspenseQuery,
   useMutation,
   useQueryClient,
+  useQueries,
 } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
@@ -105,9 +106,27 @@ export const useAllEvaluationsQuery = ({
 };
 
 // GitHub Classroom hooks
-export const useGitHubClassroomsQuery = () => {
+export const useLoadGithubClassroomDataQuery = () => {
   const trpc = useTRPC();
-  return useQuery(trpc.canvas.getGitHubClassrooms.queryOptions());
+
+  const classroomsQuery = useQuery(
+    trpc.canvas.getGitHubClassrooms.queryOptions()
+  );
+
+  // Use useQueries to fetch assignments for all classrooms in parallel
+  const assignmentQueries = useQueries({
+    queries: (classroomsQuery.data || []).map((classroom) => ({
+      ...trpc.canvas.getGitHubClassroomAssignments.queryOptions({
+        classroomId: classroom.id || "",
+      }),
+      enabled: !!classroom.id && !!classroomsQuery.data,
+    })),
+  });
+
+  return {
+    ...classroomsQuery,
+    assignmentQueries,
+  };
 };
 
 export const useGitHubClassroomAssignmentsQuery = (
