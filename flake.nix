@@ -81,6 +81,13 @@
               pnpm run build
               pnpm run build:server
 
+              # Create a package.json for the server that uses CommonJS
+              cat > dist-server/package.json << 'EOF'
+              {
+                "type": "commonjs"
+              }
+              EOF
+
               # run compiled server which also serves static dist
               export NODE_ENV=production
               exec node --enable-source-maps dist-server/server/server.js
