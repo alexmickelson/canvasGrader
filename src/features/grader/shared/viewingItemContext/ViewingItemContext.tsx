@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { CanvasSubmission } from "../../../../server/trpc/routers/canvas/canvasModels";
-import { userName } from "../../userUtils";
 
 export type ViewingItemType = "file" | "analysis";
 
@@ -12,7 +11,6 @@ export interface ViewingItem {
 const throwAwayDefault = {
   viewingItem: null,
   submission: {} as CanvasSubmission,
-  assignmentName: "",
   courseName: "",
   studentName: "",
   submissionName: "",
@@ -29,11 +27,6 @@ const throwAwayDefault = {
 
 const ViewingItemContext = createContext<{
   viewingItem: ViewingItem | null;
-  submission: CanvasSubmission;
-  assignmentName: string;
-  courseName: string;
-  studentName: string;
-  submissionName: string;
   setViewingFile: (fileName: string) => void;
   setViewingAnalysis: (analysisName: string) => void;
   clearViewingItem: () => void;
@@ -41,11 +34,7 @@ const ViewingItemContext = createContext<{
 
 export const ViewingItemProvider: React.FC<{
   children: ReactNode;
-  submission: CanvasSubmission;
-  assignmentName: string;
-  courseName: string;
-  studentName: string;
-}> = ({ children, submission, assignmentName, courseName, studentName }) => {
+}> = ({ children }) => {
   const [viewingItem, setViewingItem] = useState<ViewingItem | null>(null);
 
   const setViewingFile = (fileName: string) => {
@@ -66,17 +55,11 @@ export const ViewingItemProvider: React.FC<{
     setViewingItem(null);
   };
 
-  const submissionName = userName(submission);
 
   return (
     <ViewingItemContext.Provider
       value={{
         viewingItem,
-        submission,
-        assignmentName,
-        courseName,
-        studentName,
-        submissionName,
         setViewingFile,
         setViewingAnalysis,
         clearViewingItem,
@@ -89,8 +72,5 @@ export const ViewingItemProvider: React.FC<{
 
 export const useViewingItem = () => {
   const context = useContext(ViewingItemContext);
-  if (context === undefined) {
-    throw new Error("useViewingItem must be used within a ViewingItemProvider");
-  }
   return context;
 };

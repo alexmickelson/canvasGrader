@@ -7,6 +7,7 @@ import { useSubmissionsQuery } from "./graderHooks";
 import { userName } from "./userUtils";
 import { describeTimeDifference } from "../../utils/timeUtils";
 import { getSubmissionStatusChips } from "./submission/submissionUtils";
+import { useViewingItem } from "./shared/viewingItemContext/ViewingItemContext";
 
 export const SubmissionsList: FC<{
   courseId: number;
@@ -15,6 +16,7 @@ export const SubmissionsList: FC<{
   assignment: CanvasAssignment;
   onSelect: (s: CanvasSubmission) => void;
 }> = ({ courseId, assignmentId, selectedId, assignment, onSelect }) => {
+  const { setViewingFile } = useViewingItem();
   const { data: submissions } = useSubmissionsQuery(
     courseId,
     assignmentId,
@@ -68,13 +70,17 @@ export const SubmissionsList: FC<{
                   ? "border-indigo-500/60 bg-gray-800/80 ring-2 ring-indigo-500/30"
                   : "border-gray-700 bg-gray-800 hover:bg-gray-800/70"
               }`}
-              onClick={() => onSelect(s)}
+              onClick={() => {
+                setViewingFile("submission.md");
+                onSelect(s);
+              }}
               role="button"
               aria-selected={isActive}
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
+                  setViewingFile("submission.md");
                   onSelect(s);
                 }
               }}
