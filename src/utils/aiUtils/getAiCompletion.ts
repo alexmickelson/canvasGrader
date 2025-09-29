@@ -11,18 +11,17 @@ import { enqueueJob, type QueueJob } from "./AiQueue";
 
 const ratelimtBackoff = 1000 * 15;
 const MAX_RETRIES = 10;
+const DEFAULT_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE ?? "0.1");
 
 export async function getAiCompletion({
   messages,
   tools,
   responseFormat,
-  temperature = 0.1,
   model,
 }: {
   messages: ConversationMessage[];
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
-  temperature?: number;
   model?: string;
 }): Promise<ConversationMessage> {
   return new Promise<ConversationMessage>((resolve, reject) => {
@@ -37,7 +36,6 @@ export async function getAiCompletion({
           messages,
           tools,
           responseFormat,
-          temperature,
           model,
         }),
       resolve,
@@ -52,7 +50,6 @@ async function getOpenAiCompletion({
   messages,
   tools,
   responseFormat,
-  temperature = 0.1,
   model,
   retryCount = 0,
 }: {
@@ -90,7 +87,7 @@ async function getOpenAiCompletion({
           "structured_response"
         ),
         tools: toolsSchema,
-        temperature,
+        temperature: DEFAULT_TEMPERATURE,
       });
 
       completion = res;
@@ -114,7 +111,7 @@ async function getOpenAiCompletion({
         model: model ?? aiModel,
         messages: openaiMessages,
         tools: toolsSchema,
-        temperature,
+        temperature: DEFAULT_TEMPERATURE,
       });
     }
     // console.log(completion);
@@ -151,7 +148,7 @@ async function getOpenAiCompletion({
         messages,
         tools,
         responseFormat,
-        temperature,
+        temperature: DEFAULT_TEMPERATURE,
         model,
         retryCount: retryCount + 1,
       });

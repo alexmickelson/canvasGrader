@@ -55,7 +55,6 @@ export const ViewingItemProvider: React.FC<{
     setViewingItem(null);
   };
 
-
   return (
     <ViewingItemContext.Provider
       value={{

@@ -19,6 +19,7 @@ Make a `run.sh` script with the following:
 ```bash
 #!/bin/bash
 export CANVAS_TOKEN=tokenvalue
+export AI_TEMPERATURE=0.1
 export AI_URL=openai compatible url
 export AI_TOKEN=auth token
 export AI_MODEL=model with tool calling and structured output
