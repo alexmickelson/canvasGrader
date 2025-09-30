@@ -1,13 +1,25 @@
 import type { FC } from "react";
 import { Link } from "react-router";
 import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
-import { useAssignmentGradingStatus } from "./useAssignmentGradingStatus";
+import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
+import {
+  useUpdateSubmissionsMutation,
+  useSubmissionsQuery,
+} from "../grader/graderHooks";
 
 export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
   courseId: number;
 }> = ({ assignment, courseId }) => {
-  const { status } = useAssignmentGradingStatus(courseId, assignment.id, assignment.name);
+  const { data: submissions, isLoading } = useSubmissionsQuery(
+    courseId,
+    assignment.id,
+    assignment.name
+  );
+
+  const { status } = isLoading
+    ? { status: "loading" as const }
+    : getAssignmentGradingStatus(submissions);
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -29,7 +41,10 @@ export const AssignmentListItem: FC<{
             {fmt(assignment.due_at)}
           </span>
         </div>
-        <SubmissionStatus assignment={assignment} courseId={courseId} />
+        <div className="flex items-center gap-2">
+          <SubmissionStatus assignment={assignment} courseId={courseId} />
+          <RefreshButton assignment={assignment} courseId={courseId} />
+        </div>
       </div>
     </Link>
   );
@@ -39,11 +54,15 @@ const SubmissionStatus: FC<{
   assignment: CanvasAssignment;
   courseId: number;
 }> = ({ assignment, courseId }) => {
-  const { percentage, status } = useAssignmentGradingStatus(
+  const { data: submissions, isLoading } = useSubmissionsQuery(
     courseId,
     assignment.id,
     assignment.name
   );
+
+  const { percentage, status } = isLoading
+    ? { percentage: 0, status: "loading" as const }
+    : getAssignmentGradingStatus(submissions);
 
   const basePillClass = "inline-block px-3 py-1 text-xs rounded-full border";
 
@@ -92,4 +111,53 @@ const SubmissionStatus: FC<{
       </div>
     );
   }
+};
+
+const RefreshButton: FC<{
+  assignment: CanvasAssignment;
+  courseId: number;
+}> = ({ assignment, courseId }) => {
+  const updateSubmissionsMutation = useUpdateSubmissionsMutation();
+
+  const handleRefresh = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent Link navigation
+    e.stopPropagation(); // Stop event bubbling
+
+    updateSubmissionsMutation.mutate({
+      courseId,
+      assignmentId: assignment.id,
+      assignmentName: assignment.name,
+    });
+  };
+
+  return (
+    <button
+      onClick={handleRefresh}
+      disabled={updateSubmissionsMutation.isPending}
+      className="p-1 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      title="Refresh submissions"
+    >
+      {updateSubmissionsMutation.isPending ? (
+        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-gray-400 hover:text-gray-200"
+        >
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M3 21v-5h5" />
+        </svg>
+      )}
+    </button>
+  );
 };
