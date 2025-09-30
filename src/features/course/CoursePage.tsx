@@ -12,6 +12,8 @@ import {
   useUpdateSubmissionsMutation,
   useSubmissionsQuery,
 } from "../grader/graderHooks";
+import { useQueries } from "@tanstack/react-query";
+import { useTRPC } from "../../server/trpc/trpcClient";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -161,10 +163,35 @@ const RefreshAllButton: FC<{
   courseId: number;
 }> = ({ assignments, courseId }) => {
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
+  const trpc = useTRPC();
+
+  // Fetch submission data for all assignments using useQueries
+  const submissionQueries = useQueries({
+    queries: assignments.map((assignment) => ({
+      ...trpc.canvas.getAssignmentSubmissions.queryOptions({
+        courseId,
+        assignmentId: assignment.id,
+        assignmentName: assignment.name,
+      }),
+    })),
+  });
+
+  const assignmentsToRefresh = useMemo(() => {
+    return assignments.filter((_assignment, index) => {
+      const query = submissionQueries[index];
+
+      if (!query.data || query.isLoading || query.isError) {
+        return true;
+      }
+
+      const { status } = getAssignmentGradingStatus(query.data);
+      return status !== "graded";
+    });
+  }, [assignments, submissionQueries]);
 
   const handleRefreshAll = async () => {
-    // Call mutation for each assignment concurrently
-    const refreshPromises = assignments.map((assignment) =>
+    // Call mutation for each non-graded assignment concurrently
+    const refreshPromises = assignmentsToRefresh.map((assignment) =>
       updateSubmissionsMutation.mutateAsync({
         courseId,
         assignmentId: assignment.id,
@@ -179,19 +206,37 @@ const RefreshAllButton: FC<{
     }
   };
 
-  const refreshableCount = assignments.length;
+  const refreshableCount = assignmentsToRefresh.length;
+  const isLoadingSubmissions = submissionQueries.some(
+    (query) => query.isLoading
+  );
 
   return (
     <button
       onClick={handleRefreshAll}
-      disabled={updateSubmissionsMutation.isPending || refreshableCount === 0}
+      disabled={
+        updateSubmissionsMutation.isPending ||
+        refreshableCount === 0 ||
+        isLoadingSubmissions
+      }
       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white font-medium transition-colors flex items-center gap-2"
-      title={`Refresh submissions for ${refreshableCount} assignments`}
+      title={
+        isLoadingSubmissions
+          ? "Loading submission data..."
+          : `Refresh submissions for ${refreshableCount} ungraded assignments (${
+              assignments.length - refreshableCount
+            } fully graded assignments will be skipped)`
+      }
     >
       {updateSubmissionsMutation.isPending ? (
         <>
           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
           Refreshing...
+        </>
+      ) : isLoadingSubmissions ? (
+        <>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          Loading...
         </>
       ) : (
         <>
@@ -211,7 +256,7 @@ const RefreshAllButton: FC<{
             <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
             <path d="M3 21v-5h5" />
           </svg>
-          Refresh All ({refreshableCount})
+          Refresh Ungraded ({refreshableCount}/{assignments.length})
         </>
       )}
     </button>
