@@ -32,6 +32,7 @@
     "dompurify": "^3.2.6",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "highlight.js": "^11.11.1",
     "isbot": "^5.1.28",
     "langchain": "^0.3.29",
     "marked": "^15.0.12",
