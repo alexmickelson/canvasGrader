@@ -57,9 +57,9 @@ export const SubmissionDetails: FC<{
   const { viewingItem } = useViewingItem();
 
   return (
-    <div className="h-full flex flex-col space-y-4 w-full">
+    <div className="h-full flex flex-col space-y-4 w-full ">
       <div className="flex gap-4 flex-1 min-h-0">
-        <div className="min-w-96">
+        <div className="min-w-96 flex">
           <GradingRubricDisplay
             key={submission.id}
             courseId={courseId}

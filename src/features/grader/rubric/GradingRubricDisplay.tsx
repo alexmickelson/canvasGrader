@@ -140,73 +140,69 @@ export const GradingRubricDisplay: FC<{
   const rubric = rubricQuery.data;
 
   return (
-    <section className="px-1 pb-1 bg-slate-950 rounded h-full flex flex-col justify-between">
-      <div>
-        <div className="flex items-center justify-between my-2 ">
-          <div className="">
-            <RunAllAnalysis
-              courseId={courseId}
-              assignmentId={assignmentId}
-              studentName={submission.user.name}
-              termName={termName}
-              courseName={courseName}
-              assignmentName={assignmentName}
-            />
-          </div>
-          <div className=" text-gray-400 pe-3">
-            <span className=" font-bold text-green-400">{totalScore}</span>/
-            <span className=" font-bold text-gray-400">
-              {rubric.points_possible}
-            </span>{" "}
-            total
-          </div>
+    <section className="px-1 pb-1 bg-slate-950 rounded flex flex-col justify-between flex-1 ">
+      <div className="flex items-center justify-between my-2 ">
+        <RunAllAnalysis
+          courseId={courseId}
+          assignmentId={assignmentId}
+          studentName={submission.user.name}
+          termName={termName}
+          courseName={courseName}
+          assignmentName={assignmentName}
+        />
+        <div className=" text-gray-400 pe-3">
+          <span className=" font-bold text-green-400">{totalScore}</span>/
+          <span className=" font-bold text-gray-400">
+            {rubric.points_possible}
+          </span>{" "}
+          total
         </div>
+      </div>
 
-        <div className="space-y-4 flex-1 overflow-auto min-h-0">
-          {rubric.data.map((criterion: CanvasRubricCriterion) => (
-            <GradingRubricCriterion
-              key={criterion.id}
-              criterion={criterion}
-              assessment={currentAssessment[criterion.id]}
-              onChange={(assessment: {
-                rating_id?: string;
-                points?: number;
-                comments?: string;
-              }) => handleCriterionChange(criterion.id, assessment)}
-              courseId={courseId}
-              assignmentId={assignmentId}
-              studentName={submission.user.name}
-              termName={termName}
-              courseName={courseName}
-              assignmentName={assignmentName}
-            />
-          ))}
-        </div>
+      <div className="space-y-4 flex-1 overflow-auto bg-violet-950/15 rounded">
+        {rubric.data.map((criterion: CanvasRubricCriterion) => (
+          <GradingRubricCriterion
+            key={criterion.id}
+            criterion={criterion}
+            assessment={currentAssessment[criterion.id]}
+            onChange={(assessment: {
+              rating_id?: string;
+              points?: number;
+              comments?: string;
+            }) => handleCriterionChange(criterion.id, assessment)}
+            courseId={courseId}
+            assignmentId={assignmentId}
+            studentName={submission.user.name}
+            termName={termName}
+            courseName={courseName}
+            assignmentName={assignmentName}
+          />
+        ))}
+      </div>
 
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={handleSubmitGrade}
-            disabled={gradeSubmissionMutation.isPending}
-            className={
-              "unstyled " +
-              "px-4 py-2 " +
-              "bg-green-950 hover:bg-green-900 border border-green-800 hover:border-green-700 " +
-              "disabled:bg-gray-600 disabled:cursor-not-allowed " +
-              "rounded-md text-sm font-medium " +
-              "transition-colors " +
-              "flex items-center gap-2"
-            }
-          >
-            {gradeSubmissionMutation.isPending ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Submitting Grade...
-              </>
-            ) : (
-              <>Submit Grade ({totalScore} pts)</>
-            )}
-          </button>
-        </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={handleSubmitGrade}
+          disabled={gradeSubmissionMutation.isPending}
+          className={
+            "unstyled " +
+            "px-4 py-2 " +
+            "bg-green-950 hover:bg-green-900 border border-green-800 hover:border-green-700 " +
+            "disabled:bg-gray-600 disabled:cursor-not-allowed " +
+            "rounded-md text-sm font-medium " +
+            "transition-colors " +
+            "flex items-center gap-2"
+          }
+        >
+          {gradeSubmissionMutation.isPending ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Submitting Grade...
+            </>
+          ) : (
+            <>Submit Grade ({totalScore} pts)</>
+          )}
+        </button>
       </div>
 
       <SubmissionCommentForm

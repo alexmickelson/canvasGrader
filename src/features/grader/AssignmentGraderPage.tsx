@@ -16,7 +16,6 @@ import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../home/canvasHooks";
 import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
 import {
-  useSubmissionsQuery,
   useUpdateSubmissionsMutation,
   useTranscribeSubmissionImagesMutation,
   useLoadGithubClassroomDataQuery,
@@ -106,19 +105,13 @@ const InnerAssignmentPage: FC<{
   course,
   canvasCourse,
 }) => {
-  // Get Canvas course and assignment data for GitHub Classroom integration
-
   const [selected, setSelected] = useState<CanvasSubmission | undefined>(
     undefined
   );
 
-  // Mutation for refreshing submissions
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
-  // Mutation for transcribing submission images
   const transcribeImagesMutation = useTranscribeSubmissionImagesMutation();
-
-  useSubmissionsQuery(courseId, assignmentId, assignmentName);
 
   return (
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
@@ -197,13 +190,13 @@ const InnerAssignmentPage: FC<{
 
             <div
               className={`
-            bg-gray-900 border-l border-gray-800 shadow-xl 
-            transition-all duration-300 ease-out 
-            flex-1
-            flex flex-col
+                bg-gray-900 border-l border-gray-800 shadow-xl 
+                transition-all duration-300 ease-out 
+                flex-1
+                flex flex-col
           `}
             >
-              <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
+              <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0 min-h-0">
                 <div className="flex items-center gap-3">
                   <div id="submission-details-title" className="truncate">
                     {selected ? userName(selected) : ""}
@@ -241,7 +234,7 @@ const InnerAssignmentPage: FC<{
                   </svg>
                 </button>
               </div>
-              <div className="p-4 space-y-3 text-sm flex-1 min-h-0">
+              <div className="p-4 space-y-3 text-sm flex-1 min-h-0 ">
                 {selected && (
                   <SubmissionDetailsWrapper
                     submission={selected}
