@@ -19,7 +19,7 @@ export const ConversationHistory: FC<{
   if (!conversation || conversation.length === 0) return null;
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4">
+    <div className="border-l-4 border-l-violet-900/60 rounded-lg ps-2">
       <h4 className="font-semibold mb-3">{title}</h4>
       <div className={`space-y-3 ${maxHeight} overflow-auto`}>
         {conversation.map((message, index) => (

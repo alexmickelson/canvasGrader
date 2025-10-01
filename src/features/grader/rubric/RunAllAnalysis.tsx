@@ -65,6 +65,8 @@ export const RunAllAnalysis: FC<{
   };
 
   const isRunning = runningCount > 0;
+  const progressPercent =
+    runningCount > 0 ? (completedCount / runningCount) * 100 : 0;
 
   return (
     <button
@@ -72,6 +74,7 @@ export const RunAllAnalysis: FC<{
       disabled={isRunning || rubricLoading || !rubric || !rubric.data?.length}
       className="
         unstyled
+        relative overflow-hidden
         px-4 py-2
         bg-purple-900 hover:bg-purple-700 disabled:bg-purple-800
         border border-purple-600
@@ -83,12 +86,20 @@ export const RunAllAnalysis: FC<{
         flex items-center gap-2
       "
     >
+      {/* Progress bar */}
+      {isRunning && (
+        <div
+          className="absolute bottom-0 left-0 h-0.5 bg-purple-100 transition-all duration-500"
+          style={{ width: `${Math.max(progressPercent, 5)}%` }}
+        />
+      )}
+
       {isRunning && <Spinner size="sm" />}
       {rubricLoading
         ? "Loading Rubric..."
         : isRunning
-        ? `${Math.round((completedCount / runningCount) * 100)}% complete`
-        : `Analyze Each Criterion`}
+        ? "Analyzing..."
+        : `Analyze Each Rubric Item`}
     </button>
   );
 };

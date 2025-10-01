@@ -80,7 +80,7 @@ export const SubmissionDetails: FC<{
               termName={termName}
               courseName={courseName}
             />
-            <div className="flex-1  w-96 min-h-0">
+            <div className="flex-1 w-96 min-h-0">
               {viewingItem?.type === "file" && viewingItem.name && (
                 <ViewFileComponent
                   assignmentId={submission.assignment_id}

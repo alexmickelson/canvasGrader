@@ -1,5 +1,4 @@
 import type { FC } from "react";
-import { useMemo } from "react";
 import { useAllEvaluationsQuery, useRubricQuery } from "../graderHooks";
 import { AnalysisSummary } from "./AnalysisSummary";
 import { EvidenceSection } from "./EvidenceSection";
@@ -21,7 +20,6 @@ export const AiCriterionAnalysisDisplay: FC<{
   studentName,
   analysisName,
 }) => {
-  // Load all evaluations for this student
   const { data: allEvaluations, isLoading: evaluationsLoading } =
     useAllEvaluationsQuery({
       assignmentId,
@@ -31,36 +29,24 @@ export const AiCriterionAnalysisDisplay: FC<{
       studentName,
     });
 
-  // Find specific analysis for viewing mode
-  const selectedAnalysis = useMemo(() => {
-    if (!allEvaluations) return null;
+  const selectedAnalysis = allEvaluations?.find(
+    (evaluation) =>
+      evaluation.fileName === analysisName ||
+      evaluation.fileName.includes(analysisName) ||
+      evaluation.filePath.includes(analysisName)
+  );
 
-    return (
-      allEvaluations.find(
-        (evaluation) =>
-          evaluation.fileName === analysisName ||
-          evaluation.fileName.includes(analysisName) ||
-          evaluation.filePath.includes(analysisName)
-      ) || null
-    );
-  }, [allEvaluations, analysisName]);
-
-  // Load rubric data to get criterion details
   const { data: rubric } = useRubricQuery(
     selectedAnalysis?.metadata.courseId || 0,
     assignmentId
   );
 
-  // Find the specific criterion from the rubric
-  const criterion = useMemo(() => {
-    if (!rubric || !selectedAnalysis?.metadata.criterionId) return null;
-
-    return (
-      rubric.data.find(
-        (crit) => crit.id === selectedAnalysis.metadata.criterionId
-      ) || null
-    );
-  }, [rubric, selectedAnalysis?.metadata.criterionId]);
+  const criterion =
+    !rubric || !selectedAnalysis?.metadata.criterionId
+      ? null
+      : rubric.data.find(
+          (crit) => crit.id === selectedAnalysis.metadata.criterionId
+        ) || null;
 
   if (evaluationsLoading) {
     return (
@@ -88,7 +74,7 @@ export const AiCriterionAnalysisDisplay: FC<{
   }
 
   return (
-    <div className="space-y-2 ">
+    <div className="space-y-2  h-full overflow-y-auto">
       <h2 className="unstyled text-gray-400 text-lg">
         Analysis: {selectedAnalysis.fileName}
       </h2>

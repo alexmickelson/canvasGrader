@@ -2,8 +2,10 @@ import React from "react";
 
 export default function ExpandIcon({
   style,
+  className = "",
 }: {
   style?: React.CSSProperties | undefined;
+  className?: string;
 }) {
   return (
     <svg
@@ -14,7 +16,8 @@ export default function ExpandIcon({
       version="1.1"
       className={
         "si-glyph si-glyph-triangle-left transition-transform " +
-        "flex-shrink-0 w-6 h-6 m-auto me-1"
+        "flex-shrink-0 w-6 h-6 m-auto me-1 " +
+        className
       }
     >
       <g stroke="none" strokeWidth="1" fillRule="evenodd">
