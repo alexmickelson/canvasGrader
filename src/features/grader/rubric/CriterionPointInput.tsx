@@ -1,4 +1,6 @@
 import type { FC } from "react";
+import { useAllEvaluationsQuery } from "../graderHooks";
+import { AnalysisItem } from "./AnalysisItem";
 
 type RubricRating = {
   id: string;
@@ -8,46 +10,120 @@ type RubricRating = {
 };
 
 export const CriterionPointInput: FC<{
-  selectedRating?: RubricRating | null;
+  customPoints?: number;
   ratings: RubricRating[];
-  onRatingSelect: (ratingId: string, points: number) => void;
-}> = ({ selectedRating, ratings, onRatingSelect }) => {
+  onRatingSelect: (ratingId: string | undefined, points: number) => void;
+
+  courseId: number;
+  assignmentId: number;
+  studentName: string;
+  termName: string;
+  courseName: string;
+  assignmentName: string;
+  criterionId: string;
+}> = ({
+  customPoints,
+  ratings,
+  onRatingSelect,
+  assignmentId,
+  assignmentName,
+  courseName,
+  termName,
+  studentName,
+  criterionId,
+}) => {
+  // Get analysis data for this criterion
+  const { data: allEvaluations } = useAllEvaluationsQuery({
+    assignmentId,
+    assignmentName,
+    courseName,
+    termName,
+    studentName,
+  });
+
+  const criterionEvaluations =
+    allEvaluations?.filter((evaluation) =>
+      evaluation.fileName.includes(`rubric.${criterionId}-`)
+    ) ?? [];
+
+  const evaluationsByPoints = criterionEvaluations.reduce((acc, evaluation) => {
+    const points = evaluation.evaluation.recommendedPoints;
+    if (!acc[points]) acc[points] = [];
+    acc[points].push(evaluation);
+    return acc;
+  }, {} as Record<number, typeof criterionEvaluations>);
+
+  const allPoints = Array.from(
+    new Set([
+      ...ratings.map((r) => r.points),
+      ...Object.keys(evaluationsByPoints).map(Number),
+    ])
+  ).sort((a, b) => a - b);
+
   return (
     <div className="flex gap-2">
-      {ratings
-        .sort((a, b) => a.points - b.points)
-        .map((rating) => {
-          const isSelected = selectedRating?.id === rating.id;
-          return (
-            <button
-              key={rating.id}
-              onClick={() => onRatingSelect(rating.id, rating.points)}
-              className={`
-                unstyled cursor-pointer
-                py-2 px-3 rounded border-1 transition-all flex-1
-                ${
-                  isSelected
-                    ? "bg-blue-950 border-blue-700 text-white"
-                    : "border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
-                }
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-bold">{rating.points}</span>
-                {rating.description && (
-                  <span className="text-xs opacity-80">
-                    {rating.description}
-                  </span>
-                )}
-              </div>
-              {rating.long_description && (
-                <div className="text-xs opacity-70 mt-1 max-w-32 truncate">
-                  {rating.long_description}
+      {allPoints.map((points) => {
+        const rating = ratings.find((r) => r.points === points);
+        const isSelected = customPoints === points;
+        const evaluations = evaluationsByPoints[points] || [];
+
+        const buttonClass = `
+          unstyled cursor-pointer
+          py-3 px-3 rounded border-1 transition-all 
+          ${
+            isSelected
+              ? "bg-blue-950 border-blue-700 text-white"
+              : "border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
+          }
+        `;
+
+        return (
+          <div key={points} className="flex-1 flex flex-col">
+            {rating ? (
+              // Show predefined rating button
+              <button
+                onClick={() => onRatingSelect(rating.id, rating.points)}
+                className={buttonClass}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{rating.points}</span>
+                  {rating.description && (
+                    <span className="text-xs opacity-80">
+                      {rating.description}
+                    </span>
+                  )}
                 </div>
-              )}
-            </button>
-          );
-        })}
+                {rating.long_description && (
+                  <div className="text-xs opacity-70 mt-1 max-w-32 truncate">
+                    {rating.long_description}
+                  </div>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => onRatingSelect(undefined, points)}
+                className={buttonClass}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{points}</span>
+                  <span className="text-xs opacity-80">ai recommendation</span>
+                </div>
+              </button>
+            )}
+
+            {evaluations.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {evaluations.map((evaluation) => (
+                  <AnalysisItem
+                    key={evaluation.filePath}
+                    evaluation={evaluation}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

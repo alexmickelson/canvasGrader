@@ -165,11 +165,9 @@ export const GradingRubricDisplay: FC<{
             key={criterion.id}
             criterion={criterion}
             assessment={currentAssessment[criterion.id]}
-            onChange={(assessment: {
-              rating_id?: string;
-              points?: number;
-              comments?: string;
-            }) => handleCriterionChange(criterion.id, assessment)}
+            onChange={(assessment) =>
+              handleCriterionChange(criterion.id, assessment)
+            }
             courseId={courseId}
             assignmentId={assignmentId}
             studentName={submission.user.name}

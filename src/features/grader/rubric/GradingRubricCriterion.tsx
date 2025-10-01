@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import { useState } from "react";
 import { CriterionPointInput } from "./CriterionPointInput";
-import { CriterionPreviousAnalysis } from "./CriterionPreviousAnalysis";
+import { CustomCriterionPoints } from "./CustomCriterionPoints";
 import type { CanvasRubricCriterion } from "../../../server/trpc/routers/canvas/canvasModels";
 import { RunAnalysisButton } from "./RunAnalysisButton";
 import { Expandable } from "../../../utils/Expandable";
@@ -43,7 +43,7 @@ export const GradingRubricCriterion: FC<{
     assessment?.rating_id ? undefined : assessment?.points
   );
 
-  const handleRatingSelect = (ratingId: string, points: number) => {
+  const handleRatingSelect = (ratingId: string | undefined, points: number) => {
     setCustomPoints(points);
     onChange({
       ...assessment,
@@ -69,6 +69,15 @@ export const GradingRubricCriterion: FC<{
     });
   };
 
+  const handlePointsClear = () => {
+    setCustomPoints(undefined);
+    onChange({
+      ...assessment,
+      rating_id: undefined,
+      points: undefined,
+    });
+  };
+
   return (
     <div className=" ">
       <div className="px-1 pb-1 flex justify-between w-full ">
@@ -89,11 +98,16 @@ export const GradingRubricCriterion: FC<{
           <div className="flex flex-row justify-between cursor-pointer p-1">
             <div className="px-1 flex-1">
               <CriterionPointInput
-                selectedRating={criterion.ratings.find(
-                  (r) => r.points === customPoints
-                )}
+                customPoints={customPoints}
                 ratings={criterion.ratings}
                 onRatingSelect={handleRatingSelect}
+                courseId={courseId}
+                assignmentId={assignmentId}
+                studentName={studentName}
+                termName={termName}
+                courseName={courseName}
+                assignmentName={assignmentName}
+                criterionId={criterion.id}
               />
             </div>
             <button
@@ -119,36 +133,12 @@ export const GradingRubricCriterion: FC<{
               className="w-full px-2 py-1 text-xs border border-gray-600 rounded text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
 
-            <div className=" min-w-24 ps-2">
-              <label className="block text-xs font-medium text-gray-300 mb-1">
-                Custom Points
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="number"
-                  min="0"
-                  max={criterion.points}
-                  step="0.25"
-                  value={customPoints ?? ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setCustomPoints(undefined);
-                    } else {
-                      const points = parseFloat(value);
-                      if (!isNaN(points)) {
-                        handleCustomPointsChange(points);
-                      }
-                    }
-                  }}
-                  className="w-16 px-1 py-1 border border-gray-600 rounded text-xs text-gray-100  focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="0"
-                />
-                <span className="text-xs text-gray-400">
-                  / {criterion.points}
-                </span>
-              </div>
-            </div>
+            <CustomCriterionPoints
+              customPoints={customPoints}
+              criterionPoints={criterion.points}
+              onCustomPointsChange={handleCustomPointsChange}
+              onPointsClear={handlePointsClear}
+            />
           </div>
 
           {assessment?.comments && (
@@ -178,7 +168,7 @@ export const GradingRubricCriterion: FC<{
       </Expandable>
 
       {/* Previous Analysis Section */}
-      <div className="px-1 ms-8">
+      {/* <div className="px-1 ms-8">
         <CriterionPreviousAnalysis
           criterion={criterion}
           assignmentId={assignmentId}
@@ -187,7 +177,7 @@ export const GradingRubricCriterion: FC<{
           termName={termName}
           studentName={studentName}
         />
-      </div>
+      </div> */}
     </div>
   );
 };
