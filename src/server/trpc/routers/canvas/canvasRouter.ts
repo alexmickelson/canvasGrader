@@ -3,7 +3,8 @@ import { createTRPCRouter, publicProcedure } from "../../utils/trpc.js";
 import {
   paginatedRequest,
   canvasRequestOptions,
-  downloadSubmissionAttachmentsToFolder,
+  downloadAllAttachmentsUtil,
+  isTestStudentSubmission,
 } from "./canvasServiceUtils.js";
 import {
   ensureDir,
@@ -15,7 +16,6 @@ import {
   persistSubmissionsToStorage,
   transcribeSubmissionImages,
   persistRubricToStorage,
-  getSubmissionDirectory,
   loadSubmissionsFromStorage,
 } from "./canvasStorageUtils.js";
 import { parseSchema } from "../parseSchema.js";
@@ -59,11 +59,6 @@ if (!canvasToken) {
 }
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
-
-// Helper function to check if a submission should be ignored
-const isTestStudentSubmission = (submission: { user?: { name?: string } }) => {
-  return submission.user?.name === "Test Student";
-};
 
 // Helper function to fetch a single submission by user ID
 const fetchSingleSubmissionByIdFromCanvas = async (
@@ -115,7 +110,7 @@ const fetchSubmissionsFromCanvas = async (
   const submissions = await paginatedRequest<CanvasSubmission[]>({
     url,
     params: {
-      include: ["user", "submission_comments", "rubric_assessment"],
+      include: ["user", "submission_comments",  "rubric_assessment"],
     },
   });
 
@@ -398,7 +393,7 @@ export const canvasRouter = createTRPCRouter({
 
       console.log("No existing submissions found, fetching from Canvas API");
 
-      const filteredSubmissions = await fetchSubmissionsFromCanvas(
+      const submissions = await fetchSubmissionsFromCanvas(
         input.courseId,
         input.assignmentId
       );
@@ -406,10 +401,20 @@ export const canvasRouter = createTRPCRouter({
       await persistSubmissionsToStorage(
         input.courseId,
         input.assignmentId,
-        filteredSubmissions,
+        submissions,
         input.assignmentName
       );
-      return filteredSubmissions;
+
+      await Promise.all(
+        submissions.map((submission) =>
+          downloadAllAttachmentsUtil({
+            courseId: input.courseId,
+            assignmentId: input.assignmentId,
+            userId: submission.user_id,
+          })
+        )
+      );
+      return submissions;
     }),
 
   refreshAssignmentSubmissions: publicProcedure
@@ -449,6 +454,16 @@ export const canvasRouter = createTRPCRouter({
         input.assignmentId,
         submissions,
         input.assignmentName
+      );
+
+      await Promise.all(
+        submissions.map((submission) =>
+          downloadAllAttachmentsUtil({
+            courseId: input.courseId,
+            assignmentId: input.assignmentId,
+            userId: submission.user_id,
+          })
+        )
       );
 
       return submissions;
@@ -504,116 +519,8 @@ export const canvasRouter = createTRPCRouter({
         userId: z.number(),
       })
     )
-    .query(async ({ input: { courseId, assignmentId, userId } }) => {
-      // Fetch the submission with attachments and user data
-      type CanvasAttachment = {
-        id: number;
-        filename?: string;
-        display_name?: string;
-        content_type?: string;
-        size?: number;
-        url: string; // download URL
-      };
-      type SubmissionWithAttachments = {
-        id?: number;
-        attachments?: CanvasAttachment[];
-        body?: string; // Text entry content
-        submission_type?: string;
-        user?: {
-          id: number;
-          name: string;
-        };
-      };
-      const { data: submission } =
-        await axiosClient.get<SubmissionWithAttachments>(
-          `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
-          {
-            headers: canvasRequestOptions.headers,
-            params: { include: ["attachments", "user"] },
-          }
-        );
-
-      console.log("Submission data:", submission);
-
-      // Skip processing for Test Student submissions
-      if (isTestStudentSubmission(submission)) {
-        console.log("Skipping Test Student submission");
-        return null;
-      }
-
-      const attachments = submission.attachments ?? [];
-      const hasTextEntry = submission.body && submission.body.trim();
-
-      if (!attachments.length && !hasTextEntry) {
-        console.log(
-          "No attachments or text entry found for this submission, returning null"
-        );
-        return null;
-      }
-
-      // Get course, assignment, and user metadata for folder structure
-      const { courseName, termName } = await getCourseMeta(courseId);
-      const { data: assignment } = await axiosClient.get(
-        `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
-        {
-          headers: canvasRequestOptions.headers,
-        }
-      );
-      const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
-      const userName = submission.user?.name || `User ${userId}`;
-
-      // Create folder structure: semester/course/assignment/studentName
-      // Example: storage/Spring 2025/Online Web Intro/15357295 - Hello World in HTML/John Doe/
-      const submissionDir = getSubmissionDirectory({
-        termName,
-        courseName,
-        assignmentId,
-        assignmentName,
-        studentName: userName,
-      });
-
-      // Instead of generating a preview PDF, download attachments into
-      // the student's attachments folder under the submissionDir.
-      const attachmentsDir = path.join(submissionDir, "attachments");
-      ensureDir(attachmentsDir);
-
-      if (!attachments.length) {
-        console.log("No attachments to download for this submission");
-        return null;
-      }
-
-      console.log("Downloading submission attachments to:", attachmentsDir);
-      const downloaded = await downloadSubmissionAttachmentsToFolder(
-        submission,
-        attachmentsDir
-      );
-
-      // Save a manifest of downloaded attachments
-      try {
-        const manifestPath = path.join(attachmentsDir, "attachments.json");
-        fs.writeFileSync(
-          manifestPath,
-          JSON.stringify(downloaded, null, 2),
-          "utf8"
-        );
-        console.log("Saved attachments manifest to:", manifestPath);
-      } catch (err) {
-        console.warn("Failed to write attachments manifest:", err);
-      }
-
-      type DownloadedAttachment = {
-        name?: string;
-        filename?: string;
-        display_name?: string;
-        url?: string;
-      };
-      const downloadedNames = (downloaded || []).map(
-        (d: DownloadedAttachment) =>
-          d.name || d.filename || d.display_name || String(d.url || "")
-      );
-      console.log(`Downloaded ${downloadedNames.length} attachments`);
-
-      return { downloaded: downloadedNames };
+    .query(async ({ input }) => {
+      return await downloadAllAttachmentsUtil(input);
     }),
 
   getAssignmentRubric: publicProcedure
@@ -733,13 +640,8 @@ export const canvasRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const {
-        courseId,
-        assignmentId,
-        studentId,
-        rubricAssessment,
-        comment,
-      } = input;
+      const { courseId, assignmentId, studentId, rubricAssessment, comment } =
+        input;
 
       try {
         // Validate required parameters
@@ -825,7 +727,7 @@ export const canvasRouter = createTRPCRouter({
         const refetchResponse = await axiosClient.get(refetchUrl, {
           ...canvasRequestOptions,
           params: {
-            include: ["user", "rubric_assessment"],
+            include: ["user", "rubric_assessment", "submission_comments",],
           },
         });
 
@@ -899,7 +801,7 @@ export const canvasRouter = createTRPCRouter({
         await axiosClient.put(submissionUrl, submissionData, {
           ...canvasRequestOptions,
           params: {
-            include: ["user", "submission_comments"],
+            include: ["user","submission_comments"],
           },
         });
 

@@ -296,15 +296,15 @@ const ToolResultMessage: FC<{
   return (
     <div
       className={`
-      bg-orange-900/20 border-l-orange-500
-      ${SHARED_CLASSES.messageContainer}
-    `}
+        bg-orange-900/20 border-l-orange-500
+        ${SHARED_CLASSES.messageContainer}
+      `}
     >
       <div
         className={`
-        bg-orange-950 text-orange-100 border-orange-900 border
-        ${SHARED_CLASSES.badge}
-      `}
+          bg-orange-950 text-orange-100 border-orange-900 border
+          ${SHARED_CLASSES.badge}
+        `}
       >
         tool result {toolCallId && `(${toolCallId.substring(0, 8)}...)`}
       </div>

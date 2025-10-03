@@ -8,7 +8,8 @@ import { axiosClient } from "../../../../utils/axiosUtils";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 import path from "path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import fs_sync from "fs";
+import type { CanvasSubmissionComment } from "./canvasModels.js";
 
 dotenv.config();
 
@@ -246,29 +247,6 @@ export async function downloadSubmissionAttachments(
         att.url
       );
 
-      // Debug: persist PNG to ./storage for inspection
-      if (contentType === "image/png") {
-        try {
-          const storageDir = path.resolve(process.cwd(), "storage");
-          await fs.mkdir(storageDir, { recursive: true });
-          const safeBase = (name || "attachment.png").replace(
-            /[^a-z0-9._-]/gi,
-            "_"
-          );
-          const hasPngExt = /\.png$/i.test(safeBase);
-          const fileName = hasPngExt ? safeBase : `${safeBase}.png`;
-          const uniqueName = `${Date.now()}-${att.id ?? "na"}-${fileName}`;
-          const outPath = path.join(storageDir, uniqueName);
-          await fs.writeFile(outPath, bytes);
-          console.log("wrote PNG for debugging:", outPath);
-        } catch (writeErr) {
-          console.warn(
-            "failed to write PNG to storage for debugging",
-            writeErr
-          );
-        }
-      }
-
       results.push({
         id: att.id,
         name,
@@ -293,9 +271,6 @@ export async function downloadSubmissionAttachmentsToFolder(
 ): Promise<DownloadedAttachment[]> {
   const attachments = submission.attachments ?? [];
   const results: DownloadedAttachment[] = [];
-
-  // Ensure the target directory exists
-  await fs.mkdir(targetDir, { recursive: true });
 
   for (const att of attachments) {
     const name = att.display_name || att.filename || `file-${att.id}`;
@@ -342,202 +317,185 @@ export async function downloadSubmissionAttachmentsToFolder(
   return results;
 }
 
-// Render a list of downloaded attachments into a single PDF and return its bytes
-export async function renderAttachmentsToPdf(
-  attachments: DownloadedAttachment[]
-): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+// Helper function to check if a submission should be ignored
+export const isTestStudentSubmission = (submission: {
+  user?: { name?: string };
+}) => {
+  return submission.user?.name === "Test Student";
+};
 
-  for (const file of attachments) {
-    const { name, contentType, bytes } = file;
+// High-level utility function to download all attachments for a submission with full Canvas integration
+export const downloadAllAttachmentsUtil = async (params: {
+  courseId: number;
+  assignmentId: number;
+  userId: number;
+}) => {
+  const { courseId, assignmentId, userId } = params;
 
-    // Merge PDFs
-    if (contentType.includes("pdf")) {
-      const ext = await PDFDocument.load(bytes);
-      const pages = await pdfDoc.copyPages(ext, ext.getPageIndices());
-      for (const p of pages) pdfDoc.addPage(p);
-      continue;
+  // Fetch the submission with attachments and user data
+  type SubmissionWithAttachments = {
+    id?: number;
+    attachments?: CanvasAttachmentLite[];
+    body?: string;
+    submission_type?: string;
+    user?: {
+      id: number;
+      name: string;
+    };
+  };
+
+  const { data: submission } = await axiosClient.get<SubmissionWithAttachments>(
+    `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
+    {
+      headers: canvasRequestOptions.headers,
+      params: { include: ["attachments", "user", "submission_comments"] },
     }
+  );
 
-    // Images (PNG/JPEG) — page sized exactly to image, no whitespace
-    if (contentType.startsWith("image/")) {
-      const img =
-        contentType === "image/png"
-          ? await pdfDoc.embedPng(bytes)
-          : await pdfDoc.embedJpg(bytes);
-      const page = pdfDoc.addPage([img.width, img.height]);
-      page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
-      continue;
+  console.log("Submission data:", submission);
+
+  // Skip processing for Test Student submissions
+  if (isTestStudentSubmission(submission)) {
+    console.log("Skipping Test Student submission");
+    return null;
+  }
+
+  const attachments = submission.attachments ?? [];
+  const hasTextEntry = submission.body && submission.body.trim();
+
+  if (!attachments.length && !hasTextEntry) {
+    console.log(
+      "No attachments or text entry found for this submission, returning null"
+    );
+    return null;
+  }
+
+  // Get course, assignment, and user metadata for folder structure
+  const { getCourseMeta } = await import("./canvasStorageUtils.js");
+  const { courseName, termName } = await getCourseMeta(courseId);
+  const { data: assignment } = await axiosClient.get(
+    `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+    {
+      headers: canvasRequestOptions.headers,
     }
+  );
+  const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
+  const userName = submission.user?.name || `User ${userId}`;
 
-    // Text-like content — tighter margins and pagination
-    if (
-      contentType.startsWith("text/") ||
-      contentType.includes("json") ||
-      contentType.includes("csv")
-    ) {
-      const text = new TextDecoder().decode(bytes);
-      const pageSize: [number, number] = [612, 792]; // Letter
-      const margin = 24; // tighter margins
-      const fontSize = 9; // smaller font to fit more content
-      const lineGap = 11; // tighter line spacing
-      const maxWidth = pageSize[0] - margin * 2;
+  // Create folder structure and download attachments
+  const { getSubmissionDirectory, ensureDir } = await import(
+    "./canvasStorageUtils.js"
+  );
+  const submissionDir = getSubmissionDirectory({
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+    studentName: userName,
+  });
 
-      let page = pdfDoc.addPage(pageSize);
-      let y = pageSize[1] - margin;
-      // Small title
-      page.drawText(name, {
-        x: margin,
-        y,
-        size: 11,
-        font,
-        color: rgb(0, 0, 0),
-      });
-      y -= lineGap + 6;
+  const attachmentsDir = path.join(submissionDir, "attachments");
+  ensureDir(attachmentsDir);
 
-      // Simple character-based wrapping as an estimate
-      const approxCharWidth = fontSize * 0.6; // rough estimate
-      const charsPerLine = Math.max(10, Math.floor(maxWidth / approxCharWidth));
-      const wrap = (s: string, n: number) =>
-        s.match(new RegExp(`.{1,${n}}`, "g")) ?? [s];
-      const lines = wrap(text, charsPerLine);
+  if (!attachments.length) {
+    console.log("No attachments to download for this submission");
+    return null;
+  }
 
-      for (const line of lines) {
-        if (y < margin) {
-          page = pdfDoc.addPage(pageSize);
-          y = pageSize[1] - margin;
-        }
-        page.drawText(line, {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
-          color: rgb(0, 0, 0),
+  console.log("Downloading submission attachments to:", attachmentsDir);
+  const downloaded = await downloadSubmissionAttachmentsToFolder(
+    submission,
+    attachmentsDir
+  );
+
+  // Save a manifest of downloaded attachments
+  try {
+    const manifestPath = path.join(attachmentsDir, "attachments.json");
+    fs_sync.writeFileSync(
+      manifestPath,
+      JSON.stringify(downloaded, null, 2),
+      "utf8"
+    );
+    console.log("Saved attachments manifest to:", manifestPath);
+  } catch (err) {
+    console.warn("Failed to write attachments manifest:", err);
+  }
+
+  const downloadedNames = downloaded.map((d) => d.name);
+  console.log(`Downloaded ${downloadedNames.length} attachments`);
+
+  return { downloaded: downloadedNames };
+};
+
+// Download all attachments from submission comments
+export async function downloadCommentAttachments(
+  submission: {
+    submission_comments?: CanvasSubmissionComment[];
+    user?: {
+      name?: string;
+    };
+  },
+  targetDir: string
+): Promise<DownloadedAttachment[]> {
+  const comments = submission.submission_comments ?? [];
+  const results: DownloadedAttachment[] = [];
+
+  for (const comment of comments) {
+    const attachments = comment.attachments ?? [];
+
+    for (const att of attachments) {
+      if (!att.url) {
+        console.warn(`Skipping attachment ${att.id} - no URL`);
+        continue;
+      }
+
+      const name = att.display_name || att.filename || `comment-file-${att.id}`;
+      try {
+        const resp = await axiosClient.get<ArrayBuffer>(att.url, {
+          headers: canvasRequestOptions.headers,
+          responseType: "arraybuffer",
         });
-        y -= lineGap;
+        const bytes = new Uint8Array(resp.data);
+        const headerType =
+          (resp.headers["content-type"] as string | undefined) || "";
+        const claimedType = att["content-type"] || "";
+        const contentType = sniffContentType(bytes, claimedType || headerType);
+
+        console.log(
+          "Downloaded comment attachment:",
+          name,
+          "from comment:",
+          comment.id,
+          "author:",
+          comment.author_name,
+          "type:",
+          contentType || headerType
+        );
+
+        // Save with comment info in filename
+        const sanitizedName = name.replace(/[^a-z0-9._-]/gi, "_");
+        const uniqueName = `comment-${comment.id || "unknown"}-${
+          att.id || Date.now()
+        }-${sanitizedName}`;
+        const attachmentPath = path.join(targetDir, uniqueName);
+        await fs.writeFile(attachmentPath, bytes);
+        console.log("Saved comment attachment to:", attachmentPath);
+
+        results.push({
+          id: att.id,
+          name,
+          url: att.url,
+          contentType: contentType || headerType || claimedType || "",
+          bytes,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `Failed to download comment attachment '${name}': ${msg}`
+        );
       }
-      continue;
-    }
-
-    // Unsupported type placeholder
-    const page = pdfDoc.addPage([612, 792]);
-    page.drawText(name, {
-      x: 50,
-      y: 740,
-      size: 12,
-      font,
-      color: rgb(0.9, 0.9, 0.95),
-    });
-    page.drawText("(Unsupported file type for inline preview)", {
-      x: 50,
-      y: 720,
-      size: 10,
-      font,
-      color: rgb(0.85, 0.85, 0.9),
-    });
-  }
-
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
-}
-
-// Render text submission content into a PDF and return its bytes
-export async function renderTextSubmissionToPdf(
-  submissionText: string,
-  studentName: string,
-  assignmentName: string
-): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-  const pageSize: [number, number] = [612, 792]; // Letter size
-  const margin = 50;
-  const fontSize = 12;
-  const lineHeight = 16;
-  const maxWidth = pageSize[0] - margin * 2;
-
-  let page = pdfDoc.addPage(pageSize);
-  let y = pageSize[1] - margin;
-
-  // Header with student name and assignment
-  page.drawText(`Student: ${studentName}`, {
-    x: margin,
-    y,
-    size: 14,
-    font,
-    color: rgb(0, 0, 0),
-  });
-  y -= lineHeight * 1.5;
-
-  page.drawText(`Assignment: ${assignmentName}`, {
-    x: margin,
-    y,
-    size: 14,
-    font,
-    color: rgb(0, 0, 0),
-  });
-  y -= lineHeight * 2;
-
-  // Parse HTML content and extract text (simple approach)
-  const textContent = submissionText
-    .replace(/<[^>]*>/g, " ") // Remove HTML tags
-    .replace(/&nbsp;/g, " ") // Replace HTML entities
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ") // Normalize whitespace
-    .trim();
-
-  // Simple text wrapping
-  const approxCharWidth = fontSize * 0.6;
-  const charsPerLine = Math.max(10, Math.floor(maxWidth / approxCharWidth));
-
-  const words = textContent.split(" ");
-  let currentLine = "";
-
-  for (const word of words) {
-    const testLine = currentLine + (currentLine ? " " : "") + word;
-
-    if (testLine.length > charsPerLine && currentLine) {
-      // Draw current line and start new one
-      if (y < margin + lineHeight) {
-        page = pdfDoc.addPage(pageSize);
-        y = pageSize[1] - margin;
-      }
-
-      page.drawText(currentLine, {
-        x: margin,
-        y,
-        size: fontSize,
-        font,
-        color: rgb(0, 0, 0),
-      });
-
-      y -= lineHeight;
-      currentLine = word;
-    } else {
-      currentLine = testLine;
     }
   }
 
-  // Draw final line
-  if (currentLine) {
-    if (y < margin + lineHeight) {
-      page = pdfDoc.addPage(pageSize);
-      y = pageSize[1] - margin;
-    }
-
-    page.drawText(currentLine, {
-      x: margin,
-      y,
-      size: fontSize,
-      font,
-      color: rgb(0, 0, 0),
-    });
-  }
-
-  return await pdfDoc.save();
+  return results;
 }

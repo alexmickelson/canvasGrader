@@ -71,11 +71,53 @@ export type CanvasAssignment = z.infer<typeof CanvasAssignmentSchema>;
 export const CanvasSubmissionCommentSchema = z.object({
   id: z.number(),
   author_id: z.number(),
-  author_name: z.string().optional(),
+  author_name: z.string().nullable().optional(),
   comment: z.string(),
   created_at: z.string(),
   edited_at: z.string().nullable().optional(),
   media_comment: z.any().nullable().optional(),
+  attempt: z.number().nullable().optional(),
+  avatar_path: z.string().nullable().optional(),
+  attachments: z
+    .array(
+      z.object({
+        id: z.number(),
+        folder_id: z.number().nullable().optional(),
+        display_name: z.string().nullable().optional(),
+        filename: z.string().nullable().optional(),
+        uuid: z.string().nullable().optional(),
+        upload_status: z.string().nullable().optional(),
+        "content-type": z.string().nullable().optional(),
+        url: z.string().nullable().optional(),
+        size: z.number().nullable().optional(),
+        created_at: z.string().nullable().optional(),
+        updated_at: z.string().nullable().optional(),
+        unlock_at: z.string().nullable().optional(),
+        locked: z.boolean().nullable().optional(),
+        hidden: z.boolean().nullable().optional(),
+        lock_at: z.string().nullable().optional(),
+        hidden_for_user: z.boolean().nullable().optional(),
+        thumbnail_url: z.string().nullable().optional(),
+        modified_at: z.string().nullable().optional(),
+        mime_class: z.string().nullable().optional(),
+        media_entry_id: z.string().nullable().optional(),
+        category: z.string().nullable().optional(),
+        locked_for_user: z.boolean().nullable().optional(),
+      })
+    )
+    .nullable()
+    .optional(),
+  author: z
+    .object({
+      id: z.number(),
+      anonymous_id: z.string().nullable().optional(),
+      display_name: z.string().nullable().optional(),
+      avatar_image_url: z.string().nullable().optional(),
+      html_url: z.string().nullable().optional(),
+      pronouns: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const CanvasRubricAssessmentSchema = z.record(
@@ -107,6 +149,8 @@ export const CanvasSubmissionSchema = z.object({
   score: z.number().nullable().optional(),
   grader_id: z.number().nullable().optional(),
   graded_at: z.string().nullable().optional(),
+  entered_grade: z.string().nullable().optional(),
+  entered_score: z.number().nullable().optional(),
 
   // Links
   html_url: z.string().nullable().optional(),
@@ -115,6 +159,10 @@ export const CanvasSubmissionSchema = z.object({
 
   // Comments & type
   submission_comments: z
+    .array(CanvasSubmissionCommentSchema)
+    .nullable()
+    .optional(),
+  submission_html_comments: z
     .array(CanvasSubmissionCommentSchema)
     .nullable()
     .optional(),
@@ -140,13 +188,31 @@ export const CanvasSubmissionSchema = z.object({
   excused: z.boolean().nullable().optional(),
   redo_request: z.boolean().nullable().optional(),
 
+  // Additional Canvas fields
+  cached_due_date: z.string().nullable().optional(),
+  grading_period_id: z.number().nullable().optional(),
+  custom_grade_status_id: z.string().nullable().optional(),
+  sticker: z.string().nullable().optional(),
+
   // Misc
   extra_attempts: z.number().nullable().optional(),
   anonymous_id: z.string().nullable().optional(),
   posted_at: z.string().nullable().optional(),
   read_status: z.string().nullable().optional(),
 
-  user: z.object({ id: z.number(), name: z.string() }),
+  user: z.object({
+    id: z.number(),
+    name: z.string(),
+    created_at: z.string().nullable().optional(),
+    sortable_name: z.string().nullable().optional(),
+    short_name: z.string().nullable().optional(),
+    sis_user_id: z.string().nullable().optional(),
+    integration_id: z.string().nullable().optional(),
+    root_account: z.string().nullable().optional(),
+    login_id: z.string().nullable().optional(),
+    pronouns: z.string().nullable().optional(),
+    avatar_url: z.string().nullable().optional(),
+  }),
 });
 export type CanvasSubmission = z.infer<typeof CanvasSubmissionSchema>;
 
