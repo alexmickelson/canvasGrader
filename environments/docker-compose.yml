@@ -4,9 +4,10 @@ services:
     image: node:20
     volumes:
       - ../:/app
+      - live_project:/live_project
     working_dir: /app
     ports:
-      - 5173:5173
+      - 5556:5556
       # - 24678:24678
     entrypoint: sh
     command: |
@@ -14,14 +15,17 @@ services:
         cd /app
         npm i -g pnpm
         pnpm install
-        pnpm run dev
+        pnpm run dev --host
       "
   trpc:
     container_name: cavnas_ai_trpc
-    image: node:20
+    build:
+      context: .
+      dockerfile: server.Dockerfile
     volumes:
       - ../:/app
     working_dir: /app
+    network_mode: service:app
     entrypoint: sh
     command: |
       -c "
@@ -31,11 +35,11 @@ services:
         pnpm run server
       "
 
-# sandbox container for running code 1 at a time (maybe should have dynamically spawn?)
-#    dependencies: pnpm, uvx, dotnet, docker in docker?
-# playwright container with network attached to sandbox container, running mcp server over http streaming...
-#    use novnc to connect, alternatively apache guacamole
-#    depends on which one works better embedded in the web
+  # sandbox container for running code 1 at a time (maybe should have dynamically spawn?)
+  #    dependencies: pnpm, uvx, dotnet, docker in docker?
+  # playwright container with network attached to sandbox container, running mcp server over http streaming...
+  #    use novnc to connect, alternatively apache guacamole
+  #    depends on which one works better embedded in the web
   playwright_mcp:
     container_name: playwright_mcp
     build:
@@ -54,6 +58,20 @@ services:
       - "3903:3903"
     depends_on:
       - playwright_mcp
-    # restart: always
     command: >
       websockify --web=/opt/novnc --wrap-mode=ignore 3903 playwright_mcp:5900
+
+  sandbox:
+    container_name: live_project_sandbox
+    build:
+      context: .
+      dockerfile: sandbox.Dockerfile
+    privileged: true
+    network_mode: service:playwright_novnc
+    depends_on:
+      - playwright_mcp
+    volumes:
+      - live_project:/live_project
+
+volumes:
+  live_project:

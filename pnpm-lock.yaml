@@ -122,6 +122,9 @@ importers:
       react-syntax-highlighter:
         specifier: ^15.6.6
         version: 15.6.6(react@19.1.1)
+      react-vnc:
+        specifier: ^3.1.0
+        version: 3.1.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       rehype-raw:
         specifier: ^7.0.0
         version: 7.0.0
@@ -942,6 +945,9 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
+  '@novnc/novnc@1.6.0':
+    resolution: {integrity: sha512-CJrmdSe9Yt2ZbLsJpVFoVkEu0KICEvnr3njW25Nz0jodaiFJtg8AYLGZogRYy0/N5HUWkGUsCmegKXYBSqwygw==}
+
   '@pdf-lib/standard-fonts@1.0.0':
     resolution: {integrity: sha512-hU30BK9IUN/su0Mn9VdlVKsWBS6GyhVfqjwl1FjZN4TxP6cCw0jP2w7V3Hf5uX7M0AZJ16vey9yE0ny7Sa59ZA==}
 
@@ -1271,6 +1277,9 @@ packages:
 
   '@types/node@20.19.10':
     resolution: {integrity: sha512-iAFpG6DokED3roLSP0K+ybeDdIX6Bc0Vd3mLW5uDqThPWtNos3E+EqOM11mPQHKzfWHqEBuLjIlsBQQ8CsISmQ==}
+
+  '@types/novnc__novnc@1.6.0':
+    resolution: {integrity: sha512-kIH/PQACbf9qj6whiSXRKECpyzgs6IFNVsW4wohyqQUZfQHdLhuGRMLi9XEhBiISSh0lKCSbBa7kScuPu9Gk+Q==}
 
   '@types/qs@6.14.0':
     resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
@@ -3054,6 +3063,12 @@ packages:
     peerDependencies:
       react: '>= 0.14.0'
 
+  react-vnc@3.1.0:
+    resolution: {integrity: sha512-yUihinDNYn6djq7x/ft1c+VWEIhgKKgMzUyCLrdYbmpyABEVBRTQEThGhF0+r8YAz6BJge8wRBC7CZC+pioG+w==}
+    peerDependencies:
+      react: '>=19.0.0'
+      react-dom: '>=19.0.0'
+
   react@19.1.1:
     resolution: {integrity: sha512-w8nqGImo45dmMIfljjMwOGtbmC/mk4CMYhWIicdSflH91J9TyCyczcPFXJzrZ/ZXcgGRFeP6BU0BEJTw6tZdfQ==}
     engines: {node: '>=0.10.0'}
@@ -4105,6 +4120,8 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
 
+  '@novnc/novnc@1.6.0': {}
+
   '@pdf-lib/standard-fonts@1.0.0':
     dependencies:
       pako: 1.0.11
@@ -4387,6 +4404,8 @@ snapshots:
   '@types/node@20.19.10':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/novnc__novnc@1.6.0': {}
 
   '@types/qs@6.14.0': {}
 
@@ -6389,6 +6408,13 @@ snapshots:
       prismjs: 1.30.0
       react: 19.1.1
       refractor: 3.6.0
+
+  react-vnc@3.1.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
+    dependencies:
+      '@novnc/novnc': 1.6.0
+      '@types/novnc__novnc': 1.6.0
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
 
   react@19.1.1: {}
 

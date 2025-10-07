@@ -12,7 +12,7 @@ export default defineConfig({
       },
     },
     watch: {
-      ignored: ["**/temp/**", "**/storage/**"],
+      ignored: ["**/temp/**", "**/storage/**", "environments/**"],
     },
   },
   clearScreen: false,
