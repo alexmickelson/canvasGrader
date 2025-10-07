@@ -91,13 +91,13 @@ const port = parseInt(process.env.PORT || "3334", 10);
 
 // Check GitHub authentication on startup
 async function startServer() {
-  try {
-    await checkGitHubAuth();
-  } catch {
-    console.log(
-      "Warning: GitHub authentication failed, some features may not work"
-    );
-  }
+  // try {
+  //   await checkGitHubAuth();
+  // } catch {
+  //   console.log(
+  //     "Warning: GitHub authentication failed, some features may not work"
+  //   );
+  // }
 
   app.listen(port, () => {
     console.log(`Express server listening on http://localhost:${port}`);
