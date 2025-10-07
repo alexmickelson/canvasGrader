@@ -1,18 +1,26 @@
-import { canvasRouter } from "../routers/canvas/canvasRouter.js";
+import { courseRouter } from "../routers/canvas/canvasRouter.js";
 import { settingsRouter } from "../routers/settingsRouter.js";
 import { rubricAiReportRouter } from "../routers/rubricAI/rubricAiReportRouter.js";
 import { fileViewerRouter } from "../routers/fileViewerRouter.js";
 import { aiQueueRouter } from "../routers/aiQueueRouter.js";
 import { sandboxRouter } from "../routers/sandboxRouter.js";
+import { githubClassroomRouter } from "../routers/githubClassroomRouter.js";
+import { attachmentsRouter } from "../routers/canvas/attachmentsRouter.js";
+import { assignmentsRouter } from "../routers/canvas/assignmentsRouter.js";
 import { createTRPCRouter } from "./trpc.js";
 
 export const appRouter = createTRPCRouter({
   settings: settingsRouter,
-  canvas: canvasRouter,
+  canvas: {
+    course: courseRouter,
+    attachments: attachmentsRouter,
+    assignments: assignmentsRouter,
+  },
   rubricAiReport: rubricAiReportRouter,
   fileViewer: fileViewerRouter,
   aiQueue: aiQueueRouter,
   sandbox: sandboxRouter,
+  githubClassroom: githubClassroomRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -14,7 +14,7 @@ export const useSubmissionsQuery = (
 ) => {
   const trpc = useTRPC();
   return useSuspenseQuery(
-    trpc.canvas.getAssignmentSubmissions.queryOptions({
+    trpc.canvas.assignments.getAssignmentSubmissions.queryOptions({
       courseId,
       assignmentId,
       assignmentName,
@@ -33,7 +33,7 @@ export const useDownloadAttachmentsQuery = ({
 }) => {
   const trpc = useTRPC();
   return useQuery(
-    trpc.canvas.downloadAllAttachments.queryOptions({
+    trpc.canvas.attachments.downloadAllAttachments.queryOptions({
       courseId,
       assignmentId,
       userId,
@@ -44,7 +44,7 @@ export const useDownloadAttachmentsQuery = ({
 export const useRubricQuery = (courseId: number, assignmentId: number) => {
   const trpc = useTRPC();
   return useQuery(
-    trpc.canvas.getAssignmentRubric.queryOptions({
+    trpc.canvas.assignments.getAssignmentRubric.queryOptions({
       courseId,
       assignmentId,
     })
@@ -55,7 +55,7 @@ export const useGitHubClassroomMutation = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   return useMutation(
-    trpc.canvas.downloadAndOrganizeRepositories.mutationOptions({
+    trpc.githubClassroom.downloadAndOrganizeRepositories.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
@@ -110,13 +110,13 @@ export const useLoadGithubClassroomDataQuery = () => {
   const trpc = useTRPC();
 
   const classroomsQuery = useQuery(
-    trpc.canvas.getGitHubClassrooms.queryOptions()
+    trpc.githubClassroom.getClassrooms.queryOptions()
   );
 
   // Use useQueries to fetch assignments for all classrooms in parallel
   const assignmentQueries = useQueries({
     queries: (classroomsQuery.data || []).map((classroom) => ({
-      ...trpc.canvas.getGitHubClassroomAssignments.queryOptions({
+      ...trpc.githubClassroom.getClassroomAssignments.queryOptions({
         classroomId: classroom.id || "",
       }),
       enabled: !!classroom.id && !!classroomsQuery.data,
@@ -134,7 +134,7 @@ export const useGitHubClassroomAssignmentsQuery = (
 ) => {
   const trpc = useTRPC();
   return useQuery({
-    ...trpc.canvas.getGitHubClassroomAssignments.queryOptions({
+    ...trpc.githubClassroom.getClassroomAssignments.queryOptions({
       classroomId: classroomId || "",
     }),
     enabled: !!classroomId,
@@ -146,10 +146,10 @@ export const useUpdateSubmissionsMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.canvas.refreshAssignmentSubmissions.mutationOptions({
+    trpc.canvas.assignments.refreshAssignmentSubmissions.mutationOptions({
       onSuccess: (_, variables) => {
         queryClient.invalidateQueries({
-          queryKey: trpc.canvas.getAssignmentSubmissions.queryKey({
+          queryKey: trpc.canvas.assignments.getAssignmentSubmissions.queryKey({
             courseId: variables.courseId,
             assignmentId: variables.assignmentId,
           }),
@@ -164,7 +164,7 @@ export const useTranscribeSubmissionImagesMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.canvas.transcribeSubmissionImages.mutationOptions({
+    trpc.canvas.attachments.transcribeSubmissionImages.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: trpc.fileViewer.listStudentFiles.queryKey(),

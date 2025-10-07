@@ -6,7 +6,7 @@ import path from "path";
 import { appRouter } from "./trpc/utils/main.js";
 import cron from "node-cron";
 import dotenv from "dotenv";
-import { execSync, spawn } from "child_process";
+// import { execSync, spawn } from "child_process";
 dotenv.config();
 
 cron.schedule("0 2 * * *", async () => {
@@ -14,37 +14,37 @@ cron.schedule("0 2 * * *", async () => {
 });
 
 // Check GitHub CLI authentication and login if needed
-async function checkGitHubAuth(): Promise<void> {
-  try {
-    // Check authentication status
-    execSync("gh auth status", { stdio: "ignore" });
-    console.log("✓ GitHub CLI is authenticated");
-  } catch {
-    console.log("⚠️  GitHub CLI not authenticated");
-    console.log("Starting GitHub CLI authentication process to enable github classroom downloads");
+// async function checkGitHubAuth(): Promise<void> {
+//   try {
+//     // Check authentication status
+//     execSync("gh auth status", { stdio: "ignore" });
+//     console.log("✓ GitHub CLI is authenticated");
+//   } catch {
+//     console.log("⚠️  GitHub CLI not authenticated");
+//     console.log("Starting GitHub CLI authentication process to enable github classroom downloads");
 
-    return new Promise((resolve, reject) => {
-      const authProcess = spawn("gh", ["auth", "login"], {
-        stdio: "inherit", // Allow user interaction
-      });
+//     return new Promise((resolve, reject) => {
+//       const authProcess = spawn("gh", ["auth", "login"], {
+//         stdio: "inherit", // Allow user interaction
+//       });
 
-      authProcess.on("close", (code) => {
-        if (code === 0) {
-          console.log("✓ GitHub authentication completed");
-          resolve();
-        } else {
-          console.log("❌ GitHub authentication failed");
-          reject(new Error("GitHub authentication failed"));
-        }
-      });
+//       authProcess.on("close", (code) => {
+//         if (code === 0) {
+//           console.log("✓ GitHub authentication completed");
+//           resolve();
+//         } else {
+//           console.log("❌ GitHub authentication failed");
+//           reject(new Error("GitHub authentication failed"));
+//         }
+//       });
 
-      authProcess.on("error", (error) => {
-        console.log("❌ Error running gh auth login:", error.message);
-        reject(error);
-      });
-    });
-  }
-}
+//       authProcess.on("error", (error) => {
+//         console.log("❌ Error running gh auth login:", error.message);
+//         reject(error);
+//       });
+//     });
+//   }
+// }
 
 EventEmitter.defaultMaxListeners = 40;
 const app = express();

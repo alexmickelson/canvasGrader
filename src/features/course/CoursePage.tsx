@@ -168,7 +168,7 @@ const RefreshAllButton: FC<{
   // Fetch submission data for all assignments using useQueries
   const submissionQueries = useQueries({
     queries: assignments.map((assignment) => ({
-      ...trpc.canvas.getAssignmentSubmissions.queryOptions({
+      ...trpc.canvas.assignments.getAssignmentSubmissions.queryOptions({
         courseId,
         assignmentId: assignment.id,
         assignmentName: assignment.name,

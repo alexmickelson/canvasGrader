@@ -121,4 +121,6 @@ export const sandboxRouter = createTRPCRouter({
   getOutput: publicProcedure.query(async () => {
     return { history: commandHistory };
   }),
+
+  
 });

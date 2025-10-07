@@ -8,7 +8,7 @@ export const useGradeSubmissionMutation = () => {
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
   return useMutation(
-    trpc.canvas.gradeSubmissionWithRubric.mutationOptions({
+    trpc.canvas.course.gradeSubmissionWithRubric.mutationOptions({
       onSuccess: async (_, variables) => {
         await updateSubmissionsMutation.mutateAsync({
           courseId: variables.courseId,
@@ -19,7 +19,7 @@ export const useGradeSubmissionMutation = () => {
         });
 
         queryClient.invalidateQueries({
-          queryKey: trpc.canvas.getAssignmentSubmissions.queryKey({
+          queryKey: trpc.canvas.assignments.getAssignmentSubmissions.queryKey({
             courseId: variables.courseId,
             assignmentId: variables.assignmentId,
           }),
@@ -34,11 +34,11 @@ export const useSubmitCommentMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.canvas.submitComment.mutationOptions({
+    trpc.canvas.course.submitComment.mutationOptions({
       onSuccess: (_result, variables) => {
         // Invalidate related queries to refresh the UI
         queryClient.invalidateQueries({
-          queryKey: trpc.canvas.getAssignmentSubmissions.queryKey({
+          queryKey: trpc.canvas.assignments.getAssignmentSubmissions.queryKey({
             courseId: variables.courseId,
             assignmentId: variables.assignmentId,
           }),

@@ -7,7 +7,7 @@ import { useTRPC } from "../../server/trpc/trpcClient";
 
 export const useCanvasCoursesQuery = () => {
   const trpc = useTRPC();
-  return useSuspenseQuery(trpc.canvas.getCourses.queryOptions());
+  return useSuspenseQuery(trpc.canvas.course.getCourses.queryOptions());
 };
 
 export const useRefreshCanvasCoursesQuery = () => {
@@ -15,10 +15,10 @@ export const useRefreshCanvasCoursesQuery = () => {
   const trpc = useTRPC();
 
   return useMutation(
-    trpc.canvas.refreshCourses.mutationOptions({
+    trpc.canvas.course.refreshCourses.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.canvas.getCourses.queryKey(),
+          queryKey: trpc.canvas.course.getCourses.queryKey(),
         });
       },
     })
