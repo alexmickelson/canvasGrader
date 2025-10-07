@@ -1,6 +1,6 @@
 import { ManageSettings } from "./ManageSettings";
 import { AiQueueStatus } from "./AiQueueStatus";
-import { SandboxChat } from "./SandboxChat";
+import { SandboxChat } from "../sandbox/SandboxChat";
 
 export const Home = () => {
   return (

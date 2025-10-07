@@ -34,9 +34,19 @@ export const githubClassroomRouter = createTRPCRouter({
       try {
         await execAsync("gh classroom --help");
       } catch {
-        throw new Error(
-          "GitHub Classroom extension is not installed. Run: gh extension install github/gh-classroom"
-        );
+        console.log("GitHub Classroom extension not found, installing...");
+        try {
+          await execAsync("gh extension install github/gh-classroom");
+          console.log("GitHub Classroom extension installed successfully");
+        } catch (installError) {
+          throw new Error(
+            `Failed to install GitHub Classroom extension: ${
+              installError instanceof Error
+                ? installError.message
+                : String(installError)
+            }`
+          );
+        }
       }
 
       const { stdout } = await execAsync("gh classroom list");

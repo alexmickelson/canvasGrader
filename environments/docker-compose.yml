@@ -24,6 +24,8 @@ services:
       dockerfile: server.Dockerfile
     volumes:
       - ../:/app
+    environment:
+      - GH_TOKEN=${GH_TOKEN} # get from `gh auth token`
     working_dir: /app
     network_mode: service:app
     # entrypoint: sh
