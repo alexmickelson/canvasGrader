@@ -9,9 +9,8 @@ const SSH_HOST = "playwright_novnc";
 const SSH_PORT = 22;
 const SSH_USER = "root";
 const SSH_PASS = "password";
-const DEFAULT_SESSION_NAME = "default";
+const SESSION_NAME = "default";
 
-// Helper to execute SSH command using sshpass
 async function sshExec(
   command: string
 ): Promise<{ stdout: string; stderr: string }> {
@@ -19,7 +18,7 @@ async function sshExec(
     /"/g,
     '\\"'
   )}"`;
-  return execAsync(sshCommand);
+  return await execAsync(sshCommand);
 }
 
 export const sandboxRouter = createTRPCRouter({
@@ -27,83 +26,75 @@ export const sandboxRouter = createTRPCRouter({
     .input(
       z.object({
         command: z.string(),
-        sessionName: z.string().default(DEFAULT_SESSION_NAME),
+        sessionName: z.string().default(SESSION_NAME),
       })
     )
     .mutation(async ({ input }) => {
       const { command, sessionName } = input;
 
-      // Create or attach to tmux session and execute command
-      const tmuxCommand = `tmux new-session -A -s ${sessionName} '${command.replace(
+      // Create session if it doesn't exist, then send command
+      const tmuxCommand = `tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}; tmux send-keys -t ${sessionName} '${command.replace(
         /'/g,
         "'\\''"
-      )}; echo ""; echo "Command completed. Press enter to continue..."; read'`;
+      )}' Enter`;
 
-      return sshExec(tmuxCommand);
+      const res = await sshExec(tmuxCommand);
+      console.log(res);
+      return res;
     }),
 
-  executeCommandDetached: publicProcedure
-    .input(
-      z.object({
-        command: z.string(),
-        sessionName: z.string().default(DEFAULT_SESSION_NAME),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const { command, sessionName } = input;
+  // executeCommandDetached: publicProcedure
+  //   .input(
+  //     z.object({
+  //       command: z.string(),
+  //       sessionName: z.string().default(DEFAULT_SESSION_NAME),
+  //     })
+  //   )
+  //   .mutation(async ({ input }) => {
+  //     const { command, sessionName } = input;
 
-      try {
-        // Create or attach to tmux session and run command in background
-        const tmuxCommand = `tmux new-session -d -s ${sessionName} 2>/dev/null || tmux send-keys -t ${sessionName} C-c Enter; tmux send-keys -t ${sessionName} '${command.replace(
-          /'/g,
-          "'\\''"
-        )}' Enter`;
+  //     try {
+  //       // Create or attach to tmux session and run command in background
+  //       const tmuxCommand = `tmux new-session -d -s ${sessionName} 2>/dev/null || tmux send-keys -t ${sessionName} C-c Enter; tmux send-keys -t ${sessionName} '${command.replace(
+  //         /'/g,
+  //         "'\\''"
+  //       )}' Enter`;
 
-        await sshExec(tmuxCommand);
+  //       await sshExec(tmuxCommand);
 
-        return {
-          success: true,
-          message: `Command sent to tmux session '${sessionName}'`,
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: `Command failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        };
-      }
-    }),
+  //       return {
+  //         success: true,
+  //         message: `Command sent to tmux session '${sessionName}'`,
+  //       };
+  //     } catch (error) {
+  //       return {
+  //         success: false,
+  //         message: `Command failed: ${
+  //           error instanceof Error ? error.message : String(error)
+  //         }`,
+  //       };
+  //     }
+  //   }),
 
-  getTmuxOutput: publicProcedure
-    .input(
-      z.object({
-        sessionName: z.string().default(DEFAULT_SESSION_NAME),
-      })
-    )
-    .query(async ({ input }) => {
-      const { sessionName } = input;
+  getOutput: publicProcedure.query(async () => {
+    const { stdout } = await sshExec(`tmux capture-pane -t ${SESSION_NAME} -p`);
 
-      const { stdout } = await sshExec(
-        `tmux capture-pane -t ${sessionName} -p`
-      );
-
-      return { output: stdout };
-    }),
-
-  listTmuxSessions: publicProcedure.query(async () => {
-    try {
-      const { stdout } = await sshExec(
-        "tmux list-sessions -F '#{session_name}'"
-      );
-      const sessions = stdout
-        .trim()
-        .split("\n")
-        .filter((s) => s.length > 0);
-
-      return { sessions };
-    } catch {
-      return { sessions: [] };
-    }
+    return { output: stdout };
   }),
+
+  // listTmuxSessions: publicProcedure.query(async () => {
+  //   try {
+  //     const { stdout } = await sshExec(
+  //       "tmux list-sessions -F '#{session_name}'"
+  //     );
+  //     const sessions = stdout
+  //       .trim()
+  //       .split("\n")
+  //       .filter((s) => s.length > 0);
+
+  //     return { sessions };
+  //   } catch {
+  //     return { sessions: [] };
+  //   }
+  // }),
 });

@@ -26,14 +26,14 @@ services:
       - ../:/app
     working_dir: /app
     network_mode: service:app
-    entrypoint: sh
-    command: |
-      -c "
-        cd /app
-        npm i -g pnpm
-        pnpm install
-        pnpm run server
-      "
+    # entrypoint: sh
+    # command: |
+    #   -c "
+    #     cd /app
+    #     npm i -g pnpm
+    #     pnpm install
+    #     pnpm run server
+    #   "
 
   # sandbox container for running code 1 at a time (maybe should have dynamically spawn?)
   #    dependencies: pnpm, uvx, dotnet, docker in docker?
