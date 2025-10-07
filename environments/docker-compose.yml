@@ -1,0 +1,59 @@
+services:
+  app:
+    container_name: cavnas_ai_app
+    image: node:20
+    volumes:
+      - ../:/app
+    working_dir: /app
+    ports:
+      - 5173:5173
+      # - 24678:24678
+    entrypoint: sh
+    command: |
+      -c "
+        cd /app
+        npm i -g pnpm
+        pnpm install
+        pnpm run dev
+      "
+  trpc:
+    container_name: cavnas_ai_trpc
+    image: node:20
+    volumes:
+      - ../:/app
+    working_dir: /app
+    entrypoint: sh
+    command: |
+      -c "
+        cd /app
+        npm i -g pnpm
+        pnpm install
+        pnpm run server
+      "
+
+# sandbox container for running code 1 at a time (maybe should have dynamically spawn?)
+#    dependencies: pnpm, uvx, dotnet, docker in docker?
+# playwright container with network attached to sandbox container, running mcp server over http streaming...
+#    use novnc to connect, alternatively apache guacamole
+#    depends on which one works better embedded in the web
+  playwright_mcp:
+    container_name: playwright_mcp
+    build:
+      context: .
+      dockerfile: playwright.Dockerfile
+    # restart: always
+    ports:
+      - 3901:3901
+
+  playwright_novnc:
+    build:
+      context: .
+      dockerfile: novnc.Dockerfile
+    container_name: playwrite_novnc
+    ports:
+      - "3903:3903"
+    depends_on:
+      - playwright_mcp
+    # restart: always
+    command: >
+      websockify --web=/opt/novnc --wrap-mode=ignore 3903 playwright_mcp:5900
