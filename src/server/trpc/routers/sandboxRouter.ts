@@ -1,24 +1,92 @@
 import { createTRPCRouter, publicProcedure } from "../utils/trpc";
 import { z } from "zod";
-import { exec } from "child_process";
-import { promisify } from "util";
-
-const execAsync = promisify(exec);
+import { Client } from "ssh2";
 
 const SSH_HOST = "playwright_novnc";
 const SSH_PORT = 22;
 const SSH_USER = "root";
 const SSH_PASS = "password";
-const SESSION_NAME = "default";
+
+let sshClient: Client | null = null;
+let isConnected = false;
+let currentDirectory = "~";
+const commandHistory: Array<{
+  command: string;
+  stdout: string;
+  stderr: string;
+  timestamp: number;
+  directory: string;
+}> = [];
+
+function stripAnsiCodes(str: string): string {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+async function getSSHConnection(): Promise<Client> {
+  if (sshClient && isConnected) {
+    return sshClient;
+  }
+
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+
+    conn.on("ready", () => {
+      console.log("SSH connection established");
+      sshClient = conn;
+      isConnected = true;
+      resolve(conn);
+    });
+
+    conn.on("error", (err) => {
+      console.error("SSH connection error:", err);
+      isConnected = false;
+      reject(err);
+    });
+
+    conn.on("close", () => {
+      console.log("SSH connection closed");
+      isConnected = false;
+      sshClient = null;
+    });
+
+    conn.connect({
+      host: SSH_HOST,
+      port: SSH_PORT,
+      username: SSH_USER,
+      password: SSH_PASS,
+    });
+  });
+}
 
 async function sshExec(
   command: string
 ): Promise<{ stdout: string; stderr: string }> {
-  const sshCommand = `sshpass -p '${SSH_PASS}' ssh -o StrictHostKeyChecking=no -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "${command.replace(
-    /"/g,
-    '\\"'
-  )}"`;
-  return await execAsync(sshCommand);
+  const conn = await getSSHConnection();
+
+  return new Promise((resolve, reject) => {
+    // Prepend cd command to ensure we're in /live_project
+    const fullCommand = `cd /live_project && ${command}`;
+
+    conn.exec(fullCommand, { pty: true }, (err, stream) => {
+      if (err) return reject(err);
+
+      let stdout = "";
+      let stderr = "";
+
+      stream.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      stream.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      stream.on("close", () => {
+        resolve({ stdout, stderr });
+      });
+    });
+  });
 }
 
 export const sandboxRouter = createTRPCRouter({
@@ -26,75 +94,31 @@ export const sandboxRouter = createTRPCRouter({
     .input(
       z.object({
         command: z.string(),
-        sessionName: z.string().default(SESSION_NAME),
       })
     )
     .mutation(async ({ input }) => {
-      const { command, sessionName } = input;
+      const { command } = input;
 
-      // Create session if it doesn't exist, then send command
-      const tmuxCommand = `tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}; tmux send-keys -t ${sessionName} '${command.replace(
-        /'/g,
-        "'\\''"
-      )}' Enter`;
+      // Get current directory
+      const { stdout: pwdOutput } = await sshExec("pwd");
+      currentDirectory = stripAnsiCodes(pwdOutput.trim());
 
-      const res = await sshExec(tmuxCommand);
-      console.log(res);
-      return res;
+      // Execute command directly via SSH
+      const { stdout, stderr } = await sshExec(command);
+
+      // Store in history with cleaned output
+      commandHistory.push({
+        command,
+        stdout: stripAnsiCodes(stdout),
+        stderr: stripAnsiCodes(stderr),
+        timestamp: Date.now(),
+        directory: currentDirectory,
+      });
+
+      console.log("sandbox command", command, { stdout, stderr });
+      return { stdout: stripAnsiCodes(stdout), stderr: stripAnsiCodes(stderr) };
     }),
-
-  // executeCommandDetached: publicProcedure
-  //   .input(
-  //     z.object({
-  //       command: z.string(),
-  //       sessionName: z.string().default(DEFAULT_SESSION_NAME),
-  //     })
-  //   )
-  //   .mutation(async ({ input }) => {
-  //     const { command, sessionName } = input;
-
-  //     try {
-  //       // Create or attach to tmux session and run command in background
-  //       const tmuxCommand = `tmux new-session -d -s ${sessionName} 2>/dev/null || tmux send-keys -t ${sessionName} C-c Enter; tmux send-keys -t ${sessionName} '${command.replace(
-  //         /'/g,
-  //         "'\\''"
-  //       )}' Enter`;
-
-  //       await sshExec(tmuxCommand);
-
-  //       return {
-  //         success: true,
-  //         message: `Command sent to tmux session '${sessionName}'`,
-  //       };
-  //     } catch (error) {
-  //       return {
-  //         success: false,
-  //         message: `Command failed: ${
-  //           error instanceof Error ? error.message : String(error)
-  //         }`,
-  //       };
-  //     }
-  //   }),
-
   getOutput: publicProcedure.query(async () => {
-    const { stdout } = await sshExec(`tmux capture-pane -t ${SESSION_NAME} -p`);
-
-    return { output: stdout };
+    return { history: commandHistory };
   }),
-
-  // listTmuxSessions: publicProcedure.query(async () => {
-  //   try {
-  //     const { stdout } = await sshExec(
-  //       "tmux list-sessions -F '#{session_name}'"
-  //     );
-  //     const sessions = stdout
-  //       .trim()
-  //       .split("\n")
-  //       .filter((s) => s.length > 0);
-
-  //     return { sessions };
-  //   } catch {
-  //     return { sessions: [] };
-  //   }
-  // }),
 });

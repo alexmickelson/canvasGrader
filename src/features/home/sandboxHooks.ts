@@ -1,9 +1,18 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
 export const useExecuteCommand = () => {
+  const queryClient = useQueryClient();
   const trpc = useTRPC();
-  return useMutation(trpc.sandbox.executeCommand.mutationOptions());
+  return useMutation(
+    trpc.sandbox.executeCommand.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.sandbox.getOutput.queryKey(),
+        });
+      },
+    })
+  );
 };
 
 export const useGetTmuxOutput = ({

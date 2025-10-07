@@ -9,6 +9,7 @@ RUN apk upgrade --no-cache && \
   icu-libs \
   libstdc++ \
   tmux \
+  screen \
   openssh-server \
   nodejs npm \
   python3 py3-pip

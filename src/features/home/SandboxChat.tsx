@@ -6,7 +6,7 @@ export const SandboxChat = () => {
   const [command, setCommand] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const executeCommand = useExecuteCommand();
-  const { data: output } = useGetTmuxOutput({ refetchInterval: 1000 });
+  const { data } = useGetTmuxOutput({ refetchInterval: 200 });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -15,7 +15,6 @@ export const SandboxChat = () => {
     setCommand("");
     await executeCommand.mutateAsync({
       command,
-      sessionName: "default",
     });
     setTimeout(() => inputRef.current?.focus(), 0);
   };
@@ -34,7 +33,21 @@ export const SandboxChat = () => {
         />
         <div className="flex-1 flex flex-col gap-2">
           <div className="flex-1 bg-black text-green-400 font-mono p-4 rounded overflow-auto whitespace-pre-wrap">
-            {output?.output || "No output yet..."}
+            {data?.history && data.history.length > 0
+              ? data.history.map((entry, idx) => (
+                  <div key={idx} className="mb-2">
+                    <div className="text-blue-400">
+                      {entry.directory}$ {entry.command}
+                    </div>
+                    {entry.stdout && (
+                      <div className="text-green-400">{entry.stdout}</div>
+                    )}
+                    {entry.stderr && (
+                      <div className="text-red-400">ERROR: {entry.stderr}</div>
+                    )}
+                  </div>
+                ))
+              : "No output yet..."}
           </div>
           <form onSubmit={handleSubmit} className="flex gap-2">
             <input
