@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { promisify } from "util";
 import { exec } from "child_process";
-import { axiosClient } from "../../../../utils/axiosUtils";
+import { rateLimitAwareGet } from "./canvasRequestUtils";
 import { canvasRequestOptions } from "./canvasServiceUtils";
 import {
   ensureDir,
@@ -131,7 +131,7 @@ export const fetchAssignmentName = async (
   console.log(
     `\n5. Fetching assignment metadata for assignmentId: ${assignmentId}`
   );
-  const { data: assignmentData } = await axiosClient.get(
+  const { data: assignmentData } = await rateLimitAwareGet<{ name?: string }>(
     `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
     { headers: canvasRequestOptions.headers }
   );

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { axiosClient } from "../../../../utils/axiosUtils.js";
+import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 import { canvasRequestOptions } from "./canvasServiceUtils.js";
 import { parseSchema } from "../parseSchema.js";
 import type {
@@ -136,13 +136,13 @@ export async function getCourseMeta(courseId: number): Promise<{
   termName: string;
 }> {
   try {
-    const { data } = await axiosClient.get(
-      `${canvasBaseUrl}/api/v1/courses/${courseId}` as string,
-      {
-        headers: canvasRequestOptions.headers,
-        params: { include: "term" },
-      }
-    );
+    const { data } = await rateLimitAwareGet<{
+      name?: string;
+      term?: { name?: string };
+    }>(`${canvasBaseUrl}/api/v1/courses/${courseId}` as string, {
+      headers: canvasRequestOptions.headers,
+      params: { include: "term" },
+    });
     const courseName: string = data?.name || `Course ${courseId}`;
     const rawTerm: string | undefined = data?.term?.name;
     const termName =
@@ -372,7 +372,7 @@ export async function persistRubricToStorage(
 ): Promise<void> {
   try {
     const { courseName, termName } = await getCourseMeta(courseId);
-    const { data: assignment } = await axiosClient.get(
+    const { data: assignment } = await rateLimitAwareGet<{ name?: string }>(
       `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
       {
         headers: canvasRequestOptions.headers,
@@ -446,7 +446,7 @@ export async function loadSubmissionsFromStorage(
 ): Promise<CanvasSubmission[] | null> {
   try {
     const { courseName, termName } = await getCourseMeta(courseId);
-    const { data: assignment } = await axiosClient.get(
+    const { data: assignment } = await rateLimitAwareGet<{ name?: string }>(
       `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
       {
         headers: canvasRequestOptions.headers,

@@ -22,6 +22,7 @@ import {
   CanvasSubmissionSchema,
   type CanvasEnrollment,
 } from "./canvasModels.js";
+import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -260,14 +261,13 @@ export const courseRouter = createTRPCRouter({
           "Refetching submission data to include user information..."
         );
         const refetchUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${studentId}`;
-        const refetchResponse = await axiosClient.get(refetchUrl, {
+        const refetchResponse = await rateLimitAwareGet(refetchUrl, {
           ...canvasRequestOptions,
           params: {
             include: ["user", "rubric_assessment", "submission_comments"],
           },
         });
 
-        console.log("Refetch response status:", refetchResponse.status);
 
         // Parse and return the updated submission
         const updatedSubmission = parseSchema(

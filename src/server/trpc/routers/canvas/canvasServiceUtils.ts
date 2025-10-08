@@ -1,15 +1,10 @@
-import type {
-  AxiosError,
-  AxiosResponse,
-  AxiosResponseHeaders,
-  RawAxiosResponseHeaders,
-} from "axios";
-import { axiosClient } from "../../../../utils/axiosUtils";
+import type { AxiosResponseHeaders, RawAxiosResponseHeaders } from "axios";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 import path from "path";
 import fs_sync from "fs";
 import type { CanvasSubmissionComment } from "./canvasModels.js";
+import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 
 dotenv.config();
 
@@ -19,23 +14,6 @@ export const canvasRequestOptions = {
   headers: {
     Authorization: `Bearer ${process.env.CANVAS_TOKEN}`,
   },
-};
-
-const rateLimitRetryCount = 6;
-const rateLimitSleepInterval = 1000;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-export const isRateLimited = (response: AxiosResponse) => {
-  if ((response.data + "").toLowerCase().includes("rate limit exceeded")) {
-    console.log(
-      "detected rate limit exceeded in response data",
-      response.config?.url
-    );
-    return true;
-  }
-
-  return false;
 };
 
 function isAxiosHeaders(
@@ -73,46 +51,6 @@ const getNextUrl = (
   return nextUrl;
 };
 
-export async function rateLimitGet<T>(
-  url: string,
-  options: object,
-  maxRetries: number = rateLimitRetryCount,
-  sleepInterval: number = rateLimitSleepInterval,
-  retryCount: number = 0
-): Promise<{ data: T; headers: RawAxiosResponseHeaders }> {
-  try {
-    const response = await axiosClient.get<T>(url, options);
-    return { data: response.data, headers: response.headers };
-  } catch (error) {
-    const axiosError = error as AxiosError & {
-      response?: { status: number; headers: RawAxiosResponseHeaders };
-    };
-
-    if (axiosError.response && isRateLimited(axiosError.response)) {
-      if (retryCount < maxRetries) {
-        console.info(
-          `Hit rate limit, retry count is ${retryCount} / ${maxRetries}, retrying`
-        );
-        await sleep(sleepInterval);
-        return rateLimitGet<T>(
-          url,
-          options,
-          maxRetries,
-          sleepInterval,
-          retryCount + 1
-        );
-      } else {
-        console.error(
-          `Rate limit exceeded after ${maxRetries} retries, aborting request`
-        );
-        throw error;
-      }
-    } else {
-      throw error; // Re-throw non-rate-limit errors
-    }
-  }
-}
-
 export async function paginatedRequest<T extends unknown[]>({
   url: urlParam,
   params = {},
@@ -141,7 +79,7 @@ export async function paginatedRequest<T extends unknown[]>({
   console.log(nextUrl);
 
   while (nextUrl) {
-    const { data, headers } = await rateLimitGet<T>(
+    const { data, headers } = await rateLimitAwareGet<T>(
       nextUrl,
       canvasRequestOptions
     );
@@ -228,7 +166,7 @@ export async function downloadSubmissionAttachments(
   for (const att of attachments) {
     const name = att.display_name || att.filename || `file-${att.id}`;
     try {
-      const resp = await axiosClient.get<ArrayBuffer>(att.url, {
+      const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
         // Some Canvas pre-signed URLs don't require auth, but header won't hurt
         headers: canvasRequestOptions.headers,
         responseType: "arraybuffer",
@@ -275,7 +213,7 @@ export async function downloadSubmissionAttachmentsToFolder(
   for (const att of attachments) {
     const name = att.display_name || att.filename || `file-${att.id}`;
     try {
-      const resp = await axiosClient.get<ArrayBuffer>(att.url, {
+      const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
         headers: canvasRequestOptions.headers,
         responseType: "arraybuffer",
       });
@@ -344,13 +282,14 @@ export const downloadAllAttachmentsUtil = async (params: {
     };
   };
 
-  const { data: submission } = await axiosClient.get<SubmissionWithAttachments>(
-    `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
-    {
-      headers: canvasRequestOptions.headers,
-      params: { include: ["attachments", "user", "submission_comments"] },
-    }
-  );
+  const { data: submission } =
+    await rateLimitAwareGet<SubmissionWithAttachments>(
+      `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
+      {
+        headers: canvasRequestOptions.headers,
+        params: { include: ["attachments", "user", "submission_comments"] },
+      }
+    );
 
   console.log("Submission data:", submission);
 
@@ -373,7 +312,7 @@ export const downloadAllAttachmentsUtil = async (params: {
   // Get course, assignment, and user metadata for folder structure
   const { getCourseMeta } = await import("./canvasStorageUtils.js");
   const { courseName, termName } = await getCourseMeta(courseId);
-  const { data: assignment } = await axiosClient.get(
+  const { data: assignment } = await rateLimitAwareGet<{ name?: string }>(
     `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
     {
       headers: canvasRequestOptions.headers,
@@ -451,7 +390,7 @@ export async function downloadCommentAttachments(
 
       const name = att.display_name || att.filename || `comment-file-${att.id}`;
       try {
-        const resp = await axiosClient.get<ArrayBuffer>(att.url, {
+        const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
           headers: canvasRequestOptions.headers,
           responseType: "arraybuffer",
         });

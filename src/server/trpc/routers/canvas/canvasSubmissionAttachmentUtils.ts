@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { axiosClient } from "../../../../utils/axiosUtils.js";
+import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 import { canvasRequestOptions } from "./canvasServiceUtils.js";
 import {
   extractTextFromImage,
@@ -158,7 +158,7 @@ export async function dowloadSubmissionAttachments(
 
       if (existingFiles.length > 0) {
         const existingFilePath = path.join(metadataDir, existingFiles[0]);
-    
+
         return {
           title: image.title,
           url: image.url,
@@ -167,7 +167,7 @@ export async function dowloadSubmissionAttachments(
       }
 
       // Download from URL
-      const response = await axiosClient.get(image.url, {
+      const response = await rateLimitAwareGet<ArrayBuffer>(image.url, {
         headers: canvasRequestOptions.headers,
         responseType: "arraybuffer",
       });

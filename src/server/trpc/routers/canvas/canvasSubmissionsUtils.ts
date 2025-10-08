@@ -1,4 +1,3 @@
-import { axiosClient } from "../../../../utils/axiosUtils.js";
 import { parseSchema } from "../parseSchema.js";
 import {
   canvasRequestOptions,
@@ -9,6 +8,7 @@ import {
   type CanvasSubmission,
   CanvasSubmissionSchema,
 } from "./canvasModels.js";
+import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -24,7 +24,7 @@ export const fetchSingleSubmissionByIdFromCanvas = async (
   const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
 
   try {
-    const { data: submission } = await axiosClient.get(submissionUrl, {
+    const { data: submission } = await rateLimitAwareGet(submissionUrl, {
       headers: canvasRequestOptions.headers,
       params: {
         include: ["user", "submission_comments", "rubric_assessment"],

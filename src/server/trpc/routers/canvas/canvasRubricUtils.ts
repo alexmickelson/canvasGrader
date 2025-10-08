@@ -1,8 +1,8 @@
-import { axiosClient } from "../../../../utils/axiosUtils.js";
 import { parseSchema } from "../parseSchema.js";
 import { canvasRequestOptions } from "./canvasServiceUtils.js";
 import { persistRubricToStorage } from "./canvasStorageUtils.js";
 import { type CanvasRubric, CanvasRubricSchema } from "./canvasModels.js";
+import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -17,7 +17,9 @@ export const fetchAssignmentRubric = async (
 
   try {
     // First, get the assignment to find the rubric association ID
-    const { data: assignment } = await axiosClient.get(
+    const { data: assignment } = await rateLimitAwareGet<{
+      rubric_settings?: { id?: string };
+    }>(
       `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
       {
         headers: canvasRequestOptions.headers,
@@ -34,7 +36,7 @@ export const fetchAssignmentRubric = async (
     console.log(`Found rubric ID ${rubricId} for assignment ${assignmentId}`);
 
     // Fetch the actual rubric data
-    const { data: rubric } = await axiosClient.get(
+    const { data: rubric } = await rateLimitAwareGet(
       `${canvasBaseUrl}/api/v1/courses/${courseId}/rubrics/${rubricId}`,
       {
         headers: canvasRequestOptions.headers,
