@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import * as styles from "react-syntax-highlighter/dist/esm/styles/prism";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { languageMap } from "./languageMap";
 
 // Get file extension and determine file type
@@ -103,7 +104,9 @@ export const TextFileRenderer: FC<{
         {isMarkdown && showPreview ? (
           <div
             className="p-4 text-gray-100"
-            dangerouslySetInnerHTML={{ __html: marked(selectedContent) }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(marked(selectedContent) as string),
+            }}
           />
         ) : (
           <SyntaxHighlighter

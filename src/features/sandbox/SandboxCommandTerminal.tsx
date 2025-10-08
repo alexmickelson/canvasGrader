@@ -19,7 +19,7 @@ export const SandboxCommandTerminal: FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2 h-full">
+    <div className="flex flex-col gap-2 flex-1 overflow-auto">
       <div className="flex-1 bg-black text-green-400 font-mono p-4 rounded overflow-auto whitespace-pre-wrap">
         {data?.history && data.history.length > 0
           ? data.history.map((entry, idx) => (

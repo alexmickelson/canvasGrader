@@ -3,8 +3,7 @@ services:
     container_name: cavnas_ai_app
     image: node:20
     volumes:
-      - ../:/app
-      - live_project:/live_project
+      - ./:/app
     working_dir: /app
     ports:
       - 5556:5556
@@ -21,9 +20,10 @@ services:
     container_name: cavnas_ai_trpc
     build:
       context: .
-      dockerfile: server.Dockerfile
+      dockerfile: docker/server.Dockerfile
     volumes:
-      - ../:/app
+      - ./:/app
+      - live_project:/live_project
     environment:
       - GH_TOKEN=${GH_TOKEN} # get from `gh auth token`
     working_dir: /app
@@ -46,7 +46,7 @@ services:
     container_name: canvas_ai_playwright
     build:
       context: .
-      dockerfile: playwright.Dockerfile
+      dockerfile: docker/playwright.Dockerfile
     # restart: always
     ports:
       - 3901:3901
@@ -54,7 +54,7 @@ services:
   playwright_novnc:
     build:
       context: .
-      dockerfile: novnc.Dockerfile
+      dockerfile: docker/novnc.Dockerfile
     container_name: playwrite_novnc
     ports:
       - 3903:3903
@@ -68,7 +68,7 @@ services:
     container_name: canvas_ai_sandbox
     build:
       context: .
-      dockerfile: sandbox.Dockerfile
+      dockerfile: docker/sandbox.Dockerfile
     privileged: true
     network_mode: service:playwright_novnc
     depends_on:

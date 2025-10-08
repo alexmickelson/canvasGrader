@@ -23,9 +23,6 @@ export const SandboxView = () => {
         </div>
       </div>
       <div className="flex-1 flex flex-col min-h-0">
-        <h3 className="text-lg font-semibold mb-2 text-gray-200">
-          AI Agent Chat
-        </h3>
         <SandboxAgentChat />
       </div>
     </div>

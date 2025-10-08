@@ -129,8 +129,8 @@ const InnerAssignmentPage: FC<{
         assignmentName,
         studentName: selected.user.name,
       });
+      setShowSandbox(enabled);
     }
-    setShowSandbox(enabled);
   };
 
   return (
@@ -265,11 +265,12 @@ const InnerAssignmentPage: FC<{
               <div className="p-4 space-y-3 text-sm flex-1 min-h-0 ">
                 {selected && showSandbox && (
                   <AiSandbox
-                    submission={selected}
-                    courseId={courseId}
+                    key={selected.id}
                     assignmentName={assignmentName}
                     termName={canvasCourse.term?.name || "Unknown Term"}
                     courseName={canvasCourse.name}
+                    assignmentId={assignmentId}
+                    studentName={selected.user.name}
                   />
                 )}
                 {selected && !showSandbox && (

@@ -5,15 +5,28 @@ import { getSubmissionDirectory } from "./canvas/canvasStorageUtils.js";
 import fs from "fs";
 import path from "path";
 import { ChatOpenAI } from "@langchain/openai";
-import { StateGraph, MessagesAnnotation } from "@langchain/langgraph";
+import {
+  StateGraph,
+  MessagesAnnotation,
+  MemorySaver,
+} from "@langchain/langgraph";
 import { tool } from "@langchain/core/tools";
-import { ToolNode } from "langchain";
+import { BaseMessage, ToolNode } from "langchain";
 import { aiModel } from "../../../utils/aiUtils/getOpenaiClient.js";
+import type { MessageStructure, MessageType } from "@langchain/core/messages";
 
 const SSH_HOST = "playwright_novnc";
 const SSH_PORT = 22;
 const SSH_USER = "root";
 const SSH_PASS = "password";
+
+const aiUrl = process.env.AI_URL;
+const aiToken = process.env.AI_TOKEN;
+if (!aiUrl || !aiToken) {
+  console.warn(
+    "AI_URL and AI_TOKEN environment variables are required for AI features"
+  );
+}
 
 let sshClient: Client | null = null;
 let isConnected = false;
@@ -26,9 +39,73 @@ const commandHistory: Array<{
   directory: string;
 }> = [];
 
-function stripAnsiCodes(str: string): string {
+function ansiToHtml(str: string): string {
+  const ansiColorMap: Record<string, string> = {
+    // Foreground colors
+    "30": "color: #000",
+    "31": "color: #e06c75",
+    "32": "color: #98c379",
+    "33": "color: #e5c07b",
+    "34": "color: #61afef",
+    "35": "color: #c678dd",
+    "36": "color: #56b6c2",
+    "37": "color: #abb2bf",
+    "90": "color: #5c6370",
+    "91": "color: #e06c75",
+    "92": "color: #98c379",
+    "93": "color: #e5c07b",
+    "94": "color: #61afef",
+    "95": "color: #c678dd",
+    "96": "color: #56b6c2",
+    "97": "color: #fff",
+    // Background colors
+    "40": "background-color: #000",
+    "41": "background-color: #e06c75",
+    "42": "background-color: #98c379",
+    "43": "background-color: #e5c07b",
+    "44": "background-color: #61afef",
+    "45": "background-color: #c678dd",
+    "46": "background-color: #56b6c2",
+    "47": "background-color: #abb2bf",
+    // Text styles
+    "1": "font-weight: bold",
+    "3": "font-style: italic",
+    "4": "text-decoration: underline",
+  };
+
+  let html = str;
+  const styles: string[] = [];
+
   // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1b\[[0-9;]*m/g, "");
+  html = html.replace(/\x1b\[([0-9;]*)m/g, (_match, codes) => {
+    if (codes === "0" || codes === "") {
+      // Reset
+      if (styles.length > 0) {
+        styles.length = 0;
+        return "</span>";
+      }
+      return "";
+    }
+
+    const codeList = codes.split(";");
+    const newStyles = codeList
+      .map((code: string) => ansiColorMap[code])
+      .filter(Boolean);
+
+    if (newStyles.length > 0) {
+      styles.push(...newStyles);
+      return `<span style="${styles.join("; ")}">`;
+    }
+
+    return "";
+  });
+
+  // Close any unclosed spans
+  if (styles.length > 0) {
+    html += "</span>";
+  }
+
+  return html;
 }
 
 async function getSSHConnection(): Promise<Client> {
@@ -97,8 +174,6 @@ async function sshExec(
   });
 }
 
-const aiUrl = process.env.AI_URL;
-const aiToken = process.env.AI_TOKEN;
 function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
   const lastMessage = messages[messages.length - 1];
   // Check if the message has tool calls
@@ -112,6 +187,169 @@ function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
   return "__end__";
 }
 
+// Format LangChain messages for ChatOpenAI invoke
+function formatMessagesForInvoke(
+  messages: BaseMessage<MessageStructure, MessageType>[]
+): Array<{ role: string; content: string }> {
+  return messages.map((msg) => {
+    const msgData = msg as {
+      lc?: number;
+      type?: string;
+      id?: string[];
+      kwargs?: {
+        content?: string;
+        role?: string;
+        type?: string;
+        name?: string;
+        tool_call_id?: string;
+        tool_calls?: Array<{ name: string; args: unknown }>;
+        additional_kwargs?: {
+          tool_calls?: Array<{
+            function: { name: string; arguments: string };
+          }>;
+        };
+      };
+      role?: string;
+      content?: string;
+    };
+
+    // Extract content, role, and tool calls
+    const content = msgData.kwargs?.content || msgData.content || "";
+    const msgType =
+      msgData.kwargs?.type || msgData.kwargs?.role || msgData.role;
+    const toolCalls =
+      msgData.kwargs?.tool_calls ||
+      msgData.kwargs?.additional_kwargs?.tool_calls;
+    const toolName = msgData.kwargs?.name;
+
+    // Format based on message type
+    if (msgType === "tool") {
+      return {
+        role: "tool" as const,
+        content: `[Tool: ${toolName}] ${content}`,
+      };
+    } else if (toolCalls && toolCalls.length > 0) {
+      const toolCallsStr = toolCalls
+        .map((tc) => {
+          if ("function" in tc) {
+            return `${tc.function.name}(${tc.function.arguments})`;
+          }
+          return `${tc.name}(${JSON.stringify(tc.args)})`;
+        })
+        .join(", ");
+      return {
+        role: "assistant" as const,
+        content: `[Tool Calls: ${toolCallsStr}]`,
+      };
+    } else if (msgType === "ai" || msgType === "assistant") {
+      return {
+        role: "assistant" as const,
+        content: content || "[No content]",
+      };
+    } else if (msgType === "human" || msgType === "user") {
+      return {
+        role: "user" as const,
+        content,
+      };
+    } else if (msgType === "system") {
+      return {
+        role: "system" as const,
+        content,
+      };
+    }
+
+    return {
+      role: "assistant" as const,
+      content: content || "[Unknown message type]",
+    };
+  });
+}
+
+// Trim messages to keep context size manageable
+async function trimMessages(
+  messages: typeof MessagesAnnotation.State.messages
+) {
+  // Keep system message (first), user message (second), and last 20 messages
+  if (messages.length <= 22) return messages;
+
+  const systemMsg = messages[0];
+  const userMsg = messages[1];
+  const middleMessages = messages.slice(2, -20);
+  const recentMessages = messages.slice(-20);
+
+  // Find existing summary messages (to avoid re-summarizing)
+  const existingSummaries = middleMessages.filter((msg) => {
+    const content = (msg as { content?: string }).content || "";
+    return content.startsWith("📝 Summary of previous");
+  });
+
+  // Get messages that haven't been summarized yet (exclude existing summaries)
+  const messagesToSummarize = middleMessages.filter((msg) => {
+    const content = (msg as { content?: string }).content || "";
+    return !content.startsWith("📝 Summary of previous");
+  });
+
+  // Only create a new summary if there are messages to summarize
+  if (messagesToSummarize.length === 0) {
+    return [systemMsg, userMsg, ...existingSummaries, ...recentMessages];
+  }
+
+  // Create summary of the middle messages
+  const summaryModel = new ChatOpenAI({
+    modelName: aiModel,
+    apiKey: aiToken,
+    configuration: {
+      baseURL: aiUrl,
+    },
+    temperature: 0.1,
+  });
+
+  const summaryPrompt = `Summarize the following command execution history. Include key findings, files discovered, and important results. Be concise but informative.
+
+${messagesToSummarize
+  .map((msg, idx) => {
+    const msgData = msg as {
+      role?: string;
+      tool_calls?: Array<{ name: string; args: unknown }>;
+      name?: string;
+      content?: string;
+    };
+    if (msgData.role === "assistant" && msgData.tool_calls) {
+      return `[${idx}] Tool Call: ${msgData.tool_calls
+        .map((tc) => `${tc.name}(${JSON.stringify(tc.args)})`)
+        .join(", ")}`;
+    } else if (msgData.role === "tool") {
+      return `[${idx}] Tool Result (${
+        msgData.name
+      }): ${msgData.content?.substring(0, 200)}`;
+    } else if (msgData.role === "assistant") {
+      return `[${idx}] Assistant: ${msgData.content?.substring(0, 200)}`;
+    }
+    return "";
+  })
+  .filter(Boolean)
+  .join("\n")}`;
+
+  const summaryResponse = await summaryModel.invoke([
+    { role: "user", content: summaryPrompt },
+  ]);
+
+  const summaryMessage = {
+    role: "assistant" as const,
+    content: `📝 Summary of previous ${
+      messagesToSummarize.length
+    } messages:\n\n${summaryResponse.content as string}`,
+  };
+
+  return [
+    systemMsg,
+    userMsg,
+    ...existingSummaries,
+    summaryMessage,
+    ...recentMessages,
+  ];
+}
+
 function getAgent() {
   if (!aiUrl || !aiToken) {
     throw new Error("AI_URL and AI_TOKEN environment variables are required");
@@ -122,10 +360,28 @@ function getAgent() {
       console.log(`Agent executing command: ${command}`);
       const { stdout, stderr } = await sshExec(command);
 
+      // Truncate output to prevent context overflow
+      const maxOutputLength = 2000;
+      const truncatedStdout =
+        stdout.length > maxOutputLength
+          ? stdout.substring(0, maxOutputLength) +
+            `\n... (truncated ${stdout.length - maxOutputLength} chars)`
+          : stdout;
+      const truncatedStderr =
+        stderr.length > maxOutputLength
+          ? stderr.substring(0, maxOutputLength) +
+            `\n... (truncated ${stderr.length - maxOutputLength} chars)`
+          : stderr;
+
       if (stderr && stderr.trim()) {
-        return `Command: ${command}\nStderr: ${stderr}\nStdout: ${stdout}`;
+        const message = `Stderr: ${truncatedStderr}\nStdout: ${truncatedStdout}`;
+
+        console.log(message);
+        return message;
       }
-      return `Command: ${command}\nOutput: ${stdout}`;
+      const res = `Output: ${truncatedStdout}`;
+      console.log(res);
+      return res;
     },
     {
       name: "execute_command",
@@ -140,7 +396,7 @@ function getAgent() {
   const tools = [executeCommandTool];
   const model = new ChatOpenAI({
     modelName: aiModel,
-    openAIApiKey: aiToken,
+    apiKey: aiToken,
     configuration: {
       baseURL: aiUrl,
     },
@@ -148,22 +404,41 @@ function getAgent() {
   }).bindTools(tools);
 
   async function callModel(state: typeof MessagesAnnotation.State) {
-    const response = await model.invoke(state.messages);
+    console.log("🤖 [Node: agent] LLM call started");
+    // Trim messages to prevent context overflow
+    const trimmedMessages = await trimMessages(state.messages);
+    const response = await model.invoke(trimmedMessages);
+    console.log("✅ [Node: agent] LLM call completed");
     return { messages: [response] };
+  }
+
+  async function callTools(state: typeof MessagesAnnotation.State) {
+    console.log("🔧 [Node: tools] Tool execution started");
+
+    const toolNode = new ToolNode(tools);
+    const result = await toolNode.invoke(state);
+    console.log("state", state);
+    console.log("✓ [Node: tools] Tool execution completed");
+    console.log("Tool outputs:", result);
+    return result;
   }
 
   const workflow = new StateGraph(MessagesAnnotation)
     .addNode("agent", callModel)
-    .addNode("tools", new ToolNode(tools))
+    .addNode("tools", callTools)
     .addEdge("__start__", "agent")
     .addConditionalEdges("agent", shouldContinue)
     .addEdge("tools", "agent");
 
-  const agentGraph = workflow.compile();
+  const checkpointer = new MemorySaver();
+  const agentGraph = workflow.compile({ checkpointer });
   return agentGraph;
 }
 
-async function runAgent(task: string): Promise<string> {
+async function runAgent(task: string): Promise<{
+  summary: string;
+  messages: BaseMessage<MessageStructure, MessageType>[];
+}> {
   const agent = getAgent();
 
   const systemMessage = {
@@ -175,9 +450,10 @@ Your goal is to complete the given task by:
 3. Executing commands to complete the task
 
 Use the execute_command tool as many times as needed to:
+- run projects (pnpm, npm, dotnet, docker, docker compose, etc)
+   > for long commands, set a timeout like "timeout 30s docker compose up --build"
 - List files (ls, find)
 - Read files (cat)
-- run projects (pnpm, npm, dotnet, docker, docker compose, etc)
 
 When you have successfully completed the task and verified the results, provide a clear summary of what was done.`,
   };
@@ -187,66 +463,81 @@ When you have successfully completed the task and verified the results, provide 
     content: task,
   };
 
-  const result = await agent.invoke(
-    {
-      messages: [systemMessage, userMessage],
-    },
-    {
-      recursionLimit: 50, // Allow up to 50 tool calls
-      configurable: {
-        callbacks: [
-          {
-            handleLLMStart: (_llm: unknown, _prompts: string[]) => {
-              console.log("🤖 LLM Call Started");
-            },
-            handleLLMEnd: (_output: unknown) => {
-              console.log("✅ LLM Call Completed");
-            },
-            handleToolStart: (_tool: unknown, input: string) => {
-              console.log("🔧 Tool Execution:", JSON.parse(input).command);
-            },
-            handleToolEnd: (output: string) => {
-              console.log("✓ Tool Result:", output.substring(0, 200));
-            },
-          },
-        ],
+  const threadId = "onlyone";
+  try {
+    const result = await agent.invoke(
+      {
+        messages: [systemMessage, userMessage],
       },
-    }
-  );
+      {
+        recursionLimit: 30,
+        configurable: {
+          thread_id: threadId,
+        },
+      }
+    );
 
-  const messages = result.messages;
+    const messages = result.messages;
 
-  // Log the full conversation flow
-  console.log("\n=== Agent Execution Summary ===");
-  messages.forEach((msg, idx: number) => {
-    const msgData = msg as {
-      role?: string;
-      tool_calls?: { name: string }[];
-      name?: string;
-      content?: string;
+    // Log the full conversation flow
+    console.log("\n=== Agent Execution Summary ===");
+
+    const lastMessage = messages[messages.length - 1];
+
+    return {
+      summary: lastMessage.content as string,
+      messages,
     };
-    if (msgData.role === "assistant" && msgData.tool_calls?.length) {
-      console.log(
-        `[${idx}] Assistant → Tool Calls:`,
-        msgData.tool_calls.map((tc) => tc.name)
-      );
-    } else if (msgData.role === "tool") {
-      console.log(
-        `[${idx}] Tool Response (${msgData.name}):`,
-        msgData.content?.substring(0, 100)
-      );
-    } else {
-      console.log(
-        `[${idx}] ${msgData.role}:`,
-        msgData.content?.substring(0, 100)
-      );
+  } catch (error) {
+    // Handle recursion limit error
+    if (error instanceof Error && error.message.includes("Recursion limit")) {
+      console.log(error);
+      console.warn("⚠️ Recursion limit reached, forcing agent to summarize");
+      const state = await agent.getState({
+        configurable: { thread_id: threadId },
+      });
+      const messages = state.values.messages;
+      console.log("state=============================", state);
+
+      // Create a new model instance without tools for the final response
+      const summaryModel = new ChatOpenAI({
+        modelName: aiModel,
+        apiKey: aiToken,
+        configuration: {
+          baseURL: aiUrl,
+        },
+        temperature: 0.1,
+      });
+
+      const summaryPrompt = {
+        role: "user" as const,
+        content: `The agent hit the recursion limit while working on: "${task}". 
+        
+Based on the command history executed so far, provide a summary of what was discovered and what still needs to be done. Be concise and helpful.`,
+      };
+
+      console.log("Generating summary of incomplete task...");
+
+      // Convert messages to proper format for invoke
+      const formattedMessages = formatMessagesForInvoke(messages);
+
+      const summaryResponse = await summaryModel.invoke([
+        ...formattedMessages,
+        summaryPrompt,
+      ]);
+      console.log("Summary response:", summaryResponse);
+
+      return {
+        summary: `⚠️ Task incomplete (recursion limit reached):\n\n${
+          summaryResponse.content as string
+        }`,
+        messages: [...messages, summaryPrompt, summaryResponse],
+      };
     }
-  });
-  console.log("================================\n");
 
-  const lastMessage = messages[messages.length - 1];
-
-  return lastMessage.content as string;
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 export const sandboxRouter = createTRPCRouter({
@@ -259,24 +550,20 @@ export const sandboxRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { command } = input;
 
-      // Get current directory
       const { stdout: pwdOutput } = await sshExec("pwd");
-      currentDirectory = stripAnsiCodes(pwdOutput.trim());
+      currentDirectory = pwdOutput.trim();
 
-      // Execute command directly via SSH
       const { stdout, stderr } = await sshExec(command);
-
-      // Store in history with cleaned output
       commandHistory.push({
         command,
-        stdout: stripAnsiCodes(stdout),
-        stderr: stripAnsiCodes(stderr),
+        stdout: ansiToHtml(stdout),
+        stderr: ansiToHtml(stderr),
         timestamp: Date.now(),
         directory: currentDirectory,
       });
 
       console.log("sandbox command", command, { stdout, stderr });
-      return { stdout: stripAnsiCodes(stdout), stderr: stripAnsiCodes(stderr) };
+      return { stdout: ansiToHtml(stdout), stderr: ansiToHtml(stderr) };
     }),
   getOutput: publicProcedure.query(async () => {
     return { history: commandHistory };
@@ -334,18 +621,17 @@ export const sandboxRouter = createTRPCRouter({
       );
 
       const { execSync } = await import("child_process");
-      // Use sh -c with glob patterns to include hidden files
-      execSync(
-        `sh -c 'cp -r ${submissionDir}/* ${submissionDir}/.[!.]* ${liveProjectDir}/ 2>/dev/null || true'`,
-        {
-          stdio: "inherit",
-        }
-      );
+      // Copy all files including hidden files - properly escape paths with spaces
+      execSync(`cp -r "${submissionDir}"/. "${liveProjectDir}"/`, {
+        stdio: "inherit",
+      });
 
       console.log("Submission loaded to /live_project successfully");
 
       // List contents to verify
       const contents = fs.readdirSync(liveProjectDir);
+
+      console.log("Contents of /live_project:", contents);
 
       return {
         success: true,
@@ -367,9 +653,6 @@ export const sandboxRouter = createTRPCRouter({
 
       const result = await runAgent(task);
 
-      return {
-        success: true,
-        result,
-      };
+      return result;
     }),
 });
