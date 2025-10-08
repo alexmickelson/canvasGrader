@@ -10,6 +10,7 @@ import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient.js";
 import type { MessageStructure, MessageType } from "@langchain/core/messages";
 import { z } from "zod";
 import { sshExec } from "./sandboxSshUtils.js";
+import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 
 const aiUrl = process.env.AI_URL;
 const aiToken = process.env.AI_TOKEN;
@@ -26,6 +27,14 @@ export function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
   }
   return "__end__";
 }
+
+const mcpClient = new MultiServerMCPClient({
+  playwright: {
+    url: "http://playwright_mcp:3901/mcp",
+  },
+});
+
+// console.log(mcpClient.getTools());
 
 // Format LangChain messages for ChatOpenAI invoke
 export function formatMessagesForInvoke(
@@ -190,7 +199,7 @@ ${messagesToSummarize
   ];
 }
 
-export function getAgent() {
+export async function getAgent() {
   if (!aiUrl || !aiToken) {
     throw new Error("AI_URL and AI_TOKEN environment variables are required");
   }
@@ -233,7 +242,7 @@ export function getAgent() {
     }
   );
 
-  const tools = [executeCommandTool];
+  const tools = [executeCommandTool, ...(await mcpClient.getTools())];
   const model = new ChatOpenAI({
     modelName: aiModel,
     apiKey: aiToken,
@@ -279,7 +288,7 @@ export async function runAgent(task: string): Promise<{
   summary: string;
   messages: BaseMessage<MessageStructure, MessageType>[];
 }> {
-  const agent = getAgent();
+  const agent = await getAgent();
 
   const systemMessage = {
     role: "system" as const,
@@ -291,9 +300,16 @@ Your goal is to complete the given task by:
 
 Use the execute_command tool as many times as needed to:
 - run projects (pnpm, npm, dotnet, docker, docker compose, etc)
-   > for long commands, set a timeout like "timeout 30s docker compose up --build"
+   > after turning on a service in the background, sleep a few seconds, then read the log file before proceeding (e.g. "docker compose up -d; sleep 5; docker compose logs") 
+   > run long running commands in the background and send the logs to a tmp logfile that you can inspect later 
+   > never follow log output with -f, --follow or the command will never exit 
 - List files (ls, find)
 - Read files (cat)
+
+never execute a command that will not exit (e.g. using the -f flag on docker logs)
+
+use the playwright mcp server for loading student projects in the browser
+- do not install playwright yourself
 
 When you have successfully completed the task and verified the results, provide a clear summary of what was done.`,
   };

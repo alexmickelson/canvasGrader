@@ -50,6 +50,7 @@ services:
     # restart: always
     ports:
       - 3901:3901
+      # - 5900:5900
 
   playwright_novnc:
     build:
@@ -70,7 +71,7 @@ services:
       context: .
       dockerfile: docker/sandbox.Dockerfile
     privileged: true
-    network_mode: service:playwright_novnc
+    network_mode: service:playwright_mcp
     depends_on:
       - playwright_mcp
     volumes:

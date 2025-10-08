@@ -23,6 +23,9 @@ importers:
       '@langchain/openai':
         specifier: 1.0.0-alpha.1
         version: 1.0.0-alpha.1(@langchain/core@1.0.0-alpha.6(openai@5.23.2(zod@3.25.76)))
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.19.1
+        version: 1.19.1
       '@tanstack/react-query':
         specifier: ^5.82.0
         version: 5.90.2(react@19.2.0)

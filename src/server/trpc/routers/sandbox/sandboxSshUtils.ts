@@ -1,6 +1,6 @@
 import { Client } from "ssh2";
 
-const SSH_HOST = "playwright_novnc";
+const SSH_HOST = "playwright_mcp";
 const SSH_PORT = 22;
 const SSH_USER = "root";
 const SSH_PASS = "password";

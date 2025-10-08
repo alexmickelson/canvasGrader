@@ -56,7 +56,7 @@ fluxbox &
 x11vnc -nopw -display :99 -forever -shared &
 
 # start playwright mcp with HTTP streaming in foreground (keeps container alive)
-exec npx @playwright/mcp@latest --no-sandbox --isolated --port 3901
+exec npx @playwright/mcp@latest --no-sandbox --isolated --port 3901 --allowed-hosts '*'
 
 EOF
 
