@@ -14,6 +14,7 @@ import {
 } from "../grader/graderHooks";
 import { useQueries } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
+import { Toggle } from "../../components/Toggle";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -73,32 +74,11 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
             />
           </div>
           <div className="flex flex-col items-center">
-            <label
-              className="
-              flex align-middle p-2 cursor-pointer
-              text-gray-300
-              hover:text-fuchsia-400
-              transition-colors duration-200 ease-in-out
-            "
-            >
-              <input
-                type="checkbox"
-                className="appearance-none peer"
-                onChange={() => setHideGraded((h) => !h)}
-              />
-              <span
-                className={`
-                  w-12 h-6 flex items-center flex-shrink-0 mx-3 p-1
-                  bg-gray-600 rounded-full
-                  duration-300 ease-in-out
-                  peer-checked:bg-fuchsia-600
-                  after:w-4 after:h-4 after:bg-white after:rounded-full after:shadow-md
-                  after:duration-300 peer-checked:after:translate-x-6
-                  group-hover:after:translate-x-1
-                `}
-              ></span>
-              <span className="">Hide fully graded assignments</span>
-            </label>
+            <Toggle
+              label="Hide fully graded assignments"
+              value={hideGraded}
+              onChange={setHideGraded}
+            />
           </div>
         </div>
       </div>

@@ -23,7 +23,7 @@ export const FileTreeNodeComponent: FC<{
         onClick={() => onSelectFile(node.path)}
       >
         <span>{getFileIcon(node.name)}</span>
-        <span>{node.name}</span>
+        <span className="truncate">{node.name}</span>
         {isLikelyMainFile(node.name) && (
           <span className="text-xs bg-yellow-500 text-black px-1 rounded">
             main

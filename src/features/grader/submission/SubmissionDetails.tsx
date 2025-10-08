@@ -32,18 +32,20 @@ export const SubmissionDetailsWrapper: FC<{
     return <span className="text-gray-400">Unknown Assignment</span>;
   }
   if (!course) {
-    console.log("cannot find course",courseId, courses);
+    console.log("cannot find course", courseId, courses);
     return <span className="text-gray-400">Unknown Course</span>;
   }
 
   return (
-    <SubmissionDetails
-      submission={submission}
-      courseId={courseId}
-      assignmentName={assignment.name}
-      termName={course.term.name}
-      courseName={course.name}
-    />
+    <>
+      <SubmissionDetails
+        submission={submission}
+        courseId={courseId}
+        assignmentName={assignment.name}
+        termName={course.term.name}
+        courseName={course.name}
+      />
+    </>
   );
 };
 

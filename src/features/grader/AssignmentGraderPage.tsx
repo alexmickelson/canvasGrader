@@ -21,6 +21,9 @@ import {
   useLoadGithubClassroomDataQuery,
 } from "./graderHooks";
 import { AiQueueStatus } from "../home/AiQueueStatus";
+import { Toggle } from "../../components/Toggle";
+import { AiSandbox } from "./submission/AiSandbox";
+import { useLoadSubmissionToSandbox } from "../sandbox/sandboxHooks";
 
 export const AssignmentGraderPage = () => {
   useLoadGithubClassroomDataQuery();
@@ -108,10 +111,27 @@ const InnerAssignmentPage: FC<{
   const [selected, setSelected] = useState<CanvasSubmission | undefined>(
     undefined
   );
+  const [showSandbox, setShowSandbox] = useState(false);
 
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
   const transcribeImagesMutation = useTranscribeSubmissionImagesMutation();
+
+  const loadSubmission = useLoadSubmissionToSandbox();
+
+  const handleSandboxToggle = async (enabled: boolean) => {
+    if (enabled && selected) {
+      // Load submission when enabling sandbox
+      await loadSubmission.mutateAsync({
+        termName: canvasCourse.term?.name || "Unknown Term",
+        courseName: canvasCourse.name,
+        assignmentId: selected.assignment_id,
+        assignmentName,
+        studentName: selected.user.name,
+      });
+    }
+    setShowSandbox(enabled);
+  };
 
   return (
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
@@ -202,14 +222,22 @@ const InnerAssignmentPage: FC<{
                     {selected ? userName(selected) : ""}
                   </div>
                   {selected && (
-                    <a
-                      href={`https://snow.instructure.com/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}&student_id=${selected.user_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 text-sm underline"
-                    >
-                      View in Canvas
-                    </a>
+                    <>
+                      <a
+                        href={`https://snow.instructure.com/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}&student_id=${selected.user_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 text-sm underline"
+                      >
+                        View in Canvas
+                      </a>
+
+                      <Toggle
+                        label="Interactive Sandbox"
+                        value={showSandbox}
+                        onChange={handleSandboxToggle}
+                      />
+                    </>
                   )}
                 </div>
 
@@ -235,7 +263,16 @@ const InnerAssignmentPage: FC<{
                 </button>
               </div>
               <div className="p-4 space-y-3 text-sm flex-1 min-h-0 ">
-                {selected && (
+                {selected && showSandbox && (
+                  <AiSandbox
+                    submission={selected}
+                    courseId={courseId}
+                    assignmentName={assignmentName}
+                    termName={canvasCourse.term?.name || "Unknown Term"}
+                    courseName={canvasCourse.name}
+                  />
+                )}
+                {selected && !showSandbox && (
                   <SubmissionDetailsWrapper
                     submission={selected}
                     courseId={Number(courseId)}

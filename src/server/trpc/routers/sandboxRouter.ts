@@ -99,6 +99,18 @@ async function sshExec(
 
 const aiUrl = process.env.AI_URL;
 const aiToken = process.env.AI_TOKEN;
+function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
+  const lastMessage = messages[messages.length - 1];
+  // Check if the message has tool calls
+  if (
+    "tool_calls" in lastMessage &&
+    Array.isArray(lastMessage.tool_calls) &&
+    lastMessage.tool_calls.length > 0
+  ) {
+    return "tools";
+  }
+  return "__end__";
+}
 
 function getAgent() {
   if (!aiUrl || !aiToken) {
@@ -135,19 +147,6 @@ function getAgent() {
     temperature: 0.1,
   }).bindTools(tools);
 
-  function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
-    const lastMessage = messages[messages.length - 1];
-    // Check if the message has tool calls
-    if (
-      "tool_calls" in lastMessage &&
-      Array.isArray(lastMessage.tool_calls) &&
-      lastMessage.tool_calls.length > 0
-    ) {
-      return "tools";
-    }
-    return "__end__";
-  }
-
   async function callModel(state: typeof MessagesAnnotation.State) {
     const response = await model.invoke(state.messages);
     return { messages: [response] };
@@ -169,21 +168,18 @@ async function runAgent(task: string): Promise<string> {
 
   const systemMessage = {
     role: "system" as const,
-    content: `You are a helpful coding assistant. You have access to a project in /live_project.
+    content: `You are a helpful coding assistant. You have access to a student programming project in /live_project.
 Your goal is to complete the given task by:
 1. First understanding the project structure by executing commands
 2. Reading relevant files
 3. Executing commands to complete the task
-4. Verifying the results
-5. Continue using tools until the task is fully complete
 
 Use the execute_command tool as many times as needed to:
 - List files (ls, find)
 - Read files (cat)
 - run projects (pnpm, npm, dotnet, docker, docker compose, etc)
 
-When you have successfully completed the task and verified the results, provide a clear summary of what was done.
-Do NOT stop until the task is fully complete or failed`,
+When you have successfully completed the task and verified the results, provide a clear summary of what was done.`,
   };
 
   const userMessage = {
@@ -197,13 +193,57 @@ Do NOT stop until the task is fully complete or failed`,
     },
     {
       recursionLimit: 50, // Allow up to 50 tool calls
+      configurable: {
+        callbacks: [
+          {
+            handleLLMStart: (_llm: unknown, _prompts: string[]) => {
+              console.log("🤖 LLM Call Started");
+            },
+            handleLLMEnd: (_output: unknown) => {
+              console.log("✅ LLM Call Completed");
+            },
+            handleToolStart: (_tool: unknown, input: string) => {
+              console.log("🔧 Tool Execution:", JSON.parse(input).command);
+            },
+            handleToolEnd: (output: string) => {
+              console.log("✓ Tool Result:", output.substring(0, 200));
+            },
+          },
+        ],
+      },
     }
   );
 
   const messages = result.messages;
 
-  console.log("langgraph result", result.messages);
-  
+  // Log the full conversation flow
+  console.log("\n=== Agent Execution Summary ===");
+  messages.forEach((msg, idx: number) => {
+    const msgData = msg as {
+      role?: string;
+      tool_calls?: { name: string }[];
+      name?: string;
+      content?: string;
+    };
+    if (msgData.role === "assistant" && msgData.tool_calls?.length) {
+      console.log(
+        `[${idx}] Assistant → Tool Calls:`,
+        msgData.tool_calls.map((tc) => tc.name)
+      );
+    } else if (msgData.role === "tool") {
+      console.log(
+        `[${idx}] Tool Response (${msgData.name}):`,
+        msgData.content?.substring(0, 100)
+      );
+    } else {
+      console.log(
+        `[${idx}] ${msgData.role}:`,
+        msgData.content?.substring(0, 100)
+      );
+    }
+  });
+  console.log("================================\n");
+
   const lastMessage = messages[messages.length - 1];
 
   return lastMessage.content as string;
