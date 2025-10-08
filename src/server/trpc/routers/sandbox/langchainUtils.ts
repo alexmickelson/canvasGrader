@@ -1,9 +1,3 @@
-import { createTRPCRouter, publicProcedure } from "../utils/trpc";
-import { z } from "zod";
-import { Client } from "ssh2";
-import { getSubmissionDirectory } from "./canvas/canvasStorageUtils.js";
-import fs from "fs";
-import path from "path";
 import { ChatOpenAI } from "@langchain/openai";
 import {
   StateGraph,
@@ -12,169 +6,15 @@ import {
 } from "@langchain/langgraph";
 import { tool } from "@langchain/core/tools";
 import { BaseMessage, ToolNode } from "langchain";
-import { aiModel } from "../../../utils/aiUtils/getOpenaiClient.js";
+import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient.js";
 import type { MessageStructure, MessageType } from "@langchain/core/messages";
-
-const SSH_HOST = "playwright_novnc";
-const SSH_PORT = 22;
-const SSH_USER = "root";
-const SSH_PASS = "password";
+import { z } from "zod";
+import { sshExec } from "./sandboxSshUtils.js";
 
 const aiUrl = process.env.AI_URL;
 const aiToken = process.env.AI_TOKEN;
-if (!aiUrl || !aiToken) {
-  console.warn(
-    "AI_URL and AI_TOKEN environment variables are required for AI features"
-  );
-}
 
-let sshClient: Client | null = null;
-let isConnected = false;
-let currentDirectory = "~";
-const commandHistory: Array<{
-  command: string;
-  stdout: string;
-  stderr: string;
-  timestamp: number;
-  directory: string;
-}> = [];
-
-function ansiToHtml(str: string): string {
-  const ansiColorMap: Record<string, string> = {
-    // Foreground colors
-    "30": "color: #000",
-    "31": "color: #e06c75",
-    "32": "color: #98c379",
-    "33": "color: #e5c07b",
-    "34": "color: #61afef",
-    "35": "color: #c678dd",
-    "36": "color: #56b6c2",
-    "37": "color: #abb2bf",
-    "90": "color: #5c6370",
-    "91": "color: #e06c75",
-    "92": "color: #98c379",
-    "93": "color: #e5c07b",
-    "94": "color: #61afef",
-    "95": "color: #c678dd",
-    "96": "color: #56b6c2",
-    "97": "color: #fff",
-    // Background colors
-    "40": "background-color: #000",
-    "41": "background-color: #e06c75",
-    "42": "background-color: #98c379",
-    "43": "background-color: #e5c07b",
-    "44": "background-color: #61afef",
-    "45": "background-color: #c678dd",
-    "46": "background-color: #56b6c2",
-    "47": "background-color: #abb2bf",
-    // Text styles
-    "1": "font-weight: bold",
-    "3": "font-style: italic",
-    "4": "text-decoration: underline",
-  };
-
-  let html = str;
-  const styles: string[] = [];
-
-  // eslint-disable-next-line no-control-regex
-  html = html.replace(/\x1b\[([0-9;]*)m/g, (_match, codes) => {
-    if (codes === "0" || codes === "") {
-      // Reset
-      if (styles.length > 0) {
-        styles.length = 0;
-        return "</span>";
-      }
-      return "";
-    }
-
-    const codeList = codes.split(";");
-    const newStyles = codeList
-      .map((code: string) => ansiColorMap[code])
-      .filter(Boolean);
-
-    if (newStyles.length > 0) {
-      styles.push(...newStyles);
-      return `<span style="${styles.join("; ")}">`;
-    }
-
-    return "";
-  });
-
-  // Close any unclosed spans
-  if (styles.length > 0) {
-    html += "</span>";
-  }
-
-  return html;
-}
-
-async function getSSHConnection(): Promise<Client> {
-  if (sshClient && isConnected) {
-    return sshClient;
-  }
-
-  return new Promise((resolve, reject) => {
-    const conn = new Client();
-
-    conn.on("ready", () => {
-      console.log("SSH connection established");
-      sshClient = conn;
-      isConnected = true;
-      resolve(conn);
-    });
-
-    conn.on("error", (err) => {
-      console.error("SSH connection error:", err);
-      isConnected = false;
-      reject(err);
-    });
-
-    conn.on("close", () => {
-      console.log("SSH connection closed");
-      isConnected = false;
-      sshClient = null;
-    });
-
-    conn.connect({
-      host: SSH_HOST,
-      port: SSH_PORT,
-      username: SSH_USER,
-      password: SSH_PASS,
-    });
-  });
-}
-
-async function sshExec(
-  command: string
-): Promise<{ stdout: string; stderr: string }> {
-  const conn = await getSSHConnection();
-
-  return new Promise((resolve, reject) => {
-    // Prepend cd command to ensure we're in /live_project
-    const fullCommand = `cd /live_project && ${command}`;
-
-    conn.exec(fullCommand, { pty: true }, (err, stream) => {
-      if (err) return reject(err);
-
-      let stdout = "";
-      let stderr = "";
-
-      stream.on("data", (data: Buffer) => {
-        stdout += data.toString();
-      });
-
-      stream.stderr.on("data", (data: Buffer) => {
-        stderr += data.toString();
-      });
-
-      stream.on("close", () => {
-        resolve({ stdout, stderr });
-      });
-    });
-  });
-}
-
-function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
+export function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
   const lastMessage = messages[messages.length - 1];
   // Check if the message has tool calls
   if (
@@ -188,7 +28,7 @@ function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
 }
 
 // Format LangChain messages for ChatOpenAI invoke
-function formatMessagesForInvoke(
+export function formatMessagesForInvoke(
   messages: BaseMessage<MessageStructure, MessageType>[]
 ): Array<{ role: string; content: string }> {
   return messages.map((msg) => {
@@ -266,7 +106,7 @@ function formatMessagesForInvoke(
 }
 
 // Trim messages to keep context size manageable
-async function trimMessages(
+export async function trimMessages(
   messages: typeof MessagesAnnotation.State.messages
 ) {
   // Keep system message (first), user message (second), and last 20 messages
@@ -350,7 +190,7 @@ ${messagesToSummarize
   ];
 }
 
-function getAgent() {
+export function getAgent() {
   if (!aiUrl || !aiToken) {
     throw new Error("AI_URL and AI_TOKEN environment variables are required");
   }
@@ -435,7 +275,7 @@ function getAgent() {
   return agentGraph;
 }
 
-async function runAgent(task: string): Promise<{
+export async function runAgent(task: string): Promise<{
   summary: string;
   messages: BaseMessage<MessageStructure, MessageType>[];
 }> {
@@ -539,120 +379,3 @@ Based on the command history executed so far, provide a summary of what was disc
     throw error;
   }
 }
-
-export const sandboxRouter = createTRPCRouter({
-  executeCommand: publicProcedure
-    .input(
-      z.object({
-        command: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const { command } = input;
-
-      const { stdout: pwdOutput } = await sshExec("pwd");
-      currentDirectory = pwdOutput.trim();
-
-      const { stdout, stderr } = await sshExec(command);
-      commandHistory.push({
-        command,
-        stdout: ansiToHtml(stdout),
-        stderr: ansiToHtml(stderr),
-        timestamp: Date.now(),
-        directory: currentDirectory,
-      });
-
-      console.log("sandbox command", command, { stdout, stderr });
-      return { stdout: ansiToHtml(stdout), stderr: ansiToHtml(stderr) };
-    }),
-  getOutput: publicProcedure.query(async () => {
-    return { history: commandHistory };
-  }),
-
-  loadSubmissionToSandbox: publicProcedure
-    .input(
-      z.object({
-        termName: z.string(),
-        courseName: z.string(),
-        assignmentId: z.number(),
-        assignmentName: z.string(),
-        studentName: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const {
-        termName,
-        courseName,
-        assignmentId,
-        assignmentName,
-        studentName,
-      } = input;
-
-      // Get the submission directory
-      const submissionDir = getSubmissionDirectory({
-        termName,
-        courseName,
-        assignmentId,
-        assignmentName,
-        studentName,
-      });
-
-      if (!fs.existsSync(submissionDir)) {
-        throw new Error(`Submission directory not found: ${submissionDir}`);
-      }
-
-      const liveProjectDir = "/live_project";
-
-      // Clear /live_project directory first
-      console.log("Clearing /live_project directory...");
-      if (fs.existsSync(liveProjectDir)) {
-        const entries = fs.readdirSync(liveProjectDir);
-        for (const entry of entries) {
-          const fullPath = path.join(liveProjectDir, entry);
-          fs.rmSync(fullPath, { recursive: true, force: true });
-        }
-      } else {
-        fs.mkdirSync(liveProjectDir, { recursive: true });
-      }
-
-      // Copy submission files to /live_project using cp command
-      console.log(
-        `Copying submission from ${submissionDir} to ${liveProjectDir}...`
-      );
-
-      const { execSync } = await import("child_process");
-      // Copy all files including hidden files - properly escape paths with spaces
-      execSync(`cp -r "${submissionDir}"/. "${liveProjectDir}"/`, {
-        stdio: "inherit",
-      });
-
-      console.log("Submission loaded to /live_project successfully");
-
-      // List contents to verify
-      const contents = fs.readdirSync(liveProjectDir);
-
-      console.log("Contents of /live_project:", contents);
-
-      return {
-        success: true,
-        message: "Submission loaded successfully",
-        contents: contents.join(", "),
-      };
-    }),
-
-  aiTask: publicProcedure
-    .input(
-      z.object({
-        task: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const { task } = input;
-
-      console.log("AI Task received:", task);
-
-      const result = await runAgent(task);
-
-      return result;
-    }),
-});

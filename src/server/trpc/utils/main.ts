@@ -3,7 +3,7 @@ import { settingsRouter } from "../routers/settingsRouter.js";
 import { rubricAiReportRouter } from "../routers/rubricAI/rubricAiReportRouter.js";
 import { fileViewerRouter } from "../routers/fileViewerRouter.js";
 import { aiQueueRouter } from "../routers/aiQueueRouter.js";
-import { sandboxRouter } from "../routers/sandboxRouter.js";
+import { sandboxRouter } from "../routers/sandbox/sandboxRouter.js";
 import { githubClassroomRouter } from "../routers/githubClassroomRouter.js";
 import { attachmentsRouter } from "../routers/canvas/attachmentsRouter.js";
 import { assignmentsRouter } from "../routers/canvas/assignmentsRouter.js";

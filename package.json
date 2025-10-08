@@ -20,6 +20,7 @@
     "@huggingface/transformers": "3.5.0",
     "@langchain/core": "1.0.0-alpha.6",
     "@langchain/langgraph": "1.0.0-alpha.5",
+    "@langchain/mcp-adapters": "^0.6.0",
     "@langchain/openai": "1.0.0-alpha.1",
     "@tanstack/react-query": "^5.82.0",
     "@trpc/client": "^11.4.3",
