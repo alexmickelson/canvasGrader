@@ -17,7 +17,7 @@ export const GitHubMappingPanel: FC<{
   // Fetch enrollments from server storage (suspense query)
   const trpc = useTRPC();
   const enrollmentsQuery = useSuspenseQuery(
-    trpc.canvas.listCourseEnrollments.queryOptions({ courseId })
+    trpc.canvas.course.listCourseEnrollments.queryOptions({ courseId })
   );
   const studentEnrollments = enrollmentsQuery.data.filter(
     (e) => e.type === "StudentEnrollment"

@@ -59,7 +59,6 @@ services:
     container_name: playwrite_novnc
     ports:
       - 3903:3903
-      # - 2222:22
     depends_on:
       - playwright_mcp
     command: >

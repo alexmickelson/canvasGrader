@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { sshExec, ansiToHtml } from "./sandboxSshUtils.js";
 import { runAgent } from "./langchainUtils.js";
+import type { BaseMessage, MessageStructure, MessageType } from "@langchain/core/messages";
 
 let currentDirectory = "~";
 const commandHistory: Array<{
@@ -121,13 +122,30 @@ export const sandboxRouter = createTRPCRouter({
         task: z.string(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async function* ({ input }) {
       const { task } = input;
 
       console.log("AI Task received:", task);
 
-      const result = await runAgent(task);
+      const itterable = runAgent(task);
 
-      return result;
+      let value: IteratorResult<
+        BaseMessage<MessageStructure, MessageType>,
+        {
+          summary: string;
+          messages: unknown[];
+        }
+      > = await itterable.next();
+      while (!value.done) {
+        yield value.value;
+        value = await itterable.next();
+      }
+      return value.value;
+
+      // for await (const message of itterable) {
+      //   yield { message };
+      // }
+
+      // return await itterable
     }),
 });

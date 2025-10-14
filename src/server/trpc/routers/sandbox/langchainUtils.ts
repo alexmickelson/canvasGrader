@@ -8,14 +8,15 @@ import { tool } from "@langchain/core/tools";
 import { BaseMessage, ToolNode } from "langchain";
 import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient.js";
 import type { MessageStructure, MessageType } from "@langchain/core/messages";
-import { z } from "zod";
 import { sshExec } from "./sandboxSshUtils.js";
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
+import { z } from "zod";
 
 const aiUrl = process.env.AI_URL;
 const aiToken = process.env.AI_TOKEN;
 
 export function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
+  console.log("checking if should continue", messages);
   const lastMessage = messages[messages.length - 1];
   // Check if the message has tool calls
   if (
@@ -28,13 +29,18 @@ export function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
   return "__end__";
 }
 
-const mcpClient = new MultiServerMCPClient({
-  playwright: {
-    url: "http://playwright_mcp:3901/mcp",
-  },
-});
+let mcpClient: MultiServerMCPClient | null = null;
 
-// console.log(mcpClient.getTools());
+async function getMcpClient() {
+  if (!mcpClient) {
+    mcpClient = new MultiServerMCPClient({
+      playwright: {
+        url: "http://playwright_mcp:3901/mcp",
+      },
+    });
+  }
+  return mcpClient;
+}
 
 // Format LangChain messages for ChatOpenAI invoke
 export function formatMessagesForInvoke(
@@ -114,135 +120,61 @@ export function formatMessagesForInvoke(
   });
 }
 
-// Trim messages to keep context size manageable
-export async function trimMessages(
-  messages: typeof MessagesAnnotation.State.messages
-) {
-  // Keep system message (first), user message (second), and last 20 messages
-  if (messages.length <= 22) return messages;
+const executeCommandTool = tool(
+  async (input) => {
+    const { command } = input as { command: string };
+    console.log(`Agent executing command: ${command}`);
+    const { stdout, stderr } = await sshExec(command);
 
-  const systemMsg = messages[0];
-  const userMsg = messages[1];
-  const middleMessages = messages.slice(2, -20);
-  const recentMessages = messages.slice(-20);
+    if (stderr && stderr.trim()) {
+      const message = `Stderr: ${stderr}\nStdout: ${stdout}`;
 
-  // Find existing summary messages (to avoid re-summarizing)
-  const existingSummaries = middleMessages.filter((msg) => {
-    const content = (msg as { content?: string }).content || "";
-    return content.startsWith("📝 Summary of previous");
-  });
-
-  // Get messages that haven't been summarized yet (exclude existing summaries)
-  const messagesToSummarize = middleMessages.filter((msg) => {
-    const content = (msg as { content?: string }).content || "";
-    return !content.startsWith("📝 Summary of previous");
-  });
-
-  // Only create a new summary if there are messages to summarize
-  if (messagesToSummarize.length === 0) {
-    return [systemMsg, userMsg, ...existingSummaries, ...recentMessages];
-  }
-
-  // Create summary of the middle messages
-  const summaryModel = new ChatOpenAI({
-    modelName: aiModel,
-    apiKey: aiToken,
-    configuration: {
-      baseURL: aiUrl,
-    },
-    temperature: 0.1,
-  });
-
-  const summaryPrompt = `Summarize the following command execution history. Include key findings, files discovered, and important results. Be concise but informative.
-
-${messagesToSummarize
-  .map((msg, idx) => {
-    const msgData = msg as {
-      role?: string;
-      tool_calls?: Array<{ name: string; args: unknown }>;
-      name?: string;
-      content?: string;
-    };
-    if (msgData.role === "assistant" && msgData.tool_calls) {
-      return `[${idx}] Tool Call: ${msgData.tool_calls
-        .map((tc) => `${tc.name}(${JSON.stringify(tc.args)})`)
-        .join(", ")}`;
-    } else if (msgData.role === "tool") {
-      return `[${idx}] Tool Result (${
-        msgData.name
-      }): ${msgData.content?.substring(0, 200)}`;
-    } else if (msgData.role === "assistant") {
-      return `[${idx}] Assistant: ${msgData.content?.substring(0, 200)}`;
+      console.log(message);
+      return message;
     }
-    return "";
-  })
-  .filter(Boolean)
-  .join("\n")}`;
-
-  const summaryResponse = await summaryModel.invoke([
-    { role: "user", content: summaryPrompt },
-  ]);
-
-  const summaryMessage = {
-    role: "assistant" as const,
-    content: `📝 Summary of previous ${
-      messagesToSummarize.length
-    } messages:\n\n${summaryResponse.content as string}`,
-  };
-
-  return [
-    systemMsg,
-    userMsg,
-    ...existingSummaries,
-    summaryMessage,
-    ...recentMessages,
-  ];
-}
+    const res = `Output: ${stdout}`;
+    console.log(res);
+    return res;
+  },
+  {
+    name: "execute_command",
+    description:
+      "Execute a shell command in the /live_project directory. Use this to run code, install dependencies, check files, etc.",
+    schema: z.object({
+      command: z.string().describe("The shell command to execute"),
+    }),
+  }
+);
 
 export async function getAgent() {
   if (!aiUrl || !aiToken) {
     throw new Error("AI_URL and AI_TOKEN environment variables are required");
   }
 
-  const executeCommandTool = tool(
-    async ({ command }: { command: string }) => {
-      console.log(`Agent executing command: ${command}`);
-      const { stdout, stderr } = await sshExec(command);
-
-      // Truncate output to prevent context overflow
-      const maxOutputLength = 2000;
-      const truncatedStdout =
-        stdout.length > maxOutputLength
-          ? stdout.substring(0, maxOutputLength) +
-            `\n... (truncated ${stdout.length - maxOutputLength} chars)`
-          : stdout;
-      const truncatedStderr =
-        stderr.length > maxOutputLength
-          ? stderr.substring(0, maxOutputLength) +
-            `\n... (truncated ${stderr.length - maxOutputLength} chars)`
-          : stderr;
-
-      if (stderr && stderr.trim()) {
-        const message = `Stderr: ${truncatedStderr}\nStdout: ${truncatedStdout}`;
-
-        console.log(message);
-        return message;
-      }
-      const res = `Output: ${truncatedStdout}`;
-      console.log(res);
-      return res;
-    },
-    {
-      name: "execute_command",
-      description:
-        "Execute a shell command in the /live_project directory. Use this to run code, install dependencies, check files, etc.",
-      schema: z.object({
-        command: z.string().describe("The shell command to execute"),
-      }),
-    }
+  const client = await getMcpClient();
+  const mcpTools = await client.getTools();
+  console.log("MCP Tools available:", mcpTools.length);
+  const tools = [executeCommandTool, ...mcpTools];
+  console.log(
+    "Total tools:",
+    tools.length,
+    tools.map((t) => t.name)
   );
 
-  const tools = [executeCommandTool, ...(await mcpClient.getTools())];
+  // Log tool schemas to verify they're valid
+  console.log(
+    "Tool schemas:",
+    JSON.stringify(
+      tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        schema: t.schema,
+      })),
+      null,
+      2
+    )
+  );
+
   const model = new ChatOpenAI({
     modelName: aiModel,
     apiKey: aiToken,
@@ -254,10 +186,17 @@ export async function getAgent() {
 
   async function callModel(state: typeof MessagesAnnotation.State) {
     console.log("🤖 [Node: agent] LLM call started");
+    console.log("Messages being sent:", state.messages.length);
     // Trim messages to prevent context overflow
-    const trimmedMessages = await trimMessages(state.messages);
-    const response = await model.invoke(trimmedMessages);
+    const response = await model.invoke(state.messages);
     console.log("✅ [Node: agent] LLM call completed");
+    // console.log(
+    //   "Response has tool_calls:",
+    //   "tool_calls" in response && response.tool_calls?.length
+    // );
+    // if (response.tool_calls && response.tool_calls.length > 0) {
+    //   console.log("Tool calls:", JSON.stringify(response.tool_calls, null, 2));
+    // }
     return { messages: [response] };
   }
 
@@ -266,9 +205,9 @@ export async function getAgent() {
 
     const toolNode = new ToolNode(tools);
     const result = await toolNode.invoke(state);
-    console.log("state", state);
-    console.log("✓ [Node: tools] Tool execution completed");
-    console.log("Tool outputs:", result);
+    // console.log("state", state);
+    // console.log("✓ [Node: tools] Tool execution completed");
+    // console.log("Tool outputs:", result);
     return result;
   }
 
@@ -284,10 +223,7 @@ export async function getAgent() {
   return agentGraph;
 }
 
-export async function runAgent(task: string): Promise<{
-  summary: string;
-  messages: BaseMessage<MessageStructure, MessageType>[];
-}> {
+export async function* runAgent(task: string){
   const agent = await getAgent();
 
   const systemMessage = {
@@ -311,7 +247,7 @@ never execute a command that will not exit (e.g. using the -f flag on docker log
 use the playwright mcp server for loading student projects in the browser
 - do not install playwright yourself
 
-When you have successfully completed the task and verified the results, provide a clear summary of what was done.`,
+start executing tool calls immediately, do not update the user what with what is happening until the end`,
   };
 
   const userMessage = {
@@ -321,7 +257,7 @@ When you have successfully completed the task and verified the results, provide 
 
   const threadId = "onlyone";
   try {
-    const result = await agent.invoke(
+    const stream = await agent.stream(
       {
         messages: [systemMessage, userMessage],
       },
@@ -330,22 +266,25 @@ When you have successfully completed the task and verified the results, provide 
         configurable: {
           thread_id: threadId,
         },
+        streamMode: "messages",
       }
     );
 
-    const messages = result.messages;
+    const allMessages: BaseMessage<MessageStructure, MessageType>[] = [];
 
-    // Log the full conversation flow
-    console.log("\n=== Agent Execution Summary ===");
+    for await (const [message] of stream) {
+      allMessages.push(message);
+      yield message;
+    }
 
-    const lastMessage = messages[messages.length - 1];
-
+    const lastMessage = allMessages[allMessages.length - 1];
+  
+    // swallowed by generator
     return {
       summary: lastMessage.content as string,
-      messages,
+      messages: allMessages,
     };
   } catch (error) {
-    // Handle recursion limit error
     if (error instanceof Error && error.message.includes("Recursion limit")) {
       console.log(error);
       console.warn("⚠️ Recursion limit reached, forcing agent to summarize");
@@ -355,7 +294,6 @@ When you have successfully completed the task and verified the results, provide 
       const messages = state.values.messages;
       console.log("state=============================", state);
 
-      // Create a new model instance without tools for the final response
       const summaryModel = new ChatOpenAI({
         modelName: aiModel,
         apiKey: aiToken,
@@ -374,7 +312,6 @@ Based on the command history executed so far, provide a summary of what was disc
 
       console.log("Generating summary of incomplete task...");
 
-      // Convert messages to proper format for invoke
       const formattedMessages = formatMessagesForInvoke(messages);
 
       const summaryResponse = await summaryModel.invoke([
@@ -391,7 +328,6 @@ Based on the command history executed so far, provide a summary of what was disc
       };
     }
 
-    // Re-throw other errors
     throw error;
   }
 }
