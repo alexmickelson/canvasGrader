@@ -6,7 +6,29 @@ const pgp = pgpromise({
     await pgvector.registerTypes(e.client);
   },
 });
-export const db = pgp("postgres://siteuser:postgresewvraer@db:5432/my_db");
+
+const dbUser = process.env.POSTGRES_USER;
+const dbPassword = process.env.POSTGRES_PASSWORD;
+const dbHost = process.env.POSTGRES_HOST;
+const dbPort = process.env.POSTGRES_PORT || "5432";
+const dbName = process.env.POSTGRES_DB;
+
+if (!dbUser) {
+  throw new Error("POSTGRES_USER environment variable is required");
+}
+if (!dbPassword) {
+  throw new Error("POSTGRES_PASSWORD environment variable is required");
+}
+if (!dbHost) {
+  throw new Error("POSTGRES_HOST environment variable is required");
+}
+if (!dbName) {
+  throw new Error("POSTGRES_DB environment variable is required");
+}
+
+export const db = pgp(
+  `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`
+);
 
 db.$config.options.error = (err, e) => {
   console.error("Database error:", err);
@@ -18,63 +40,40 @@ db.$config.options.error = (err, e) => {
   }
 };
 
-export async function executeReadOnlySQL(
-  sql: string,
-  parameters: Record<string, unknown> | undefined
-) {
-  const res = await db.tx(
-    { mode: new pgp.txMode.TransactionMode({ readOnly: true }) },
-    async (t) => {
-      return t.any(sql, parameters ?? {});
-    }
+// Apply schema on startup
+db.none(
+  `
+  CREATE TABLE IF NOT EXISTS courses (
+    id BIGINT UNIQUE NOT NULL,
+    term_id BIGINT,
+    term_name TEXT,
+    canvas_object JSONB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
-  // console.log("result:", res);
-
-  return res;
-}
-
-export async function listDbSchema() {
-  // Get all table names in the public schema
-  const tablesResult = await db.any(`
-    SELECT tablename
-    FROM pg_catalog.pg_tables
-    WHERE schemaname = 'public'
-  `);
-  const tables = tablesResult.map(
-    (row: { tablename: string }) => row.tablename
+  CREATE TABLE IF NOT EXISTS assignments (
+    id BIGINT UNIQUE NOT NULL,
+    course_id BIGINT NOT NULL,
+    canvas_object JSONB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
-  // For each table, get its DDL using a custom query
-  const ddls = await Promise.all(
-    tables.map(async (t) => {
-      const [{ ddl }] = await db.any(
-        `
-        SELECT 'CREATE TABLE ' || tablename || E' (\n' ||
-          string_agg('  ' || column_name || ' ' || type || 
-            CASE WHEN is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END, E',\n') ||
-          E'\n);' as ddl
-        FROM (
-          SELECT
-            c.relname as tablename,
-            a.attname as column_name,
-            pg_catalog.format_type(a.atttypid, a.atttypmod) as type,
-            CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END as is_nullable
-          FROM pg_class c
-            JOIN pg_namespace n ON n.oid = c.relnamespace
-            JOIN pg_attribute a ON a.attrelid = c.oid
-          WHERE c.relkind = 'r'
-            AND c.relname =  $<tableName>
-            AND n.nspname = 'public'
-            AND a.attnum > 0
-            AND NOT a.attisdropped
-        ) cols
-        GROUP BY tablename
-      `,
-        { tableName: t }
-      );
-      return { table: t, ddl };
-    })
+  CREATE TABLE IF NOT EXISTS enrollments (
+    id BIGINT UNIQUE NOT NULL,
+    course_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    canvas_object JSONB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
-  return ddls;
-}
+
+  CREATE TABLE IF NOT EXISTS submissions (
+    id BIGINT UNIQUE NOT NULL,
+    assignment_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    canvas_object JSONB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`
+).catch((err) => {
+  console.error("Error creating tables:", err);
+});

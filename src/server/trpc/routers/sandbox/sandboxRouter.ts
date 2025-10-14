@@ -120,14 +120,15 @@ export const sandboxRouter = createTRPCRouter({
     .input(
       z.object({
         task: z.string(),
+        messageLimit: z.number(),
       })
     )
     .mutation(async function* ({ input }) {
-      const { task } = input;
+      const { task, messageLimit } = input;
 
       console.log("AI Task received:", task);
 
-      const itterable = runAgent(task);
+      const itterable = runAgent(task, messageLimit);
 
       let value: IteratorResult<
         BaseMessage<MessageStructure, MessageType>,

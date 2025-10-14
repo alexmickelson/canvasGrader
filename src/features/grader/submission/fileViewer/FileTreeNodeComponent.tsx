@@ -18,17 +18,12 @@ export const FileTreeNodeComponent: FC<{
           selectedFile === node.path
             ? "bg-gray-800 text-indigo-300"
             : "text-gray-200"
-        } ${isLikelyMainFile(node.name) ? "border-l-2 border-yellow-500" : ""}`}
+        }`}
         style={{ paddingLeft: `${node.level * 20 + 8}px` }}
         onClick={() => onSelectFile(node.path)}
       >
         <span>{getFileIcon(node.name)}</span>
         <span className="truncate">{node.name}</span>
-        {isLikelyMainFile(node.name) && (
-          <span className="text-xs bg-yellow-500 text-black px-1 rounded">
-            main
-          </span>
-        )}
       </div>
     );
   }
@@ -93,20 +88,6 @@ export const getFileIcon = (fileName: string): string => {
 
   return "📄";
 };
-// Helper function to determine if file is likely a main submission file
-
-export const isLikelyMainFile = (fileName: string): boolean => {
-  const name = fileName.toLowerCase();
-  return (
-    name.includes("main") ||
-    name.includes("index") ||
-    name.includes("app") ||
-    name.includes("assignment") ||
-    name.includes("homework") ||
-    name.includes("project")
-  );
-};
-// Helper function to build tree structure from file paths
 
 export interface TreeNode {
   name: string;

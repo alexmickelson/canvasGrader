@@ -26,16 +26,12 @@ services:
       - live_project:/live_project
     environment:
       - GH_TOKEN=${GH_TOKEN} # get from `gh auth token`
+      - POSTGRES_USER=canvasuser
+      - POSTGRES_PASSWORD=3498h2b79171bp0sdnfaon38
+      - POSTGRES_DB=canvasgrader
+      - POSTGRES_HOST=canvas_ai_postgres
     working_dir: /app
     network_mode: service:app
-    # entrypoint: sh
-    # command: |
-    #   -c "
-    #     cd /app
-    #     npm i -g pnpm
-    #     pnpm install
-    #     pnpm run server
-    #   "
 
   # sandbox container for running code 1 at a time (maybe should have dynamically spawn?)
   #    dependencies: pnpm, uvx, dotnet, docker in docker?
@@ -76,5 +72,23 @@ services:
     volumes:
       - live_project:/live_project
 
+  postgres:
+    container_name: canvas_ai_postgres
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=canvasuser
+      - POSTGRES_PASSWORD=3498h2b79171bp0sdnfaon38
+      - POSTGRES_DB=canvasgrader
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canvasuser -d canvasgrader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   live_project:
+  postgres_data:

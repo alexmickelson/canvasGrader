@@ -5,7 +5,6 @@ import Spinner from "../../../../utils/Spinner";
 import { useViewingItem } from "../../shared/viewingItemContext/ViewingItemContext";
 import {
   FileTreeNodeComponent,
-  isLikelyMainFile,
   type TreeNode,
 } from "./FileTreeNodeComponent";
 
@@ -46,14 +45,6 @@ const buildFileTree = (filePaths: string[]): TreeNode[] => {
       .sort((a, b) => {
         if (a.isFile !== b.isFile) {
           return a.isFile ? 1 : -1; // directories first
-        }
-        if (a.isFile) {
-          // For files, prioritize main files
-          const aIsMain = isLikelyMainFile(a.name);
-          const bIsMain = isLikelyMainFile(b.name);
-          if (aIsMain !== bIsMain) {
-            return aIsMain ? -1 : 1;
-          }
         }
         return a.name.localeCompare(b.name);
       })

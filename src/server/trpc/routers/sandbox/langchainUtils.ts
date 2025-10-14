@@ -153,26 +153,12 @@ export async function getAgent() {
 
   const client = await getMcpClient();
   const mcpTools = await client.getTools();
-  console.log("MCP Tools available:", mcpTools.length);
+  // console.log("MCP Tools available:", mcpTools.length);
   const tools = [executeCommandTool, ...mcpTools];
   console.log(
     "Total tools:",
     tools.length,
     tools.map((t) => t.name)
-  );
-
-  // Log tool schemas to verify they're valid
-  console.log(
-    "Tool schemas:",
-    JSON.stringify(
-      tools.map((t) => ({
-        name: t.name,
-        description: t.description,
-        schema: t.schema,
-      })),
-      null,
-      2
-    )
   );
 
   const model = new ChatOpenAI({
@@ -185,18 +171,10 @@ export async function getAgent() {
   }).bindTools(tools);
 
   async function callModel(state: typeof MessagesAnnotation.State) {
-    console.log("🤖 [Node: agent] LLM call started");
-    console.log("Messages being sent:", state.messages.length);
+    console.log("🤖 [Node: agent] LLM call started with message count", state.messages.length);
     // Trim messages to prevent context overflow
     const response = await model.invoke(state.messages);
     console.log("✅ [Node: agent] LLM call completed");
-    // console.log(
-    //   "Response has tool_calls:",
-    //   "tool_calls" in response && response.tool_calls?.length
-    // );
-    // if (response.tool_calls && response.tool_calls.length > 0) {
-    //   console.log("Tool calls:", JSON.stringify(response.tool_calls, null, 2));
-    // }
     return { messages: [response] };
   }
 
@@ -205,9 +183,6 @@ export async function getAgent() {
 
     const toolNode = new ToolNode(tools);
     const result = await toolNode.invoke(state);
-    // console.log("state", state);
-    // console.log("✓ [Node: tools] Tool execution completed");
-    // console.log("Tool outputs:", result);
     return result;
   }
 
@@ -223,7 +198,7 @@ export async function getAgent() {
   return agentGraph;
 }
 
-export async function* runAgent(task: string){
+export async function* runAgent(task: string, messageLimit: number) {
   const agent = await getAgent();
 
   const systemMessage = {
@@ -262,7 +237,7 @@ start executing tool calls immediately, do not update the user what with what is
         messages: [systemMessage, userMessage],
       },
       {
-        recursionLimit: 30,
+        recursionLimit: messageLimit,
         configurable: {
           thread_id: threadId,
         },
@@ -273,6 +248,7 @@ start executing tool calls immediately, do not update the user what with what is
     const allMessages: BaseMessage<MessageStructure, MessageType>[] = [];
 
     for await (const [message] of stream) {
+      console.log("stream message:", message);
       allMessages.push(message);
       yield message;
     }

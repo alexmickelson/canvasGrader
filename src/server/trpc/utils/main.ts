@@ -1,4 +1,4 @@
-import { courseRouter } from "../routers/canvas/canvasRouter.js";
+import { courseRouter } from "../routers/canvas/courseRouter.js";
 import { settingsRouter } from "../routers/settingsRouter.js";
 import { rubricAiReportRouter } from "../routers/rubricAI/rubricAiReportRouter.js";
 import { fileViewerRouter } from "../routers/fileViewerRouter.js";

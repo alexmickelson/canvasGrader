@@ -119,6 +119,7 @@ export const SandboxAgentChat: FC = () => {
     try {
       const stream = await trpcClient.sandbox.aiTask.mutate({
         task: userInput,
+        messageLimit: 50
       });
 
       const messageBuffer: BaseMessage[] = [];
