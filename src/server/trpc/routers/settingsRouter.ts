@@ -5,10 +5,6 @@ import path from "path";
 import yaml from "yaml";
 import axios from "axios";
 import { canvasApi, canvasRequestOptions } from "./canvas/canvasServiceUtils";
-import { exec } from "child_process";
-import { promisify } from "util";
-
-const execAsync = promisify(exec);
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
@@ -92,85 +88,6 @@ export const settingsRouter = createTRPCRouter({
 
     return settings;
   }),
-
-  scanGithubClassroom: publicProcedure
-    .input(z.object({ classroomAssignmentId: z.string() }))
-    .query(async ({ input }): Promise<string[]> => {
-      console.log("Scanning GitHub Classroom for assignment:", input);
-      const tempDir = path.join(process.cwd(), "temp", "github-classroom-scan");
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-      // run a dry clone into tempDir
-      const cloneCmd = `gh classroom clone student-repos -a ${input.classroomAssignmentId}`;
-      try {
-        const { stderr } = await execAsync(cloneCmd, { cwd: tempDir });
-        if (stderr) console.warn("gh warnings:", stderr);
-        // find first subdir containing repos
-        const dirs = fs
-          .readdirSync(tempDir)
-          .filter((d) => fs.statSync(path.join(tempDir, d)).isDirectory());
-        if (dirs.length === 0) return [];
-        const reposBase = path.join(tempDir, dirs[0]);
-        const studentRepos = fs
-          .readdirSync(reposBase)
-          .filter((d) => fs.statSync(path.join(reposBase, d)).isDirectory());
-        // parse github usernames from repo names
-        // Many classroom repo folders share a common prefix (e.g. "assignmentX-" or "prefix_")
-        // Instead of always taking the last hyphen segment, compute the longest common
-        // prefix across folder names and strip it. Then trim leading separators.
-        const rawNames = studentRepos
-          .map((r) => String(r || "").trim())
-          .filter(Boolean);
-
-        const longestCommonPrefix = (arr: string[]) => {
-          if (arr.length === 0) return "";
-          return arr.reduce((prefix, s) => {
-            let i = 0;
-            const max = Math.min(prefix.length, s.length);
-            while (i < max && prefix[i] === s[i]) i++;
-            return prefix.slice(0, i);
-          }, arr[0]);
-        };
-
-        const common = longestCommonPrefix(rawNames);
-        // remove trailing separators from the common prefix (hyphens/underscores/spaces)
-        const cleanedPrefix = common.replace(/[-_\s]+$/, "");
-
-        const rawUsernames = rawNames.map((name) => {
-          let remainder =
-            cleanedPrefix && name.startsWith(cleanedPrefix)
-              ? name.slice(cleanedPrefix.length)
-              : name;
-          // strip leading separators after removing prefix
-          remainder = remainder.replace(/^[-_\s]+/, "");
-          // fallback: if nothing left, use last-hyphen logic
-          if (!remainder) {
-            const lastHyphen = name.lastIndexOf("-");
-            remainder =
-              lastHyphen === -1 ? name : name.substring(lastHyphen + 1);
-          }
-          return remainder;
-        });
-        // Clean and deduplicate
-        const usernames = Array.from(
-          new Set(rawUsernames.map((u) => u.trim()).filter(Boolean))
-        );
-        // cleanup
-        try {
-          await execAsync(`rm -rf "${tempDir}"`);
-        } catch (cleanupErr) {
-          console.warn("Failed to cleanup tempDir:", cleanupErr);
-        }
-        return usernames;
-      } catch (err) {
-        console.error("Failed to scan GitHub Classroom:", err);
-        try {
-          await execAsync(`rm -rf "${tempDir}"`);
-        } catch (cleanupErr) {
-          console.warn("Failed to cleanup tempDir after error:", cleanupErr);
-        }
-        throw err;
-      }
-    }),
 
   updateSettings: publicProcedure
     .input(settingsSchema)

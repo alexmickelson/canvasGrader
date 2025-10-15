@@ -1,11 +1,6 @@
 import pgpromise from "pg-promise";
-import pgvector from "pgvector/pg-promise";
 
-const pgp = pgpromise({
-  async connect(e) {
-    await pgvector.registerTypes(e.client);
-  },
-});
+const pgp = pgpromise({});
 
 const dbUser = process.env.POSTGRES_USER;
 const dbPassword = process.env.POSTGRES_PASSWORD;
@@ -73,6 +68,18 @@ db.none(
     canvas_object JSONB NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS favorite_courses (
+    course_id BIGINT REFERENCES courses(id) NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS github_usernames (
+    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    enrollment_id BIGINT REFERENCES enrollments(id) NOT NULL,
+    github_username TEXT,
+    UNIQUE(course_id, enrollment_id)
+  );
+
 `
 ).catch((err) => {
   console.error("Error creating tables:", err);

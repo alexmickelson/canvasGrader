@@ -1,18 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { type FC, useState } from "react";
-import {
-  useSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../../features/home/settingsHooks";
+import { type FC, useState, useEffect } from "react";
 import { useTRPC } from "../../server/trpc/trpcClient";
-import { useScanGithubClassroomQuery } from "./githubMappingHooks";
+import {
+  useCourseGithubMapping,
+  useUpdateCourseGithubMapping,
+  useScanGithubClassroomQuery,
+} from "./githubMappingHooks";
 
 export const GitHubMappingPanel: FC<{
   courseId: number;
   classroomAssignmentId: string;
 }> = ({ courseId, classroomAssignmentId }) => {
-  const { data: settings } = useSettingsQuery();
-  const updateSettings = useUpdateSettingsMutation();
+  const { data: dbMappings } = useCourseGithubMapping(courseId);
+  const updateMapping = useUpdateCourseGithubMapping(courseId);
 
   // Fetch enrollments from server storage (suspense query)
   const trpc = useTRPC();
@@ -27,47 +27,44 @@ export const GitHubMappingPanel: FC<{
     classroomAssignmentId
   );
 
-  const course = settings?.courses?.find((c) => c.canvasId === courseId);
   const [mapping, setMapping] = useState<
-    { studentName: string; githubUsername: string }[]
-  >(course?.githubUserMap ?? []);
-  // console.log("Current mapping:", mapping);
+    { enrollmentId: number; githubUsername: string }[]
+  >([]);
+
+  useEffect(() => {
+    setMapping(dbMappings);
+  }, [dbMappings]);
 
   const assignedUsernames = new Set(
     mapping.map((m) => m.githubUsername.toLowerCase())
   );
 
-  const assignUsername = (studentName: string, username: string) => {
+  const assignUsername = (enrollmentId: number, username: string) => {
     // remove username from any other mapping and set to this student
     const next = mapping.filter(
       (m) => m.githubUsername.toLowerCase() !== username.toLowerCase()
     );
     // find existing entry for student
-    const idx = next.findIndex((m) => m.studentName === studentName);
+    const idx = next.findIndex((m) => m.enrollmentId === enrollmentId);
     if (idx === -1) {
-      next.push({ studentName, githubUsername: username });
+      next.push({ enrollmentId, githubUsername: username });
     } else {
       next[idx].githubUsername = username;
     }
     setMapping(next);
   };
 
-  const save = () => {
+  const save = async () => {
     try {
-      const newSettings = { ...(settings || { courses: [] }) };
-      const idx = newSettings.courses.findIndex((c) => c.canvasId === courseId);
-      if (idx === -1) {
-        newSettings.courses.push({
-          name: `Course ${courseId}`,
-          canvasId: courseId,
-          githubUserMap: mapping,
+      for (const map of mapping) {
+        await updateMapping.mutateAsync({
+          courseId,
+          enrollmentId: map.enrollmentId,
+          githubUsername: map.githubUsername,
         });
-      } else {
-        newSettings.courses[idx].githubUserMap = mapping;
       }
-      updateSettings.mutate(newSettings);
     } catch (e) {
-      alert("Invalid JSON mapping: " + String(e));
+      alert("Failed to save mappings: " + String(e));
     }
   };
 
@@ -86,7 +83,7 @@ export const GitHubMappingPanel: FC<{
             {studentEnrollments.map((en) => {
               const name = en.user?.name || `User ${en.user_id}`;
               const assigned =
-                (mapping.find((m) => m.studentName === name) || {})
+                (mapping.find((m) => m.enrollmentId === en.id) || {})
                   .githubUsername || "";
 
               return (
@@ -122,7 +119,7 @@ export const GitHubMappingPanel: FC<{
                               : "bg-blue-600 hover:bg-blue-700 text-white"
                           }`}
                           disabled={isAssignedToOther}
-                          onClick={() => assignUsername(name, u)}
+                          onClick={() => assignUsername(en.id, u)}
                         >
                           {u}
                         </button>
@@ -143,18 +140,25 @@ export const GitHubMappingPanel: FC<{
           <div className="bg-gray-800 rounded border border-gray-700 max-h-96 overflow-auto">
             {mapping.length > 0 ? (
               <ul className="divide-y divide-gray-700">
-                {mapping.map((map, idx) => (
-                  <li key={idx} className="p-3">
-                    <div className="text-sm">
-                      <div className="text-gray-200 font-medium mb-1">
-                        {map.studentName}
+                {mapping.map((map, idx) => {
+                  const enrollment = studentEnrollments.find(
+                    (e) => e.id === map.enrollmentId
+                  );
+                  const studentName =
+                    enrollment?.user?.name || `User ${enrollment?.user_id}`;
+                  return (
+                    <li key={idx} className="p-3">
+                      <div className="text-sm">
+                        <div className="text-gray-200 font-medium mb-1">
+                          {studentName}
+                        </div>
+                        <div className="text-blue-300 text-xs">
+                          @{map.githubUsername}
+                        </div>
                       </div>
-                      <div className="text-blue-300 text-xs">
-                        @{map.githubUsername}
-                      </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="p-4 text-center text-gray-400 text-sm">
@@ -195,11 +199,7 @@ export const GitHubMappingPanel: FC<{
       </div>
 
       <div className="flex gap-2 mt-4">
-        <button
-          onClick={save}
-        >
-          Save mappings
-        </button>
+        <button onClick={save}>Save mappings</button>
       </div>
     </div>
   );

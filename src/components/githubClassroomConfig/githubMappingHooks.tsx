@@ -1,29 +1,43 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
 import {
-  useSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../../features/home/settingsHooks";
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
 export type CourseGithubMappingItem = {
-  studentName: string;
+  enrollmentId: number;
   githubUsername: string;
 };
 
-export const useCourseGithubMapping = (canvasId: number) => {
-  const { data: settings } = useSettingsQuery();
-  const course = settings?.courses?.find((c) => c.canvasId === canvasId);
-  return course?.githubUserMap as CourseGithubMappingItem[] | undefined;
+export const useCourseGithubMapping = (courseId: number) => {
+  const trpc = useTRPC();
+  return useSuspenseQuery(
+    trpc.githubClassroom.getGithubUsernames.queryOptions({ courseId })
+  );
 };
 
-export const useUpdateCourseGithubMapping = () => {
-  const updateSettings = useUpdateSettingsMutation();
-  return updateSettings;
+export const useUpdateCourseGithubMapping = (courseId: number) => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.githubClassroom.setGithubUsername.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.githubClassroom.getGithubUsernames.queryKey({
+            courseId,
+          }),
+        });
+      },
+    })
+  );
 };
 
 export const useScanGithubClassroomQuery = (classroomAssignmentId: string) => {
   const trpc = useTRPC();
   return useSuspenseQuery(
-    trpc.settings.scanGithubClassroom.queryOptions({ classroomAssignmentId })
+    trpc.githubClassroom.scanGithubClassroom.queryOptions({
+      classroomAssignmentId,
+    })
   );
 };

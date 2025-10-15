@@ -2,13 +2,13 @@ import fs from "fs";
 import path from "path";
 import { promisify } from "util";
 import { exec } from "child_process";
-import { rateLimitAwareGet } from "./canvasRequestUtils";
-import { canvasRequestOptions } from "./canvasServiceUtils";
+import { rateLimitAwareGet } from "../canvas/canvasRequestUtils.js";
+import { canvasRequestOptions } from "../canvas/canvasServiceUtils.js";
 import {
   ensureDir,
   getSubmissionDirectory,
   getAssignmentDirectory,
-} from "./canvasStorageUtils";
+} from "../canvas/canvasStorageUtils.js";
 
 const execAsync = promisify(exec);
 

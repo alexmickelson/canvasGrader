@@ -1,18 +1,16 @@
 import z from "zod";
-import { createTRPCRouter, publicProcedure } from "../../utils/trpc.js";
+import { createTRPCRouter, publicProcedure } from "../../../utils/trpc.js";
 import {
   paginatedRequest,
   canvasRequestOptions,
-} from "./canvasServiceUtils.js";
+} from "../canvasServiceUtils.js";
 import {
   ensureDir,
   sanitizeName,
   getCourseMeta,
-  loadPersistedCourses,
-  persistCoursesToStorage,
-} from "./canvasStorageUtils.js";
-import { parseSchema } from "../parseSchema.js";
-import { axiosClient } from "../../../../utils/axiosUtils.js";
+} from "../canvasStorageUtils.js";
+import { parseSchema } from "../../parseSchema.js";
+import { axiosClient } from "../../../../../utils/axiosUtils.js";
 import fs from "fs";
 import path from "path";
 import {
@@ -21,8 +19,9 @@ import {
   CanvasCourseSchema,
   CanvasSubmissionSchema,
   type CanvasEnrollment,
-} from "./canvasModels.js";
-import { rateLimitAwareGet } from "./canvasRequestUtils.js";
+} from "../canvasModels.js";
+import { rateLimitAwareGet } from "../canvasRequestUtils.js";
+import { getAllCourses, storeCourses } from "./canvasCourseDbUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -107,18 +106,18 @@ export const courseRouter = createTRPCRouter({
       }
     }),
   getCourses: publicProcedure.query(async (): Promise<CanvasCourse[]> => {
-    // Check if courses are already persisted locally
-    const persistedCourses = loadPersistedCourses();
+    // Check if courses are already in the database
+    const dbCourses = await getAllCourses();
 
-    if (persistedCourses.length > 0) {
+    if (dbCourses.length > 0) {
       console.log(
-        `Found ${persistedCourses.length} persisted courses, skipping Canvas API call`
+        `Found ${dbCourses.length} courses in database, skipping Canvas API call`
       );
-      return persistedCourses;
+      return dbCourses;
     }
 
-    // If no persisted courses found, fetch from Canvas
-    console.log("No persisted courses found, fetching from Canvas API");
+    // If no courses in database, fetch from Canvas
+    console.log("No courses in database, fetching from Canvas API");
     const url = `${canvasBaseUrl}/api/v1/courses?per_page=100`;
     const courses = await paginatedRequest<CanvasCourse[]>({
       url,
@@ -128,8 +127,8 @@ export const courseRouter = createTRPCRouter({
       .filter((course) => !course.access_restricted_by_date)
       .map((course) => parseSchema(CanvasCourseSchema, course, "CanvasCourse"));
 
-    // Store each course's JSON data in storage/term/courseName/course.json
-    await persistCoursesToStorage(filteredCourses);
+    // Store courses in database
+    await storeCourses(filteredCourses);
 
     return filteredCourses;
   }),
@@ -149,8 +148,8 @@ export const courseRouter = createTRPCRouter({
           parseSchema(CanvasCourseSchema, course, "CanvasCourse")
         );
 
-      // Store each course's JSON data in storage/term/courseName/course.json
-      await persistCoursesToStorage(filteredCourses);
+      // Store courses in database
+      await storeCourses(filteredCourses);
 
       console.log(`Successfully refreshed ${filteredCourses.length} courses`);
       return filteredCourses;
@@ -267,7 +266,6 @@ export const courseRouter = createTRPCRouter({
             include: ["user", "rubric_assessment", "submission_comments"],
           },
         });
-
 
         // Parse and return the updated submission
         const updatedSubmission = parseSchema(

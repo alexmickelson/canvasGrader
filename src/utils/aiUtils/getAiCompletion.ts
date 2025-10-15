@@ -18,11 +18,13 @@ export async function getAiCompletion({
   tools,
   responseFormat,
   model,
+  temperature,
 }: {
   messages: ConversationMessage[];
   tools?: AiTool[];
   responseFormat?: z.ZodTypeAny;
   model?: string;
+  temperature?: number;
 }): Promise<ConversationMessage> {
   return new Promise<ConversationMessage>((resolve, reject) => {
     const jobId = `completion-${Date.now()}-${Math.random()
@@ -37,6 +39,7 @@ export async function getAiCompletion({
           tools,
           responseFormat,
           model,
+          temperature,
         }),
       resolve,
       reject,
@@ -51,6 +54,7 @@ async function getOpenAiCompletion({
   tools,
   responseFormat,
   model,
+  temperature,
   retryCount = 0,
 }: {
   messages: ConversationMessage[];
@@ -87,7 +91,7 @@ async function getOpenAiCompletion({
           "structured_response"
         ),
         tools: toolsSchema,
-        temperature: DEFAULT_TEMPERATURE,
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
       });
 
       completion = res;
@@ -111,7 +115,7 @@ async function getOpenAiCompletion({
         model: model ?? aiModel,
         messages: openaiMessages,
         tools: toolsSchema,
-        temperature: DEFAULT_TEMPERATURE,
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
       });
     }
     // console.log(completion);
