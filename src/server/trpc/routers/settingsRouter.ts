@@ -5,6 +5,11 @@ import path from "path";
 import yaml from "yaml";
 import axios from "axios";
 import { canvasApi, canvasRequestOptions } from "./canvas/canvasServiceUtils";
+import {
+  getFavoriteCourses,
+  addFavoriteCourse,
+  removeFavoriteCourse,
+} from "./settingsDbUtils";
 
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
@@ -123,5 +128,21 @@ export const settingsRouter = createTRPCRouter({
       fs.writeFileSync(settingsPath, yaml.stringify(input), "utf8");
 
       return input;
+    }),
+
+  getFavoriteCourses: publicProcedure.query(async () => {
+    return await getFavoriteCourses();
+  }),
+
+  addFavoriteCourse: publicProcedure
+    .input(z.object({ courseId: z.number() }))
+    .mutation(async ({ input }) => {
+      await addFavoriteCourse(input.courseId);
+    }),
+
+  removeFavoriteCourse: publicProcedure
+    .input(z.object({ courseId: z.number() }))
+    .mutation(async ({ input }) => {
+      await removeFavoriteCourse(input.courseId);
     }),
 });

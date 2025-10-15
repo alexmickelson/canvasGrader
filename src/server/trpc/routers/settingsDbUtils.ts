@@ -7,7 +7,7 @@ export async function getFavoriteCourses(): Promise<number[]> {
   return results.map((r) => r.course_id);
 }
 
-export async function setFavoriteCourse(courseId: number): Promise<void> {
+export async function addFavoriteCourse(courseId: number): Promise<void> {
   await db.none(
     `INSERT INTO favorite_courses (course_id)
      VALUES ($<courseId>)
@@ -16,12 +16,8 @@ export async function setFavoriteCourse(courseId: number): Promise<void> {
   );
 }
 
-export async function deleteFavoriteCourse(courseId: number): Promise<void> {
+export async function removeFavoriteCourse(courseId: number): Promise<void> {
   await db.none(`DELETE FROM favorite_courses WHERE course_id = $<courseId>`, {
     courseId,
   });
-}
-
-export async function deleteAllFavoriteCourses(): Promise<void> {
-  await db.none(`DELETE FROM favorite_courses`);
 }
