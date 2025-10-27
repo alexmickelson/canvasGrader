@@ -65,7 +65,7 @@ export const DisplayWeek: FC<{
         </div>
       )}
     >
-      <div>
+      <div className="flex gap-4 flex-wrap p-4 pt-2">
         {group.items.map((assignment) => (
           <ConditionalAssignmentItem
             key={assignment.id}

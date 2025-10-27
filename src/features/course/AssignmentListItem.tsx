@@ -11,7 +11,6 @@ export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
   courseId: number;
 }> = ({ assignment, courseId }) => {
-
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -23,16 +22,17 @@ export const AssignmentListItem: FC<{
   return (
     <Link
       to={`/course/${courseId}/assignment/${assignment.id}`}
-      className="p-3 hover:bg-gray-800/60 cursor-pointer rounded block"
+      className={`
+        block p-4 bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700 rounded-lg transition-colors
+        w-96
+      `}
     >
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="font-medium text-gray-100">{assignment.name}</div>
-          <span className="ps-5 text-xs text-gray-400">
-            {fmt(assignment.due_at)}
-          </span>
+      <div className="flex flex-col gap-3">
+        <div className="font-medium text-gray-100 text-lg">
+          {assignment.name}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="text-sm text-gray-400">{fmt(assignment.due_at)}</div>
+        <div className="flex justify-between items-center gap-2">
           <SubmissionStatus assignment={assignment} courseId={courseId} />
           <RefreshButton assignment={assignment} courseId={courseId} />
         </div>
@@ -56,16 +56,6 @@ const SubmissionStatus: FC<{
     : getAssignmentGradingStatus(submissions);
 
   const basePillClass = "inline-block px-3 py-1 text-xs rounded-full border";
-
-  if (status === "loading") {
-    return (
-      <div
-        className={`${basePillClass} bg-gray-700 text-gray-300  border-gray-600`}
-      >
-        Loading...
-      </div>
-    );
-  }
 
   if (status === "no-submissions") {
     return (
@@ -125,11 +115,20 @@ const RefreshButton: FC<{
     <button
       onClick={handleRefresh}
       disabled={updateSubmissionsMutation.isPending}
-      className="p-1 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      className={`
+        unstyled
+        bg-purple-950/50 border-purple-900 border rounded
+        hover:bg-purple-800 disabled:opacity-50
+        text-purple-400 hover:text-purple-200 
+        disabled:cursor-not-allowed transition-colors 
+        p-1 
+        flex align-middle justify-between
+      `}
       title="Refresh submissions"
     >
+      <span className="">Refresh</span>
       {updateSubmissionsMutation.isPending ? (
-        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"></div>
       ) : (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -141,7 +140,7 @@ const RefreshButton: FC<{
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-gray-400 hover:text-gray-200"
+          className="my-auto ms-2 stroke-current"
         >
           <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
           <path d="M21 3v5h-5" />
