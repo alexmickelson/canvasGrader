@@ -3,18 +3,15 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useAssignmentsQuery } from "./canvasAssignmentHooks";
 import { useAssignmentGroups } from "./useAssignmentGroups";
-import { AssignmentListItem } from "./AssignmentListItem";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
 import { GitHubMappingPanelWithClassroomId } from "../../components/githubClassroomConfig/GitHubMappingPanelWithClassroomId";
 import { CourseNameDisplay } from "../../components/CourseNameDisplay";
-import {
-  useUpdateSubmissionsMutation,
-  useSubmissionsQuery,
-} from "../grader/graderHooks";
+import { useUpdateSubmissionsMutation } from "../grader/graderHooks";
 import { useQueries } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 import { Toggle } from "../../components/Toggle";
+import { DisplayWeek } from "./DisplayWeek";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -84,58 +81,18 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
       </div>
 
       <div className="">
-        {groups.map((group) => {
-          // For the header label show the day of the first assignment in the group
-          const headerLabel = group.weekStart
-            ? new Date(group.weekStart).toLocaleDateString(undefined, {
-                dateStyle: "medium",
-              })
-            : "No due date";
-
-          return (
-            <div key={group.key}>
-              <div className="p-2 text-sm text-gray-500 font-medium text-end border-b-2 border-slate-800">
-                {headerLabel}
-              </div>
-              <div>
-                {group.items.map((assignment) => (
-                  <ConditionalAssignmentItem
-                    key={assignment.id}
-                    assignment={assignment}
-                    courseId={courseId}
-                    hideGraded={hideGraded}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+        {groups.map((group) => (
+          <DisplayWeek
+            key={group.key}
+            group={group}
+            courseId={courseId}
+            hideGraded={hideGraded}
+            assignments={group.items}
+          />
+        ))}
       </div>
     </div>
   );
-};
-
-const ConditionalAssignmentItem: FC<{
-  assignment: CanvasAssignment;
-  courseId: number;
-  hideGraded: boolean;
-}> = ({ assignment, courseId, hideGraded }) => {
-  const { data: submissions, isLoading } = useSubmissionsQuery(
-    courseId,
-    assignment.id,
-    assignment.name
-  );
-
-  const { status } = isLoading
-    ? { status: "loading" as const }
-    : getAssignmentGradingStatus(submissions);
-
-  // If hideGraded is true and the assignment is graded, don't render it
-  if (hideGraded && status === "graded") {
-    return null;
-  }
-
-  return <AssignmentListItem assignment={assignment} courseId={courseId} />;
 };
 
 const RefreshAllButton: FC<{

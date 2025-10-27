@@ -4,6 +4,7 @@ import {
   useMutation,
   useQueryClient,
   useQueries,
+  useSuspenseQueries,
 } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
@@ -20,6 +21,22 @@ export const useSubmissionsQuery = (
       assignmentName,
     })
   );
+};
+
+export const useSubmissionsQueries = (
+  courseId: number,
+  assignments: Array<{ id: number; name: string }>
+) => {
+  const trpc = useTRPC();
+  return useSuspenseQueries({
+    queries: assignments.map((assignment) => ({
+      ...trpc.canvas.assignments.getAssignmentSubmissions.queryOptions({
+        courseId,
+        assignmentId: assignment.id,
+        assignmentName: assignment.name,
+      }),
+    })),
+  });
 };
 
 export const useDownloadAttachmentsQuery = ({

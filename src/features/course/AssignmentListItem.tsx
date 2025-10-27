@@ -11,15 +11,7 @@ export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
   courseId: number;
 }> = ({ assignment, courseId }) => {
-  const { data: submissions, isLoading } = useSubmissionsQuery(
-    courseId,
-    assignment.id,
-    assignment.name
-  );
 
-  const { status } = isLoading
-    ? { status: "loading" as const }
-    : getAssignmentGradingStatus(submissions);
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -28,7 +20,6 @@ export const AssignmentListItem: FC<{
         })
       : "No due date";
 
-  if (status === "graded") return <></>;
   return (
     <Link
       to={`/course/${courseId}/assignment/${assignment.id}`}
