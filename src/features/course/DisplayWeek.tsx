@@ -52,11 +52,18 @@ export const DisplayWeek: FC<{
       defaultExpanded={!allGraded}
       ExpandableElement={({ setIsExpanded, isExpanded }) => (
         <div
-          className="p-2 text-sm text-gray-500 font-medium text-end border-b-2 border-slate-800 flex cursor-pointer"
+          className={`
+            p-2 text-sm flex cursor-pointer group
+            text-gray-500  transition-all hover:text-gray-200
+            font-medium text-end 
+            border-b-2 border-slate-800 
+          `}
           role="button"
           onClick={() => setIsExpanded((e) => !e)}
         >
-          {headerLabel}
+          <span className="transition-transform group-hover:scale-105 ">
+            {headerLabel}
+          </span>
           <ExpandIcon
             style={{
               ...(isExpanded ? { rotate: "-90deg" } : {}),
