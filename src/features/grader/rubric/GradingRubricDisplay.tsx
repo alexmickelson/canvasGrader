@@ -140,7 +140,7 @@ export const GradingRubricDisplay: FC<{
   const rubric = rubricQuery.data;
 
   return (
-    <section className="px-1 pb-1 bg-slate-950 rounded flex flex-col justify-between flex-1 ">
+    <section className="px-1 pb-1 bg-slate-950 rounded flex flex-col justify-between flex-1 w-full">
       <div className="flex items-center justify-between my-2 ">
         <RunAllAnalysis
           courseId={courseId}
@@ -159,7 +159,7 @@ export const GradingRubricDisplay: FC<{
         </div>
       </div>
 
-      <div className="space-y-4 flex-1 overflow-auto bg-violet-950/15 rounded">
+      <div className="space-y-4 flex-1 overflow-auto bg-violet-950/15 rounded w-full">
         {rubric.data.map((criterion: CanvasRubricCriterion) => (
           <GradingRubricCriterion
             key={criterion.id}

@@ -129,8 +129,10 @@ const InnerAssignmentPage: FC<{
         assignmentName,
         studentName: selected.user.name,
       });
-      setShowSandbox(enabled);
+    } else {
+      // unload from sandbox, terminate any old processes...
     }
+    setShowSandbox(enabled);
   };
 
   return (
