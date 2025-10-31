@@ -81,7 +81,7 @@ export const GradingRubricCriterion: FC<{
   return (
     <div className="w-full ">
       <div className="px-1 pb-1 flex justify-between w-full ">
-        <div className="font-medium text-gray-300 flex-1 truncate">
+        <div className="font-medium text-gray-300 flex-1 ">
           {criterion.description}
         </div>
         <div className="text-gray-500">
