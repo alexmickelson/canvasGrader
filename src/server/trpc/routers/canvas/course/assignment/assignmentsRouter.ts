@@ -5,10 +5,6 @@ import {
   downloadAllAttachmentsUtil,
 } from "../../canvasServiceUtils.js";
 import {
-  persistSubmissionsToStorage,
-  loadSubmissionsFromStorage,
-} from "../../canvasStorageUtils.js";
-import {
   fetchSingleSubmissionByIdFromCanvas,
   fetchSubmissionsFromCanvas,
 } from "../../canvasSubmissionsUtils.js";
@@ -21,6 +17,7 @@ import {
   type CanvasRubric,
 } from "../../canvasModels.js";
 import {
+  getAssignmentSubmissions,
   getCourseAssignments,
   storeAssignments,
   storeSubmissions,
@@ -63,11 +60,9 @@ export const assignmentsRouter = createTRPCRouter({
       console.log(
         `Checking for existing submissions in storage for assignment ${input.assignmentId}`
       );
-      const existingSubmissions = await loadSubmissionsFromStorage(
-        input.courseId,
+      const existingSubmissions = await getAssignmentSubmissions(
         input.assignmentId
       );
-
       if (existingSubmissions && existingSubmissions.length > 0) {
         console.log(
           `Found ${existingSubmissions.length} existing submissions, returning cached results`
@@ -82,13 +77,6 @@ export const assignmentsRouter = createTRPCRouter({
         input.assignmentId
       );
 
-      await persistSubmissionsToStorage(
-        input.courseId,
-        input.assignmentId,
-        submissions,
-        input.assignmentName
-      );
-
       await Promise.all(
         submissions.map(async (submission) => {
           const _downloadedAttachments = await downloadAllAttachmentsUtil({
@@ -101,9 +89,14 @@ export const assignmentsRouter = createTRPCRouter({
             termName: input.termName,
           });
 
+          console.log("downloaded attachments", _downloadedAttachments);
+
+
+          // todo: store attachments on filesystem, reference in db
           // storeAttachments({
           //   id:
           // });
+          // also put markdown submission somewhere, can probably be infered from db
         })
       );
       return submissions;
@@ -145,11 +138,6 @@ export const assignmentsRouter = createTRPCRouter({
 
       await storeSubmissions(submissions);
 
-      // await persistSubmissionsToStorage(
-      //   input.courseId,
-      //   input.assignmentId,
-      //   submissions,
-      //   input.assignmentName
       await Promise.all(
         submissions.map((submission) =>
           downloadAllAttachmentsUtil({

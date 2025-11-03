@@ -3,8 +3,8 @@ import { z } from "zod";
 import { downloadAllAttachmentsUtil } from "./canvasServiceUtils.js";
 import {
   transcribeSubmissionImages,
-  loadSubmissionsFromStorage,
 } from "./canvasStorageUtils.js";
+import { getAssignmentSubmissions } from "./course/assignment/assignmentDbUtils.js";
 
 export const attachmentsRouter = createTRPCRouter({
   transcribeSubmissionImages: publicProcedure
@@ -20,9 +20,7 @@ export const attachmentsRouter = createTRPCRouter({
         `Transcribing submission images for assignment ${input.assignmentId}`
       );
 
-      // Load existing submissions from storage
-      const submissions = await loadSubmissionsFromStorage(
-        input.courseId,
+      const submissions = await getAssignmentSubmissions(
         input.assignmentId
       );
 

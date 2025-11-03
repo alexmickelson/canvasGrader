@@ -235,7 +235,7 @@ export const downloadAllAttachmentsUtil = async (params: {
     }
   );
 
-  console.log("Submission data:", submission);
+  // console.log("Submission data:", submission);
 
   // Skip processing for Test Student submissions
   if (isTestStudentSubmission(submission)) {
