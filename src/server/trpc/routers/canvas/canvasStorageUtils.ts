@@ -4,7 +4,6 @@ import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 import { canvasRequestOptions } from "./canvasServiceUtils.js";
 import { parseSchema } from "../parseSchema.js";
 import type {
-  CanvasAssignment,
   CanvasCourse,
   CanvasSubmission,
   CanvasRubric,
@@ -219,33 +218,6 @@ export function loadPersistedCourses(): CanvasCourse[] {
   } catch (error) {
     console.warn("Error reading persisted courses:", error);
     return [];
-  }
-}
-
-export async function persistAssignmentsToStorage(
-  courseId: number,
-  assignments: CanvasAssignment[]
-): Promise<void> {
-  try {
-    const { courseName, termName } = await getCourseMeta(courseId);
-    await Promise.all(
-      assignments.map(async (a) => {
-        const assignDir = getAssignmentDirectory({
-          termName,
-          courseName,
-          assignmentId: a.id,
-          assignmentName: a.name,
-        });
-        const filePath = path.join(assignDir, "assignment.json");
-        try {
-          fs.writeFileSync(filePath, JSON.stringify(a, null, 2), "utf8");
-        } catch (err) {
-          console.warn("Failed to write assignment.json for", a.id, err);
-        }
-      })
-    );
-  } catch (err) {
-    console.warn("Failed to persist assignments to storage", err);
   }
 }
 

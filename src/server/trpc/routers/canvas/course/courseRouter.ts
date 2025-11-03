@@ -164,6 +164,8 @@ export const courseRouter = createTRPCRouter({
         assignmentName: z.string(),
         studentId: z.number(),
         studentName: z.string(),
+        termName: z.string(),
+        courseName: z.string(),
         rubricAssessment: z.record(
           z.string(), // criterion ID
           z.object({

@@ -10,7 +10,9 @@ import {
 export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
   courseId: number;
-}> = ({ assignment, courseId }) => {
+  courseName: string;
+  termName: string;
+}> = ({ assignment, courseId, courseName, termName }) => {
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -33,8 +35,18 @@ export const AssignmentListItem: FC<{
         </div>
         <div className="text-sm text-gray-400">{fmt(assignment.due_at)}</div>
         <div className="flex justify-between items-center gap-2">
-          <SubmissionStatus assignment={assignment} courseId={courseId} />
-          <RefreshButton assignment={assignment} courseId={courseId} />
+          <SubmissionStatus
+            assignment={assignment}
+            courseId={courseId}
+            courseName={courseName}
+            termName={termName}
+          />
+          <RefreshButton
+            assignment={assignment}
+            courseId={courseId}
+            courseName={courseName}
+            termName={termName}
+          />
         </div>
       </div>
     </Link>
@@ -44,12 +56,16 @@ export const AssignmentListItem: FC<{
 const SubmissionStatus: FC<{
   assignment: CanvasAssignment;
   courseId: number;
-}> = ({ assignment, courseId }) => {
-  const { data: submissions, isLoading } = useSubmissionsQuery(
+  courseName: string;
+  termName: string;
+}> = ({ assignment, courseId, courseName, termName }) => {
+  const { data: submissions, isLoading } = useSubmissionsQuery({
     courseId,
-    assignment.id,
-    assignment.name
-  );
+    assignmentId: assignment.id,
+    assignmentName: assignment.name,
+    courseName,
+    termName,
+  });
 
   const { percentage, status } = isLoading
     ? { percentage: 0, status: "loading" as const }
@@ -97,17 +113,21 @@ const SubmissionStatus: FC<{
 const RefreshButton: FC<{
   assignment: CanvasAssignment;
   courseId: number;
-}> = ({ assignment, courseId }) => {
+  courseName: string;
+  termName: string;
+}> = ({ assignment, courseId, courseName, termName }) => {
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
   const handleRefresh = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent Link navigation
-    e.stopPropagation(); // Stop event bubbling
+    e.preventDefault();
+    e.stopPropagation();
 
     updateSubmissionsMutation.mutate({
       courseId,
       assignmentId: assignment.id,
       assignmentName: assignment.name,
+      courseName,
+      termName,
     });
   };
 

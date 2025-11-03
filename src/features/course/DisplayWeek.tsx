@@ -11,10 +11,12 @@ import { useMemo } from "react";
 export const DisplayWeek: FC<{
   group: ReturnType<typeof useAssignmentGroups>[number];
   courseId: number;
+  courseName: string;
+  courseCode: string;
   hideGraded: boolean;
   assignments: CanvasAssignment[];
-}> = ({ group, courseId, hideGraded, assignments }) => {
-  const submissionsQueries = useSubmissionsQueries(courseId, assignments);
+}> = ({ group, courseId, courseName, courseCode, hideGraded, assignments }) => {
+  const submissionsQueries = useSubmissionsQueries(courseId, assignments, courseName, courseCode);
 
   const allGraded = useMemo(() => {
     const allStatuses = group.items.map((_, index) => {
@@ -79,6 +81,8 @@ export const DisplayWeek: FC<{
             assignment={assignment}
             courseId={courseId}
             hideGraded={!!hideGraded}
+            courseName={courseName}
+            termName={courseCode}
           />
         ))}
       </div>

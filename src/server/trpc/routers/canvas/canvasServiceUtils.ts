@@ -2,9 +2,12 @@ import type { AxiosResponseHeaders, RawAxiosResponseHeaders } from "axios";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 import path from "path";
-import fs_sync from "fs";
-import type { CanvasSubmissionComment } from "./canvasModels.js";
+import type {
+  CanvasSubmission,
+  CanvasSubmissionComment,
+} from "./canvasModels.js";
 import { rateLimitAwareGet } from "./canvasRequestUtils.js";
+import { ensureDir, getSubmissionDirectory } from "./canvasStorageUtils.js";
 
 dotenv.config();
 
@@ -101,19 +104,6 @@ export async function paginatedRequest<T extends unknown[]>({
   return returnData as T;
 }
 
-// Lightweight attachment shape used by download utilities
-export type CanvasAttachmentLite = {
-  id: number;
-  filename?: string;
-  display_name?: string;
-  content_type?: string;
-  url: string;
-};
-
-export type SubmissionWithAttachmentsLike = {
-  attachments?: CanvasAttachmentLite[] | undefined | null;
-};
-
 // Sniff common binary signatures to correct mislabeled content types
 export function sniffContentType(bytes: Uint8Array, fallback?: string): string {
   // PNG: 89 50 4E 47 0D 0A 1A 0A
@@ -154,105 +144,60 @@ export type DownloadedAttachment = {
   url: string;
   contentType: string;
   bytes: Uint8Array;
+  filepath: string;
 };
-
-// Download all attachments on a submission and return bytes with corrected content types
-export async function downloadSubmissionAttachments(
-  submission: SubmissionWithAttachmentsLike
-): Promise<DownloadedAttachment[]> {
-  const attachments = submission.attachments ?? [];
-  const results: DownloadedAttachment[] = [];
-
-  for (const att of attachments) {
-    const name = att.display_name || att.filename || `file-${att.id}`;
-    try {
-      const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
-        // Some Canvas pre-signed URLs don't require auth, but header won't hurt
-        headers: canvasRequestOptions.headers,
-        responseType: "arraybuffer",
-      });
-      const bytes = new Uint8Array(resp.data);
-      const headerType =
-        (resp.headers["content-type"] as string | undefined) || "";
-      const claimedType = att.content_type || "";
-      const contentType = sniffContentType(bytes, claimedType || headerType);
-      console.log(
-        "downloaded file ",
-        name,
-        "type:",
-        contentType || headerType,
-        "url",
-        att.url
-      );
-
-      results.push({
-        id: att.id,
-        name,
-        url: att.url,
-        contentType: contentType || headerType || claimedType || "",
-        bytes,
-      });
-    } catch (err) {
-      // Re-throw with filename context; router will decide whether/how to map to TRPC error
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to download attachment '${name}': ${msg}`);
-    }
-  }
-
-  return results;
-}
 
 // Download all attachments on a submission and save them to a specific folder structure
 export async function downloadSubmissionAttachmentsToFolder(
-  submission: SubmissionWithAttachmentsLike,
+  submission: CanvasSubmission,
   targetDir: string
 ): Promise<DownloadedAttachment[]> {
   const attachments = submission.attachments ?? [];
-  const results: DownloadedAttachment[] = [];
 
-  for (const att of attachments) {
-    const name = att.display_name || att.filename || `file-${att.id}`;
-    try {
-      const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
-        headers: canvasRequestOptions.headers,
-        responseType: "arraybuffer",
-      });
-      const bytes = new Uint8Array(resp.data);
-      const headerType =
-        (resp.headers["content-type"] as string | undefined) || "";
-      const claimedType = att.content_type || "";
-      const contentType = sniffContentType(bytes, claimedType || headerType);
+  return await Promise.all(
+    attachments.map(async (att) => {
+      const name = att.display_name || att.filename || `file-${att.id}`;
+      try {
+        const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
+          headers: canvasRequestOptions.headers,
+          responseType: "arraybuffer",
+        });
+        const bytes = new Uint8Array(resp.data);
+        const headerType =
+          (resp.headers["content-type"] as string | undefined) || "";
+        const claimedType = att.content_type || "";
+        const contentType = sniffContentType(bytes, claimedType || headerType);
 
-      console.log(
-        "Downloaded attachment:",
-        name,
-        "type:",
-        contentType || headerType,
-        "size:",
-        bytes.length
-      );
+        console.log(
+          "Downloaded attachment:",
+          name,
+          "type:",
+          contentType || headerType,
+          "size:",
+          bytes.length
+        );
 
-      // Save the attachment to the target directory with unique naming
-      const sanitizedName = name.replace(/[^a-z0-9._-]/gi, "_");
-      const uniqueName = `${att.id || Date.now()}-${sanitizedName}`;
-      const attachmentPath = path.join(targetDir, uniqueName);
-      await fs.writeFile(attachmentPath, bytes);
-      console.log("Saved attachment to:", attachmentPath);
+        // Save the attachment to the target directory with unique naming
+        const sanitizedName = name.replace(/[^a-z0-9._-]/gi, "_");
+        const uniqueName = `${att.id || Date.now()}-${sanitizedName}`;
+        const attachmentPath = path.join(targetDir, uniqueName);
+        await fs.writeFile(attachmentPath, bytes);
+        console.log("Saved attachment to:", attachmentPath);
 
-      results.push({
-        id: att.id,
-        name,
-        url: att.url,
-        contentType: contentType || headerType || claimedType || "",
-        bytes,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to download attachment '${name}': ${msg}`);
-    }
-  }
-
-  return results;
+        return {
+          id: att.id,
+          name,
+          url: att.url,
+          contentType: contentType || headerType || claimedType || "",
+          bytes,
+          filepath: attachmentPath,
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to download attachment '${name}': ${msg}`);
+      }
+    })
+  );
 }
 
 // Helper function to check if a submission should be ignored
@@ -267,79 +212,47 @@ export const downloadAllAttachmentsUtil = async (params: {
   courseId: number;
   assignmentId: number;
   userId: number;
-}) => {
-  const { courseId, assignmentId, userId } = params;
+  courseName: string;
+  assignmentName: string;
+  studentName: string;
+  termName: string;
+}): Promise<DownloadedAttachment[]> => {
+  const {
+    courseId,
+    assignmentId,
+    userId,
+    assignmentName,
+    studentName,
+    termName,
+    courseName,
+  } = params;
 
-  // Fetch the submission with attachments and user data
-  type SubmissionWithAttachments = {
-    id?: number;
-    attachments?: CanvasAttachmentLite[];
-    body?: string;
-    submission_type?: string;
-    user?: {
-      id: number;
-      name: string;
-    };
-  };
-
-  const { data: submission } =
-    await rateLimitAwareGet<SubmissionWithAttachments>(
-      `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
-      {
-        headers: canvasRequestOptions.headers,
-        params: { include: ["attachments", "user", "submission_comments"] },
-      }
-    );
+  const { data: submission } = await rateLimitAwareGet<CanvasSubmission>(
+    `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
+    {
+      headers: canvasRequestOptions.headers,
+      params: { include: ["attachments", "user", "submission_comments"] },
+    }
+  );
 
   console.log("Submission data:", submission);
 
   // Skip processing for Test Student submissions
   if (isTestStudentSubmission(submission)) {
     console.log("Skipping Test Student submission");
-    return null;
+    return [];
   }
 
-  const attachments = submission.attachments ?? [];
-  const hasTextEntry = submission.body && submission.body.trim();
-
-  if (!attachments.length && !hasTextEntry) {
-    console.log(
-      "No attachments or text entry found for this submission, returning null"
-    );
-    return null;
-  }
-
-  // Get course, assignment, and user metadata for folder structure
-  const { getCourseMeta } = await import("./canvasStorageUtils.js");
-  const { courseName, termName } = await getCourseMeta(courseId);
-  const { data: assignment } = await rateLimitAwareGet<{ name?: string }>(
-    `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
-    {
-      headers: canvasRequestOptions.headers,
-    }
-  );
-  const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
-  const userName = submission.user?.name || `User ${userId}`;
-
-  // Create folder structure and download attachments
-  const { getSubmissionDirectory, ensureDir } = await import(
-    "./canvasStorageUtils.js"
-  );
   const submissionDir = getSubmissionDirectory({
     termName,
     courseName,
     assignmentId,
     assignmentName,
-    studentName: userName,
+    studentName,
   });
 
   const attachmentsDir = path.join(submissionDir, "attachments");
   ensureDir(attachmentsDir);
-
-  if (!attachments.length) {
-    console.log("No attachments to download for this submission");
-    return null;
-  }
 
   console.log("Downloading submission attachments to:", attachmentsDir);
   const downloaded = await downloadSubmissionAttachmentsToFolder(
@@ -348,22 +261,21 @@ export const downloadAllAttachmentsUtil = async (params: {
   );
 
   // Save a manifest of downloaded attachments
-  try {
-    const manifestPath = path.join(attachmentsDir, "attachments.json");
-    fs_sync.writeFileSync(
-      manifestPath,
-      JSON.stringify(downloaded, null, 2),
-      "utf8"
-    );
-    console.log("Saved attachments manifest to:", manifestPath);
-  } catch (err) {
-    console.warn("Failed to write attachments manifest:", err);
-  }
+  // try {
+  //   const manifestPath = path.join(attachmentsDir, "attachments.json");
+  //   fs_sync.writeFileSync(
+  //     manifestPath,
+  //     JSON.stringify(downloaded, null, 2),
+  //     "utf8"
+  //   );
+  //   console.log("Saved attachments manifest to:", manifestPath);
+  // } catch (err) {
+  //   console.warn("Failed to write attachments manifest:", err);
+  // }
 
-  const downloadedNames = downloaded.map((d) => d.name);
-  console.log(`Downloaded ${downloadedNames.length} attachments`);
+  console.log(`Downloaded ${downloaded.length} attachments`);
 
-  return { downloaded: downloadedNames };
+  return downloaded;
 };
 
 // Download all attachments from submission comments
@@ -426,6 +338,7 @@ export async function downloadCommentAttachments(
           url: att.url,
           contentType: contentType || headerType || claimedType || "",
           bytes,
+          filepath: attachmentPath,
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

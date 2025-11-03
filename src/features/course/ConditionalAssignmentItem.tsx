@@ -8,12 +8,16 @@ export const ConditionalAssignmentItem: FC<{
   assignment: CanvasAssignment;
   courseId: number;
   hideGraded: boolean;
-}> = ({ assignment, courseId, hideGraded }) => {
-  const { data: submissions, isLoading } = useSubmissionsQuery(
+  courseName: string;
+  termName: string;
+}> = ({ assignment, courseId, hideGraded, courseName, termName }) => {
+  const { data: submissions, isLoading } = useSubmissionsQuery({
     courseId,
-    assignment.id,
-    assignment.name
-  );
+    assignmentId: assignment.id,
+    assignmentName: assignment.name,
+    courseName,
+    termName,
+  });
 
   const { status } = isLoading
     ? { status: "loading" as const }
@@ -25,5 +29,12 @@ export const ConditionalAssignmentItem: FC<{
     return null;
   }
 
-  return <AssignmentListItem assignment={assignment} courseId={courseId} />;
+  return (
+    <AssignmentListItem
+      assignment={assignment}
+      courseId={courseId}
+      courseName={courseName}
+      termName={termName}
+    />
+  );
 };

@@ -6,7 +6,7 @@ import { aiQueueRouter } from "../routers/aiQueueRouter.js";
 import { sandboxRouter } from "../routers/sandbox/sandboxRouter.js";
 import { githubClassroomRouter } from "../routers/github/githubClassroomRouter.js";
 import { attachmentsRouter } from "../routers/canvas/attachmentsRouter.js";
-import { assignmentsRouter } from "../routers/canvas/assignmentsRouter.js";
+import { assignmentsRouter } from "../routers/canvas/course/assignment/assignmentsRouter.js";
 import { createTRPCRouter } from "./trpc.js";
 
 export const appRouter = createTRPCRouter({

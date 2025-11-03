@@ -22,12 +22,6 @@ export const SubmissionDetailsWrapper: FC<{
     (a) => a.id === submission.assignment_id
   );
 
-  // make sure attachments are downloaded
-  useDownloadAttachmentsQuery({
-    courseId,
-    assignmentId: submission.assignment_id,
-    userId: submission.user_id,
-  });
   if (!assignment) {
     return <span className="text-gray-400">Unknown Assignment</span>;
   }
@@ -56,6 +50,16 @@ export const SubmissionDetails: FC<{
   termName: string;
   courseName: string;
 }> = ({ submission, courseId, assignmentName, termName, courseName }) => {
+  // make sure attachments are downloaded
+  useDownloadAttachmentsQuery({
+    courseId,
+    assignmentId: submission.assignment_id,
+    userId: submission.user_id,
+    courseName: courseName,
+    termName: termName,
+    studentName: submission.user.name,
+    assignmentName: assignmentName,
+  });
   const { viewingItem } = useViewingItem();
 
   return (

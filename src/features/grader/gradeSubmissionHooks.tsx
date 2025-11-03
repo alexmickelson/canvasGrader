@@ -13,6 +13,8 @@ export const useGradeSubmissionMutation = () => {
         await updateSubmissionsMutation.mutateAsync({
           courseId: variables.courseId,
           assignmentId: variables.assignmentId,
+          termName: variables.termName,
+          courseName: variables.courseName,
           assignmentName: variables.assignmentName,
           studentId: variables.studentId,
           studentName: variables.studentName,

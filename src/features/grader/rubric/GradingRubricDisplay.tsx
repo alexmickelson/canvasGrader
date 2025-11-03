@@ -91,6 +91,8 @@ export const GradingRubricDisplay: FC<{
       studentName: submission.user.name,
       rubricAssessment: currentAssessment,
       assignmentName,
+      termName,
+      courseName,
     });
   };
 

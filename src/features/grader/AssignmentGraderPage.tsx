@@ -151,6 +151,8 @@ const InnerAssignmentPage: FC<{
                 courseId: courseId,
                 assignmentId: assignmentId,
                 assignmentName,
+                termName: canvasCourse.term.name,
+                courseName: canvasCourse.name,
               })
             }
             disabled={updateSubmissionsMutation.isPending}
@@ -182,7 +184,7 @@ const InnerAssignmentPage: FC<{
               courseId={courseId}
               assignmentId={assignmentId}
               course={course}
-              termName={canvasCourse.term?.name || "Unknown Term"}
+              termName={canvasCourse.term.name}
               courseName={canvasCourse.name}
               assignmentName={assignment.name}
             />
@@ -203,6 +205,8 @@ const InnerAssignmentPage: FC<{
                   assignmentId={assignmentId}
                   selectedId={selected?.id}
                   assignment={assignment}
+                  courseName={canvasCourse.name}
+                  termName={canvasCourse.term.name}
                   onSelect={(submission) => {
                     setSelected(submission);
                   }}

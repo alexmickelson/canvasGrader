@@ -69,6 +69,12 @@ db.none(
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS submission_attachments (
+    id BIGINT UNIQUE NOT NULL,
+    submission_id BIGINT NOT NULL,
+    filepath TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS favorite_courses (
     course_id BIGINT REFERENCES courses(id) NOT NULL
   );
@@ -79,7 +85,6 @@ db.none(
     github_username TEXT,
     UNIQUE(course_id, enrollment_id)
   );
-
 `
 ).catch((err) => {
   console.error("Error creating tables:", err);

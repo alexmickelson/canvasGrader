@@ -8,24 +8,36 @@ import {
 } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 
-export const useSubmissionsQuery = (
-  courseId: number,
-  assignmentId: number,
-  assignmentName: string
-) => {
+export const useSubmissionsQuery = ({
+  courseId,
+  assignmentId,
+  assignmentName,
+  termName,
+  courseName,
+}: {
+  courseId: number;
+  assignmentId: number;
+  assignmentName: string;
+  termName: string;
+  courseName: string;
+}) => {
   const trpc = useTRPC();
   return useSuspenseQuery(
     trpc.canvas.assignments.getAssignmentSubmissions.queryOptions({
       courseId,
       assignmentId,
       assignmentName,
+      termName,
+      courseName,
     })
   );
 };
 
 export const useSubmissionsQueries = (
   courseId: number,
-  assignments: Array<{ id: number; name: string }>
+  assignments: Array<{ id: number; name: string }>,
+  courseName: string,
+  termName: string
 ) => {
   const trpc = useTRPC();
   return useSuspenseQueries({
@@ -34,6 +46,8 @@ export const useSubmissionsQueries = (
         courseId,
         assignmentId: assignment.id,
         assignmentName: assignment.name,
+        courseName,
+        termName,
       }),
     })),
   });
@@ -43,10 +57,18 @@ export const useDownloadAttachmentsQuery = ({
   courseId,
   assignmentId,
   userId,
+  courseName,
+  termName,
+  studentName,
+  assignmentName,
 }: {
   courseId: number;
   assignmentId: number;
   userId: number;
+  courseName: string;
+  termName: string;
+  studentName: string;
+  assignmentName: string;
 }) => {
   const trpc = useTRPC();
   return useQuery(
@@ -54,6 +76,10 @@ export const useDownloadAttachmentsQuery = ({
       courseId,
       assignmentId,
       userId,
+      courseName,
+      termName,
+      studentName,
+      assignmentName,
     })
   );
 };

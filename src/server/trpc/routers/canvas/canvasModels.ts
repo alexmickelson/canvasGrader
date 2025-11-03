@@ -213,6 +213,18 @@ export const CanvasSubmissionSchema = z.object({
     pronouns: z.string().nullable().optional(),
     avatar_url: z.string().nullable().optional(),
   }),
+
+  attachments: z
+    .array(
+      z.object({
+        id: z.number(),
+        filename: z.string().optional(),
+        display_name: z.string().optional(),
+        content_type: z.string().optional(),
+        url: z.string(),
+      })
+    )
+    .optional(),
 });
 export type CanvasSubmission = z.infer<typeof CanvasSubmissionSchema>;
 

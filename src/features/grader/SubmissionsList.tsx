@@ -15,13 +15,25 @@ export const SubmissionsList: FC<{
   selectedId: number | undefined;
   assignment: CanvasAssignment;
   onSelect: (s: CanvasSubmission) => void;
-}> = ({ courseId, assignmentId, selectedId, assignment, onSelect }) => {
+  courseName: string;
+  termName: string;
+}> = ({
+  courseId,
+  assignmentId,
+  selectedId,
+  assignment,
+  onSelect,
+  courseName,
+  termName,
+}) => {
   const { setViewingFile } = useViewingItem();
-  const { data: submissions } = useSubmissionsQuery(
+  const { data: submissions } = useSubmissionsQuery({
     courseId,
     assignmentId,
-    assignment.name
-  );
+    assignmentName: assignment.name,
+    courseName: courseName,
+    termName: termName,
+  });
   if (!submissions?.length) {
     return (
       <>

@@ -53,6 +53,10 @@ export const attachmentsRouter = createTRPCRouter({
         courseId: z.number(),
         assignmentId: z.number(),
         userId: z.number(),
+        courseName: z.string(),
+        assignmentName: z.string(),
+        studentName: z.string(),
+        termName: z.string(),
       })
     )
     .query(async ({ input }) => {

@@ -1,26 +1,30 @@
-import { createTRPCRouter, publicProcedure } from "../../utils/trpc.js";
+import { createTRPCRouter, publicProcedure } from "../../../../utils/trpc.js";
 import { z } from "zod";
 import {
   paginatedRequest,
   downloadAllAttachmentsUtil,
-} from "./canvasServiceUtils.js";
+} from "../../canvasServiceUtils.js";
 import {
-  persistAssignmentsToStorage,
   persistSubmissionsToStorage,
   loadSubmissionsFromStorage,
-} from "./canvasStorageUtils.js";
+} from "../../canvasStorageUtils.js";
 import {
   fetchSingleSubmissionByIdFromCanvas,
   fetchSubmissionsFromCanvas,
-} from "./canvasSubmissionsUtils.js";
-import { fetchAssignmentRubric } from "./canvasRubricUtils.js";
-import { parseSchema } from "../parseSchema.js";
+} from "../../canvasSubmissionsUtils.js";
+import { fetchAssignmentRubric } from "../../canvasRubricUtils.js";
+import { parseSchema } from "../../../parseSchema.js";
 import {
   type CanvasAssignment,
   CanvasAssignmentSchema,
   type CanvasSubmission,
   type CanvasRubric,
-} from "./canvasModels.js";
+} from "../../canvasModels.js";
+import {
+  getCourseAssignments,
+  storeAssignments,
+  storeSubmissions,
+} from "./assignmentDbUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -29,19 +33,19 @@ export const assignmentsRouter = createTRPCRouter({
   getAssignmentsInCourse: publicProcedure
     .input(z.object({ courseId: z.coerce.number() }))
     .query(async ({ input }): Promise<CanvasAssignment[]> => {
-      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/assignments?per_page=100`;
-      const assignments = await paginatedRequest<CanvasAssignment[]>({
-        url,
-        params: { include: ["submission"] },
-      });
-      const normalized = assignments.map((assignment) =>
-        parseSchema(CanvasAssignmentSchema, assignment, "CanvasAssignment")
+      const assignmentsInDatabase = await getCourseAssignments(input.courseId);
+      if (assignmentsInDatabase.length > 0) return assignmentsInDatabase;
+
+      return await fetchAndStoreCanvasAssignments(input.courseId);
+    }),
+  refreshAssignmentsInCourse: publicProcedure
+    .input(z.object({ courseId: z.coerce.number() }))
+    .mutation(async ({ input }): Promise<CanvasAssignment[]> => {
+      console.log(
+        `Force refreshing assignments from Canvas API for course ${input.courseId}`
       );
 
-      // Persist assignment metadata to storage under Term/Course/<ID - Name>/assignment.json
-      await persistAssignmentsToStorage(input.courseId, normalized);
-
-      return normalized;
+      return await fetchAndStoreCanvasAssignments(input.courseId);
     }),
 
   getAssignmentSubmissions: publicProcedure
@@ -50,6 +54,8 @@ export const assignmentsRouter = createTRPCRouter({
         courseId: z.coerce.number(),
         assignmentId: z.coerce.number(),
         assignmentName: z.string(),
+        courseName: z.string(),
+        termName: z.string(),
       })
     )
     .query(async ({ input }) => {
@@ -84,13 +90,21 @@ export const assignmentsRouter = createTRPCRouter({
       );
 
       await Promise.all(
-        submissions.map((submission) =>
-          downloadAllAttachmentsUtil({
+        submissions.map(async (submission) => {
+          const _downloadedAttachments = await downloadAllAttachmentsUtil({
             courseId: input.courseId,
             assignmentId: input.assignmentId,
+            studentName: submission.user.name,
             userId: submission.user_id,
-          })
-        )
+            courseName: input.courseName,
+            assignmentName: input.assignmentName,
+            termName: input.termName,
+          });
+
+          // storeAttachments({
+          //   id:
+          // });
+        })
       );
       return submissions;
     }),
@@ -103,6 +117,8 @@ export const assignmentsRouter = createTRPCRouter({
         assignmentName: z.string(),
         studentName: z.string().optional(),
         studentId: z.coerce.number().optional(),
+        courseName: z.string(),
+        termName: z.string(),
       })
     )
     .mutation(async ({ input }) => {
@@ -127,19 +143,23 @@ export const assignmentsRouter = createTRPCRouter({
         }`
       );
 
-      await persistSubmissionsToStorage(
-        input.courseId,
-        input.assignmentId,
-        submissions,
-        input.assignmentName
-      );
+      await storeSubmissions(submissions);
 
+      // await persistSubmissionsToStorage(
+      //   input.courseId,
+      //   input.assignmentId,
+      //   submissions,
+      //   input.assignmentName
       await Promise.all(
         submissions.map((submission) =>
           downloadAllAttachmentsUtil({
             courseId: input.courseId,
             assignmentId: input.assignmentId,
             userId: submission.user_id,
+            assignmentName: input.assignmentName,
+            studentName: submission.user.name,
+            courseName: input.courseName,
+            termName: input.termName,
           })
         )
       );
@@ -158,3 +178,19 @@ export const assignmentsRouter = createTRPCRouter({
       return await fetchAssignmentRubric(input.courseId, input.assignmentId);
     }),
 });
+async function fetchAndStoreCanvasAssignments(
+  courseId: number
+): Promise<CanvasAssignment[]> {
+  const url = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments?per_page=100`;
+  const assignments = await paginatedRequest<CanvasAssignment[]>({
+    url,
+    params: { include: ["submission"] },
+  });
+  const normalized = assignments.map((assignment) =>
+    parseSchema(CanvasAssignmentSchema, assignment, "CanvasAssignment")
+  );
+
+  await storeAssignments(normalized);
+
+  return normalized;
+}

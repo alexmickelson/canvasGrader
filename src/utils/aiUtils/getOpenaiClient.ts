@@ -1,4 +1,6 @@
 import OpenAI from "openai";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Initialize OpenAI client
 const aiUrl = process.env.AI_URL;
@@ -24,7 +26,6 @@ export function getOpenaiClient(): OpenAI {
   }
   return openai;
 }
-
 
 export const aiModel = (() => {
   const model = process.env.AI_MODEL;

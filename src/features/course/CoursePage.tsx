@@ -1,7 +1,10 @@
 import type { FC } from "react";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
-import { useAssignmentsQuery } from "./canvasAssignmentHooks";
+import {
+  useAssignmentsQuery,
+  useRefreshAssignmentsMutation,
+} from "./canvasAssignmentHooks";
 import { useAssignmentGroups } from "./useAssignmentGroups";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
@@ -12,10 +15,14 @@ import { useQueries } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 import { Toggle } from "../../components/Toggle";
 import { DisplayWeek } from "./DisplayWeek";
+import Spinner from "../../utils/Spinner";
+import { useCanvasCoursesQuery } from "../home/canvasHooks";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const parsedCourseId = courseId ? Number(courseId) : undefined;
+
+  const updateAssignmentsMutation = useRefreshAssignmentsMutation();
 
   return (
     <div className="p-4 text-gray-200">
@@ -23,14 +30,31 @@ export const CoursePage = () => {
         Course{" "}
         {parsedCourseId && <CourseNameDisplay courseId={parsedCourseId} />}
       </h2>
+      {parsedCourseId && (
+        <button
+          onClick={() =>
+            updateAssignmentsMutation.mutate({ courseId: parsedCourseId })
+          }
+          disabled={updateAssignmentsMutation.isPending}
+        >
+          Refetch Assignemnts{" "}
+          {updateAssignmentsMutation.isPending && <Spinner />}
+        </button>
+      )}
 
       {parsedCourseId && <CourseAssignments courseId={parsedCourseId} />}
     </div>
   );
 };
 
-export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
+export const CourseAssignments: FC<{
+  courseId: number;
+}> = ({ courseId }) => {
   const { data: assignments } = useAssignmentsQuery(courseId);
+
+  const { data: courses } = useCanvasCoursesQuery();
+  const currentCourse = courses?.find((c) => c.id === courseId);
+
   const [filter, setFilter] = useState("");
   const [hideGraded, setHideGraded] = useState(true);
 
@@ -58,7 +82,14 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
 
       <div className="mb-3 space-y-3">
         <div className="flex justify-end">
-          <RefreshAllButton assignments={filtered || []} courseId={courseId} />
+          {currentCourse && (
+            <RefreshAllButton
+              assignments={filtered || []}
+              courseId={courseId}
+              termName={currentCourse?.term.name}
+              courseName={currentCourse?.name}
+            />
+          )}
         </div>
 
         <div className="flex">
@@ -81,15 +112,18 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
       </div>
 
       <div className="">
-        {groups.map((group) => (
-          <DisplayWeek
-            key={group.key}
-            group={group}
-            courseId={courseId}
-            hideGraded={hideGraded}
-            assignments={group.items}
-          />
-        ))}
+        {currentCourse &&
+          groups.map((group) => (
+            <DisplayWeek
+              key={group.key}
+              group={group}
+              courseId={courseId}
+              hideGraded={hideGraded}
+              assignments={group.items}
+              courseName={currentCourse.name}
+              courseCode={currentCourse.course_code}
+            />
+          ))}
       </div>
     </div>
   );
@@ -98,7 +132,9 @@ export const CourseAssignments: FC<{ courseId: number }> = ({ courseId }) => {
 const RefreshAllButton: FC<{
   assignments: CanvasAssignment[];
   courseId: number;
-}> = ({ assignments, courseId }) => {
+  termName: string;
+  courseName: string;
+}> = ({ assignments, courseId, courseName, termName }) => {
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
   const trpc = useTRPC();
 
@@ -109,6 +145,8 @@ const RefreshAllButton: FC<{
         courseId,
         assignmentId: assignment.id,
         assignmentName: assignment.name,
+        courseName,
+        termName,
       }),
     })),
   });
@@ -133,6 +171,8 @@ const RefreshAllButton: FC<{
         courseId,
         assignmentId: assignment.id,
         assignmentName: assignment.name,
+        courseName,
+        termName,
       })
     );
 
