@@ -162,14 +162,15 @@ export async function getAssignmentSubmissions(assignmentId: number) {
 }
 
 export async function storeAttachments(
-  attachments: Array<{ id: number; submissionId: number; filepath: string }>
+  attachments: Array<{ id: number; submissionId: number; filepath: string }>,
+  type: "embedded" | "uploaded" | "comment"
 ) {
 
   const queries = attachments.map((attachment) =>
     db.none(
       `
-      INSERT INTO submission_attachments (id, submission_id, filepath)
-      VALUES ($<id>, $<submissionId>, $<filepath>)
+      INSERT INTO submission_attachments (id, submission_id, filepath, type)
+      VALUES ($<id>, $<submissionId>, $<filepath>, $<type>)
       ON CONFLICT (id) 
       DO UPDATE SET 
         submission_id = EXCLUDED.submission_id,
@@ -179,6 +180,7 @@ export async function storeAttachments(
         id: attachment.id,
         submissionId: attachment.submissionId,
         filepath: attachment.filepath,
+        type,
       }
     )
   );

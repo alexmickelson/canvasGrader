@@ -5,7 +5,6 @@ import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canva
 import { useAssignmentsQuery } from "../../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../../home/canvasHooks";
 import { SubmissionFileExplorer } from "./fileViewer/SubmissionFileExplorer";
-import { useDownloadAttachmentsQuery } from "../graderHooks";
 import { useViewingItem } from "../shared/viewingItemContext/ViewingItemContext";
 import { ViewFileComponent } from "./fileViewer/ViewFileComponent";
 import { AiCriterionAnalysisDisplay } from "../shared/AiCriterionAnalysisDisplay";
@@ -50,13 +49,6 @@ export const SubmissionDetails: FC<{
   termName: string;
   courseName: string;
 }> = ({ submission, courseId, assignmentName, termName, courseName }) => {
-  // make sure attachments are downloaded
-  useDownloadAttachmentsQuery({
-    assignmentId: submission.assignment_id,
-    userId: submission.user_id,
-    studentName: submission.user.name,
-    assignmentName: assignmentName,
-  });
   const { viewingItem } = useViewingItem();
 
   return (

@@ -131,7 +131,7 @@ export const CanvasRubricAssessmentSchema = z.record(
 
 export const CanvasSubmissionSchema = z.object({
   // Base identifiers
-  id: z.number().optional(),
+  id: z.number(),
   assignment_id: z.number(),
   user_id: z.number(),
 

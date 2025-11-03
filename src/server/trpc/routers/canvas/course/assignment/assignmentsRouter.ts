@@ -1,26 +1,21 @@
 import { createTRPCRouter, publicProcedure } from "../../../../utils/trpc.js";
 import { z } from "zod";
+import { paginatedRequest } from "../../canvasServiceUtils.js";
 import {
-  paginatedRequest,
-  downloadAllAttachmentsUtil,
-} from "../../canvasServiceUtils.js";
-import {
-  fetchSingleSubmissionByIdFromCanvas,
-  fetchSubmissionsFromCanvas,
+  fetchAndStoreSingleSubmissionByIdFromCanvas,
+  fetchAndStoreSubmissionsFromCanvas as fetchAndStoreSubmissionsFromCanvas,
 } from "../../canvasSubmissionsUtils.js";
 import { fetchAssignmentRubric } from "../../canvasRubricUtils.js";
 import { parseSchema } from "../../../parseSchema.js";
 import {
   type CanvasAssignment,
   CanvasAssignmentSchema,
-  type CanvasSubmission,
   type CanvasRubric,
 } from "../../canvasModels.js";
 import {
   getAssignmentSubmissions,
   getCourseAssignments,
   storeAssignments,
-  storeSubmissions,
 } from "./assignmentDbUtils.js";
 
 const canvasBaseUrl =
@@ -72,33 +67,14 @@ export const assignmentsRouter = createTRPCRouter({
 
       console.log("No existing submissions found, fetching from Canvas API");
 
-      const submissions = await fetchSubmissionsFromCanvas(
-        input.courseId,
-        input.assignmentId
-      );
+      const submissions = await fetchAndStoreSubmissionsFromCanvas({
+        courseId: input.courseId,
+        assignmentId: input.assignmentId,
+        courseName: input.courseName,
+        assignmentName: input.assignmentName,
+        termName: input.termName,
+      });
 
-      await Promise.all(
-        submissions.map(async (submission) => {
-          const _downloadedAttachments = await downloadAllAttachmentsUtil({
-            courseId: input.courseId,
-            assignmentId: input.assignmentId,
-            studentName: submission.user.name,
-            userId: submission.user_id,
-            courseName: input.courseName,
-            assignmentName: input.assignmentName,
-            termName: input.termName,
-          });
-
-          console.log("downloaded attachments", _downloadedAttachments);
-
-
-          // todo: store attachments on filesystem, reference in db
-          // storeAttachments({
-          //   id:
-          // });
-          // also put markdown submission somewhere, can probably be infered from db
-        })
-      );
       return submissions;
     }),
 
@@ -123,33 +99,25 @@ export const assignmentsRouter = createTRPCRouter({
 
       // Use ternary to determine which function to call and get submissions
       const submissions = input.studentId
-        ? await fetchSingleSubmissionByIdFromCanvas(
-            input.courseId,
-            input.assignmentId,
-            input.studentId
-          ).then((sub: CanvasSubmission | null) => (sub ? [sub] : []))
-        : await fetchSubmissionsFromCanvas(input.courseId, input.assignmentId);
+        ? [
+            await fetchAndStoreSingleSubmissionByIdFromCanvas(
+              input.courseId,
+              input.assignmentId,
+              input.studentId
+            ),
+          ]
+        : await fetchAndStoreSubmissionsFromCanvas({
+            courseId: input.courseId,
+            assignmentId: input.assignmentId,
+            courseName: input.courseName,
+            assignmentName: input.assignmentName,
+            termName: input.termName,
+          });
 
       console.log(
         `Successfully refreshed ${submissions.length} submission${
           submissions.length === 1 ? "" : "s"
         }`
-      );
-
-      await storeSubmissions(submissions);
-
-      await Promise.all(
-        submissions.map((submission) =>
-          downloadAllAttachmentsUtil({
-            courseId: input.courseId,
-            assignmentId: input.assignmentId,
-            userId: submission.user_id,
-            assignmentName: input.assignmentName,
-            studentName: submission.user.name,
-            courseName: input.courseName,
-            termName: input.termName,
-          })
-        )
       );
 
       return submissions;
@@ -166,6 +134,7 @@ export const assignmentsRouter = createTRPCRouter({
       return await fetchAssignmentRubric(input.courseId, input.assignmentId);
     }),
 });
+
 async function fetchAndStoreCanvasAssignments(
   courseId: number
 ): Promise<CanvasAssignment[]> {

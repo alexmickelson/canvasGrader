@@ -2,12 +2,8 @@ import type { AxiosResponseHeaders, RawAxiosResponseHeaders } from "axios";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 import path from "path";
-import type {
-  CanvasSubmission,
-  CanvasSubmissionComment,
-} from "./canvasModels.js";
+import type { CanvasSubmission } from "./canvasModels.js";
 import { rateLimitAwareGet } from "./canvasRequestUtils.js";
-import { ensureDir, getSubmissionDirectory } from "./canvasStorageUtils.js";
 
 dotenv.config();
 
@@ -139,7 +135,8 @@ export function sniffContentType(bytes: Uint8Array, fallback?: string): string {
 }
 
 export type DownloadedAttachment = {
-  id: number | undefined;
+  id: number;
+  submissionId: number;
   name: string;
   url: string;
   contentType: string;
@@ -191,6 +188,7 @@ export async function downloadSubmissionAttachmentsToFolder(
           contentType: contentType || headerType || claimedType || "",
           bytes,
           filepath: attachmentPath,
+          submissionId: submission.id,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -200,32 +198,14 @@ export async function downloadSubmissionAttachmentsToFolder(
   );
 }
 
-// Helper function to check if a submission should be ignored
-export const isTestStudentSubmission = (submission: {
-  user?: { name?: string };
-}) => {
-  return submission.user?.name === "Test Student";
-};
-
 // High-level utility function to download all attachments for a submission with full Canvas integration
 export const downloadAllAttachmentsUtil = async (params: {
   courseId: number;
   assignmentId: number;
   userId: number;
-  courseName: string;
-  assignmentName: string;
-  studentName: string;
-  termName: string;
+  attachmentsDir: string;
 }): Promise<DownloadedAttachment[]> => {
-  const {
-    courseId,
-    assignmentId,
-    userId,
-    assignmentName,
-    studentName,
-    termName,
-    courseName,
-  } = params;
+  const { courseId, assignmentId, userId, attachmentsDir } = params;
 
   const { data: submission } = await rateLimitAwareGet<CanvasSubmission>(
     `${baseCanvasUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
@@ -238,21 +218,10 @@ export const downloadAllAttachmentsUtil = async (params: {
   // console.log("Submission data:", submission);
 
   // Skip processing for Test Student submissions
-  if (isTestStudentSubmission(submission)) {
+  if (submission.user?.name === "Test Student") {
     console.log("Skipping Test Student submission");
     return [];
   }
-
-  const submissionDir = getSubmissionDirectory({
-    termName,
-    courseName,
-    assignmentId,
-    assignmentName,
-    studentName,
-  });
-
-  const attachmentsDir = path.join(submissionDir, "attachments");
-  ensureDir(attachmentsDir);
 
   console.log("Downloading submission attachments to:", attachmentsDir);
   const downloaded = await downloadSubmissionAttachmentsToFolder(
@@ -280,74 +249,167 @@ export const downloadAllAttachmentsUtil = async (params: {
 
 // Download all attachments from submission comments
 export async function downloadCommentAttachments(
-  submission: {
-    submission_comments?: CanvasSubmissionComment[];
-    user?: {
-      name?: string;
-    };
-  },
+  submission: CanvasSubmission,
   targetDir: string
 ): Promise<DownloadedAttachment[]> {
   const comments = submission.submission_comments ?? [];
-  const results: DownloadedAttachment[] = [];
 
-  for (const comment of comments) {
-    const attachments = comment.attachments ?? [];
+  const results = await Promise.all(
+    comments.flatMap((comment) => {
+      const attachments = comment.attachments ?? [];
 
-    for (const att of attachments) {
-      if (!att.url) {
-        console.warn(`Skipping attachment ${att.id} - no URL`);
-        continue;
-      }
+      return attachments.map(async (att) => {
+        if (!att.url) {
+          console.warn(`Skipping attachment ${att.id} - no URL`);
+          return null;
+        }
 
-      const name = att.display_name || att.filename || `comment-file-${att.id}`;
+        const name =
+          att.display_name || att.filename || `comment-file-${att.id}`;
+        try {
+          const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
+            headers: canvasRequestOptions.headers,
+            responseType: "arraybuffer",
+          });
+          const bytes = new Uint8Array(resp.data);
+          const headerType =
+            (resp.headers["content-type"] as string | undefined) || "";
+          const claimedType = att["content-type"] || "";
+          const contentType = sniffContentType(
+            bytes,
+            claimedType || headerType
+          );
+
+          console.log(
+            "Downloaded comment attachment:",
+            name,
+            "from comment:",
+            comment.id,
+            "author:",
+            comment.author_name,
+            "type:",
+            contentType || headerType
+          );
+
+          // Save with comment info in filename
+          const sanitizedName = name.replace(/[^a-z0-9._-]/gi, "_");
+          const uniqueName = `comment-${comment.id || "unknown"}-${
+            att.id || Date.now()
+          }-${sanitizedName}`;
+          const attachmentPath = path.join(targetDir, uniqueName);
+          await fs.writeFile(attachmentPath, bytes);
+          console.log("Saved comment attachment to:", attachmentPath);
+
+          return {
+            id: att.id,
+            name,
+            url: att.url,
+            contentType: contentType || headerType || claimedType || "",
+            bytes,
+            filepath: attachmentPath,
+            submissionId: submission.id,
+          };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `Failed to download comment attachment '${name}': ${msg}`
+          );
+        }
+      });
+    })
+  );
+
+  return results.filter((result) => result !== null);
+}
+
+// Download embedded attachments from submission body HTML
+export async function downloadEmbeddedAttachments(
+  submission: CanvasSubmission,
+  targetDir: string
+): Promise<DownloadedAttachment[]> {
+  const submissionBody = submission.body;
+  if (!submissionBody) {
+    console.log("No submission body to extract embedded attachments from");
+    return [];
+  }
+
+  // Extract file links from HTML using regex
+  // Looking for instructure_file_link anchors with href and data-api-endpoint
+  const linkRegex =
+    /<a[^>]*class="[^"]*instructure_file_link[^"]*"[^>]*href="([^"]+)"[^>]*data-api-endpoint="([^"]+)"[^>]*>([^<]+)<\/a>/g;
+
+  const matches = [...submissionBody.matchAll(linkRegex)];
+
+  if (matches.length === 0) {
+    // console.log("No embedded file links found in submission body");
+    return [];
+  }
+
+  // console.log(`Found ${matches.length} embedded file links`);
+
+  return await Promise.all(
+    matches.map(async (match) => {
+      const [, , apiEndpoint, fileName] = match;
+
       try {
-        const resp = await rateLimitAwareGet<ArrayBuffer>(att.url, {
+        // Get file metadata from API endpoint
+        const { data: fileData } = await rateLimitAwareGet<{
+          id: number;
+          url: string;
+          "content-type": string;
+          display_name: string;
+          filename: string;
+        }>(apiEndpoint, {
+          headers: canvasRequestOptions.headers,
+        });
+
+        // Download the actual file
+        const resp = await rateLimitAwareGet<ArrayBuffer>(fileData.url, {
           headers: canvasRequestOptions.headers,
           responseType: "arraybuffer",
         });
+
         const bytes = new Uint8Array(resp.data);
         const headerType =
           (resp.headers["content-type"] as string | undefined) || "";
-        const claimedType = att["content-type"] || "";
+        const claimedType = fileData["content-type"] || "";
         const contentType = sniffContentType(bytes, claimedType || headerType);
 
-        console.log(
-          "Downloaded comment attachment:",
-          name,
-          "from comment:",
-          comment.id,
-          "author:",
-          comment.author_name,
-          "type:",
-          contentType || headerType
-        );
+        const name = fileData.display_name || fileData.filename || fileName;
 
-        // Save with comment info in filename
+        // console.log(
+        //   "Downloaded embedded attachment:",
+        //   name,
+        //   "type:",
+        //   contentType || headerType,
+        //   "size:",
+        //   bytes.length
+        // );
+
+        // Save the attachment to the target directory
         const sanitizedName = name.replace(/[^a-z0-9._-]/gi, "_");
-        const uniqueName = `comment-${comment.id || "unknown"}-${
-          att.id || Date.now()
-        }-${sanitizedName}`;
+        const uniqueName = `embeded-${fileData.id}-${sanitizedName}`;
         const attachmentPath = path.join(targetDir, uniqueName);
         await fs.writeFile(attachmentPath, bytes);
-        console.log("Saved comment attachment to:", attachmentPath);
+        // console.log("Saved embedded attachment to:", attachmentPath);
 
-        results.push({
-          id: att.id,
+        return {
+          id: fileData.id,
           name,
-          url: att.url,
+          url: fileData.url,
           contentType: contentType || headerType || claimedType || "",
           bytes,
           filepath: attachmentPath,
-        });
+          submissionId: submission.id,
+        };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(
-          `Failed to download comment attachment '${name}': ${msg}`
+        console.error(
+          `Failed to download embedded attachment '${fileName}': ${msg}`
         );
+        // Return null instead of throwing to allow other downloads to continue
+        return null;
       }
-    }
-  }
-
-  return results;
+    })
+  ).then((results) => results.filter((result) => result !== null));
 }

@@ -1,6 +1,5 @@
 import { createTRPCRouter, publicProcedure } from "../../utils/trpc.js";
 import { z } from "zod";
-import { downloadAllAttachmentsUtil } from "./canvasServiceUtils.js";
 import {
   transcribeSubmissionImages,
 } from "./canvasStorageUtils.js";
@@ -45,19 +44,4 @@ export const attachmentsRouter = createTRPCRouter({
       return { transcribedCount: submissions.length };
     }),
 
-  downloadAllAttachments: publicProcedure
-    .input(
-      z.object({
-        courseId: z.number(),
-        assignmentId: z.number(),
-        userId: z.number(),
-        courseName: z.string(),
-        assignmentName: z.string(),
-        studentName: z.string(),
-        termName: z.string(),
-      })
-    )
-    .query(async ({ input }) => {
-      return await downloadAllAttachmentsUtil(input);
-    }),
 });

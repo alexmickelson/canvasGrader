@@ -72,6 +72,7 @@ db.none(
   CREATE TABLE IF NOT EXISTS submission_attachments (
     id BIGINT UNIQUE NOT NULL,
     submission_id BIGINT NOT NULL,
+    type TEXT NOT NULL,
     filepath TEXT NOT NULL
   );
 

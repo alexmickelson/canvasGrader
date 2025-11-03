@@ -47,32 +47,6 @@ export const useSubmissionsQueries = (
   });
 };
 
-export const useDownloadAttachmentsQuery = ({
-  assignmentId,
-  userId,
-  studentName,
-  assignmentName,
-}: {
-  assignmentId: number;
-  userId: number;
-  studentName: string;
-  assignmentName: string;
-}) => {
-  const { courseName, courseId, termName } = useCurrentCourse();
-  const trpc = useTRPC();
-  return useQuery(
-    trpc.canvas.attachments.downloadAllAttachments.queryOptions({
-      courseId,
-      assignmentId,
-      userId,
-      courseName,
-      termName,
-      studentName,
-      assignmentName,
-    })
-  );
-};
-
 export const useRubricQuery = (assignmentId: number) => {
   const trpc = useTRPC();
 
