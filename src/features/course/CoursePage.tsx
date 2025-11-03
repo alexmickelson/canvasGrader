@@ -67,7 +67,12 @@ const CoursePageCourseProvider: FC<{
   }
 
   return (
-    <CourseProvider courseName={currentCourse?.name} courseId={courseId}>
+    <CourseProvider
+      courseName={currentCourse.name}
+      courseId={courseId}
+      termName={currentCourse.term.name}
+      course={currentCourse}
+    >
       {children}
     </CourseProvider>
   );
@@ -76,10 +81,7 @@ const CoursePageCourseProvider: FC<{
 export const CourseAssignments: FC<{
   courseId: number;
 }> = ({ courseId }) => {
-  const { data: assignments } = useAssignmentsQuery(courseId);
-
-  const { data: courses } = useCanvasCoursesQuery();
-  const currentCourse = courses?.find((c) => c.id === courseId);
+  const { data: assignments } = useAssignmentsQuery();
 
   const [filter, setFilter] = useState("");
   const [hideGraded, setHideGraded] = useState(true);
@@ -108,12 +110,7 @@ export const CourseAssignments: FC<{
 
       <div className="mb-3 space-y-3">
         <div className="flex justify-end">
-          {currentCourse && (
-            <RefreshAllButton
-              assignments={filtered || []}
-              termName={currentCourse?.term.name}
-            />
-          )}
+          {<RefreshAllButton assignments={filtered || []} />}
         </div>
 
         <div className="flex">
@@ -136,18 +133,14 @@ export const CourseAssignments: FC<{
       </div>
 
       <div className="">
-        {currentCourse &&
-          groups.map((group) => (
-            <DisplayWeek
-              key={group.key}
-              group={group}
-              courseId={courseId}
-              hideGraded={hideGraded}
-              assignments={group.items}
-              courseName={currentCourse.name}
-              courseCode={currentCourse.course_code}
-            />
-          ))}
+        {groups.map((group) => (
+          <DisplayWeek
+            key={group.key}
+            group={group}
+            hideGraded={hideGraded}
+            assignments={group.items}
+          />
+        ))}
       </div>
     </div>
   );
@@ -155,9 +148,8 @@ export const CourseAssignments: FC<{
 
 const RefreshAllButton: FC<{
   assignments: CanvasAssignment[];
-  termName: string;
-}> = ({ assignments, termName }) => {
-  const { courseId, courseName } = useCurrentCourse();
+}> = ({ assignments }) => {
+  const { courseId, courseName, termName } = useCurrentCourse();
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
   const trpc = useTRPC();
 
@@ -193,7 +185,6 @@ const RefreshAllButton: FC<{
       updateSubmissionsMutation.mutateAsync({
         assignmentId: assignment.id,
         assignmentName: assignment.name,
-        termName,
       })
     );
 

@@ -19,7 +19,6 @@ export const RunAllAnalysis: FC<{
 }) => {
   const aiAnalysisMutation = useAiAnalysisMutation();
   const { data: rubric, isLoading: rubricLoading } = useRubricQuery(
-    courseId,
     assignmentId
   );
   const [runningCount, setRunningCount] = useState(0);

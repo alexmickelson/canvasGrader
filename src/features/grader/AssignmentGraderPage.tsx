@@ -1,14 +1,9 @@
-import { Suspense, useState, type FC } from "react";
+import { Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { userName } from "./userUtils";
 import { SubmissionDetailsWrapper } from "./submission/SubmissionDetails";
 import { useSettingsQuery } from "../home/settingsHooks";
-import type {
-  CanvasAssignment,
-  CanvasCourse,
-  CanvasSubmission,
-} from "../../server/trpc/routers/canvas/canvasModels";
-import type { SettingsCourse } from "../../server/trpc/routers/settingsRouter";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
 import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
@@ -24,6 +19,14 @@ import { AiQueueStatus } from "../home/AiQueueStatus";
 import { Toggle } from "../../components/Toggle";
 import { AiSandbox } from "./submission/AiSandbox";
 import { useLoadSubmissionToSandbox } from "../sandbox/sandboxHooks";
+import {
+  CourseProvider,
+  useCurrentCourse,
+} from "../../components/contexts/CourseProvider";
+import {
+  AssignmentProvider,
+  useCurrentAssignment,
+} from "../../components/contexts/AssignmentProvider";
 
 export const AssignmentGraderPage = () => {
   useLoadGithubClassroomDataQuery();
@@ -33,15 +36,11 @@ export const AssignmentGraderPage = () => {
   }>();
   const { data: settings } = useSettingsQuery();
   const parsedCourseId = courseId ? Number(courseId) : undefined;
-  const parsedAssignmentId = assignmentId ? Number(assignmentId) : undefined;
   const course = settings?.courses?.find((c) => c.canvasId === parsedCourseId);
 
-  // Get Canvas course and assignment data for GitHub Classroom integration
   const { data: canvasCourses } = useCanvasCoursesQuery();
-  const { data: assignments } = useAssignmentsQuery(parsedCourseId!);
 
   const canvasCourse = canvasCourses?.find((c) => c.id === parsedCourseId);
-  const assignment = assignments?.find((a) => a.id === parsedAssignmentId);
 
   if (!courseId || !assignmentId) {
     return (
@@ -49,11 +48,9 @@ export const AssignmentGraderPage = () => {
     );
   }
 
-  if (!parsedCourseId || !parsedAssignmentId) {
+  if (!parsedCourseId) {
     return (
-      <div className="p-4 text-red-400">
-        Course ID and Assignment ID must be valid numbers.
-      </div>
+      <div className="p-4 text-red-400">Course ID must be valid number.</div>
     );
   }
 
@@ -72,7 +69,34 @@ export const AssignmentGraderPage = () => {
       </div>
     );
   }
+  return (
+    <CourseProvider
+      courseId={parsedCourseId}
+      courseName={canvasCourse.name}
+      termName={canvasCourse.term.name}
+      course={canvasCourse}
+    >
+      <AssignmentPageAssignmentProviderWrapper />
+    </CourseProvider>
+  );
+};
 
+const AssignmentPageAssignmentProviderWrapper = () => {
+  const { assignmentId } = useParams<{
+    assignmentId: string;
+  }>();
+  const parsedAssignmentId = assignmentId ? Number(assignmentId) : undefined;
+
+  const { data: assignments } = useAssignmentsQuery();
+  const assignment = assignments?.find((a) => a.id === parsedAssignmentId);
+
+  if (!parsedAssignmentId) {
+    return (
+      <div className="p-4 text-red-400">
+        Assignment ID must be valid number.
+      </div>
+    );
+  }
   if (!assignment) {
     return (
       <div className="p-4 text-red-400">
@@ -82,32 +106,19 @@ export const AssignmentGraderPage = () => {
   }
 
   return (
-    <InnerAssignmentPage
-      courseId={parsedCourseId}
+    <AssignmentProvider
       assignmentId={parsedAssignmentId}
       assignmentName={assignment.name}
       assignment={assignment}
-      canvasCourse={canvasCourse}
-      course={course}
-    />
+    >
+      <InnerAssignmentPage />
+    </AssignmentProvider>
   );
 };
 
-const InnerAssignmentPage: FC<{
-  courseId: number;
-  assignmentId: number;
-  assignmentName: string;
-  assignment: CanvasAssignment;
-  canvasCourse: CanvasCourse;
-  course: SettingsCourse;
-}> = ({
-  courseId,
-  assignmentId,
-  assignmentName,
-  assignment,
-  course,
-  canvasCourse,
-}) => {
+const InnerAssignmentPage = () => {
+  const { courseId } = useCurrentCourse();
+  const { assignmentId, assignmentName } = useCurrentAssignment();
   const [selected, setSelected] = useState<CanvasSubmission | undefined>(
     undefined
   );
@@ -123,10 +134,6 @@ const InnerAssignmentPage: FC<{
     if (enabled && selected) {
       // Load submission when enabling sandbox
       await loadSubmission.mutateAsync({
-        termName: canvasCourse.term?.name || "Unknown Term",
-        courseName: canvasCourse.name,
-        assignmentId: selected.assignment_id,
-        assignmentName,
         studentName: selected.user.name,
       });
     } else {
@@ -139,19 +146,14 @@ const InnerAssignmentPage: FC<{
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h1 className="text-xl font-semibold">
-          Grade{" "}
-          <AssignmentName assignmentId={assignmentId} courseId={courseId} />
+          Grade <AssignmentName />
         </h1>
         <AiQueueStatus />
 
         <div className="flex items-center gap-3">
           <button
             onClick={() =>
-              updateSubmissionsMutation.mutate({
-                assignmentId: assignmentId,
-                assignmentName,
-                termName: canvasCourse.term.name,
-              })
+              updateSubmissionsMutation.mutate({ assignmentId, assignmentName })
             }
             disabled={updateSubmissionsMutation.isPending}
             className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-md text-sm font-medium transition-colors"
@@ -164,7 +166,6 @@ const InnerAssignmentPage: FC<{
           <button
             onClick={() =>
               transcribeImagesMutation.mutate({
-                courseId: courseId,
                 assignmentId: assignmentId,
                 assignmentName,
               })
@@ -177,16 +178,7 @@ const InnerAssignmentPage: FC<{
               : "Transcribe Images"}
           </button>
 
-          {course && canvasCourse && assignment && (
-            <GitHubClassroomDownload
-              courseId={courseId}
-              assignmentId={assignmentId}
-              course={course}
-              termName={canvasCourse.term.name}
-              courseName={canvasCourse.name}
-              assignmentName={assignment.name}
-            />
-          )}
+          <GitHubClassroomDownload />
         </div>
       </div>
       {
@@ -199,12 +191,7 @@ const InnerAssignmentPage: FC<{
                 }
               >
                 <SubmissionsList
-                  courseId={courseId}
-                  assignmentId={assignmentId}
                   selectedId={selected?.id}
-                  assignment={assignment}
-                  courseName={canvasCourse.name}
-                  termName={canvasCourse.term.name}
                   onSelect={(submission) => {
                     setSelected(submission);
                   }}
@@ -270,10 +257,6 @@ const InnerAssignmentPage: FC<{
                 {selected && showSandbox && (
                   <AiSandbox
                     key={selected.id}
-                    assignmentName={assignmentName}
-                    termName={canvasCourse.term?.name || "Unknown Term"}
-                    courseName={canvasCourse.name}
-                    assignmentId={assignmentId}
                     studentName={selected.user.name}
                   />
                 )}

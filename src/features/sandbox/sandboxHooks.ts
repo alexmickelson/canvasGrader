@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTRPC } from "../../server/trpc/trpcClient";
+import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
+import { useCurrentCourse } from "../../components/contexts/CourseProvider";
+import { useCurrentAssignment } from "../../components/contexts/AssignmentProvider";
 
 export const useExecuteCommand = () => {
   const queryClient = useQueryClient();
@@ -29,8 +31,20 @@ export const useGetTmuxOutput = ({
 };
 
 export const useLoadSubmissionToSandbox = () => {
-  const trpc = useTRPC();
-  return useMutation(trpc.sandbox.loadSubmissionToSandbox.mutationOptions());
+  const trpcClient = useTRPCClient();
+  const { courseName, termName } = useCurrentCourse();
+  const { assignmentName, assignmentId } = useCurrentAssignment();
+  return useMutation({
+    mutationFn: async ({ studentName }: { studentName: string }) => {
+      return trpcClient.sandbox.loadSubmissionToSandbox.mutate({
+        studentName,
+        assignmentId,
+        assignmentName,
+        termName,
+        courseName,
+      });
+    },
+  });
 };
 
 export const useAiTask = () => {

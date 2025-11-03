@@ -29,7 +29,7 @@ export const GradingRubricDisplay: FC<{
   courseName,
   assignmentName,
 }) => {
-  const rubricQuery = useRubricQuery(courseId, assignmentId);
+  const rubricQuery = useRubricQuery(assignmentId);
   const gradeSubmissionMutation = useGradeSubmissionMutation();
 
   // State for the current grading assessment

@@ -10,18 +10,13 @@ import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
 import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 
 export const useSubmissionsQuery = ({
-  courseId,
   assignmentId,
   assignmentName,
-  termName,
-  courseName,
 }: {
-  courseId: number;
   assignmentId: number;
   assignmentName: string;
-  termName: string;
-  courseName: string;
 }) => {
+  const { courseName, courseId, termName } = useCurrentCourse();
   const trpc = useTRPC();
   return useSuspenseQuery(
     trpc.canvas.assignments.getAssignmentSubmissions.queryOptions({
@@ -35,11 +30,9 @@ export const useSubmissionsQuery = ({
 };
 
 export const useSubmissionsQueries = (
-  courseId: number,
-  assignments: Array<{ id: number; name: string }>,
-  courseName: string,
-  termName: string
+  assignments: Array<{ id: number; name: string }>
 ) => {
+  const { courseName, courseId, termName } = useCurrentCourse();
   const trpc = useTRPC();
   return useSuspenseQueries({
     queries: assignments.map((assignment) => ({
@@ -55,22 +48,17 @@ export const useSubmissionsQueries = (
 };
 
 export const useDownloadAttachmentsQuery = ({
-  courseId,
   assignmentId,
   userId,
-  courseName,
-  termName,
   studentName,
   assignmentName,
 }: {
-  courseId: number;
   assignmentId: number;
   userId: number;
-  courseName: string;
-  termName: string;
   studentName: string;
   assignmentName: string;
 }) => {
+  const { courseName, courseId, termName } = useCurrentCourse();
   const trpc = useTRPC();
   return useQuery(
     trpc.canvas.attachments.downloadAllAttachments.queryOptions({
@@ -85,8 +73,10 @@ export const useDownloadAttachmentsQuery = ({
   );
 };
 
-export const useRubricQuery = (courseId: number, assignmentId: number) => {
+export const useRubricQuery = (assignmentId: number) => {
   const trpc = useTRPC();
+
+  const { courseId } = useCurrentCourse();
   return useQuery(
     trpc.canvas.assignments.getAssignmentRubric.queryOptions({
       courseId,
@@ -127,16 +117,13 @@ export const useAiAnalysisMutation = () => {
 export const useAllEvaluationsQuery = ({
   assignmentId,
   assignmentName,
-  courseName,
-  termName,
   studentName,
 }: {
   assignmentId: number;
   assignmentName: string;
-  courseName: string;
-  termName: string;
   studentName: string;
 }) => {
+  const { courseName, termName } = useCurrentCourse();
   const trpc = useTRPC();
   return useQuery(
     trpc.rubricAiReport.getAllEvaluations.queryOptions({
@@ -189,29 +176,29 @@ export const useUpdateSubmissionsMutation = () => {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
-  const { courseId, courseName } = useCurrentCourse();
+  const { courseId, courseName, termName } = useCurrentCourse();
 
   return useMutation({
     mutationFn: async (variables: {
-      assignmentId: number;
-      assignmentName: string;
-      termName: string;
       studentName?: string;
       studentId?: number;
+      assignmentId: number;
+      assignmentName: string;
     }) => {
       return await trpcClient.canvas.assignments.refreshAssignmentSubmissions.mutate(
         {
           courseId,
           courseName,
+          termName,
           ...variables,
         }
       );
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (_, { assignmentId }) => {
       queryClient.invalidateQueries({
         queryKey: trpc.canvas.assignments.getAssignmentSubmissions.queryKey({
           courseId,
-          assignmentId: variables.assignmentId,
+          assignmentId,
         }),
       });
     },
@@ -220,15 +207,28 @@ export const useUpdateSubmissionsMutation = () => {
 
 export const useTranscribeSubmissionImagesMutation = () => {
   const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
-  return useMutation(
-    trpc.canvas.attachments.transcribeSubmissionImages.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
-        });
-      },
-    })
-  );
+  const { courseId } = useCurrentCourse();
+  return useMutation({
+    mutationFn: ({
+      assignmentId,
+      assignmentName,
+    }: {
+      assignmentId: number;
+      assignmentName: string;
+    }) => {
+      return trpcClient.canvas.attachments.transcribeSubmissionImages.mutate({
+        courseId,
+        assignmentId,
+        assignmentName,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
+      });
+    },
+  });
 };

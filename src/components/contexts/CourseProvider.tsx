@@ -1,22 +1,24 @@
 import { createContext, useContext, type FC, type ReactNode } from "react";
+import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasModels";
 
 interface CourseContextValue {
   courseName: string;
   courseId: number;
+  termName: string;
+  course: CanvasCourse;
 }
 
-const CourseContext = createContext<CourseContextValue>({
-  courseName: "",
-  courseId: 0,
-});
+const CourseContext = createContext<CourseContextValue | undefined>(undefined);
 
 export const CourseProvider: FC<{
   courseName: string;
   courseId: number;
+  termName: string;
+  course: CanvasCourse;
   children: ReactNode;
-}> = ({ courseName, courseId, children }) => {
+}> = ({ courseName, courseId, termName, course, children }) => {
   return (
-    <CourseContext.Provider value={{ courseName, courseId }}>
+    <CourseContext.Provider value={{ courseName, courseId, termName, course }}>
       {children}
     </CourseContext.Provider>
   );

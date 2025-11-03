@@ -1,21 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "../../server/trpc/trpcClient";
 import { useUpdateSubmissionsMutation } from "./graderHooks";
+import { useCurrentAssignment } from "../../components/contexts/AssignmentProvider";
 
 export const useGradeSubmissionMutation = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
+  const { assignmentId, assignmentName } = useCurrentAssignment();
 
   return useMutation(
     trpc.canvas.course.gradeSubmissionWithRubric.mutationOptions({
       onSuccess: async (_, variables) => {
         await updateSubmissionsMutation.mutateAsync({
-          assignmentId: variables.assignmentId,
-          termName: variables.termName,
-          assignmentName: variables.assignmentName,
           studentId: variables.studentId,
           studentName: variables.studentName,
+          assignmentId,
+          assignmentName,
         });
 
         queryClient.invalidateQueries({

@@ -17,7 +17,7 @@ export const SubmissionDetailsWrapper: FC<{
   const { data: courses } = useCanvasCoursesQuery();
   // console.log("courses data:", courses, "courseId:", courseId);
   const course = courses.find((c) => Number(c.id) === Number(courseId));
-  const { data: assignments } = useAssignmentsQuery(courseId);
+  const { data: assignments } = useAssignmentsQuery();
   const assignment = assignments?.find(
     (a) => a.id === submission.assignment_id
   );
@@ -52,11 +52,8 @@ export const SubmissionDetails: FC<{
 }> = ({ submission, courseId, assignmentName, termName, courseName }) => {
   // make sure attachments are downloaded
   useDownloadAttachmentsQuery({
-    courseId,
     assignmentId: submission.assignment_id,
     userId: submission.user_id,
-    courseName: courseName,
-    termName: termName,
     studentName: submission.user.name,
     assignmentName: assignmentName,
   });

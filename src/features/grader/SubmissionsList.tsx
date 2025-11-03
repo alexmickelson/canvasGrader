@@ -1,38 +1,22 @@
 import type { FC } from "react";
-import type {
-  CanvasSubmission,
-  CanvasAssignment,
-} from "../../server/trpc/routers/canvas/canvasModels";
+import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 import { useSubmissionsQuery } from "./graderHooks";
 import { userName } from "./userUtils";
 import { describeTimeDifference } from "../../utils/timeUtils";
 import { getSubmissionStatusChips } from "./submission/submissionUtils";
 import { useViewingItem } from "./shared/viewingItemContext/ViewingItemContext";
+import { useCurrentAssignment } from "../../components/contexts/AssignmentProvider";
 
 export const SubmissionsList: FC<{
-  courseId: number;
-  assignmentId: number;
   selectedId: number | undefined;
-  assignment: CanvasAssignment;
   onSelect: (s: CanvasSubmission) => void;
-  courseName: string;
-  termName: string;
-}> = ({
-  courseId,
-  assignmentId,
-  selectedId,
-  assignment,
-  onSelect,
-  courseName,
-  termName,
-}) => {
+}> = ({ selectedId, onSelect }) => {
+  const { assignmentId, assignmentName, assignment } = useCurrentAssignment();
+
   const { setViewingFile } = useViewingItem();
   const { data: submissions } = useSubmissionsQuery({
-    courseId,
     assignmentId,
-    assignmentName: assignment.name,
-    courseName: courseName,
-    termName: termName,
+    assignmentName,
   });
   if (!submissions?.length) {
     return (

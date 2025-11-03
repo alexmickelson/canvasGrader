@@ -104,8 +104,6 @@ export const GradingRubricCriterion: FC<{
                 courseId={courseId}
                 assignmentId={assignmentId}
                 studentName={studentName}
-                termName={termName}
-                courseName={courseName}
                 assignmentName={assignmentName}
                 criterionId={criterion.id}
               />
@@ -166,18 +164,6 @@ export const GradingRubricCriterion: FC<{
           </div>
         </div>
       </Expandable>
-
-      {/* Previous Analysis Section */}
-      {/* <div className="px-1 ms-8">
-        <CriterionPreviousAnalysis
-          criterion={criterion}
-          assignmentId={assignmentId}
-          assignmentName={assignmentName}
-          courseName={courseName}
-          termName={termName}
-          studentName={studentName}
-        />
-      </div> */}
     </div>
   );
 };

@@ -10,8 +10,7 @@ import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 
 export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
-  termName: string;
-}> = ({ assignment, termName }) => {
+}> = ({ assignment }) => {
   const { courseId } = useCurrentCourse();
   const fmt = (iso?: string | null) =>
     iso
@@ -35,14 +34,8 @@ export const AssignmentListItem: FC<{
         </div>
         <div className="text-sm text-gray-400">{fmt(assignment.due_at)}</div>
         <div className="flex justify-between items-center gap-2">
-          <SubmissionStatus
-            assignment={assignment}
-            termName={termName}
-          />
-          <RefreshButton
-            assignment={assignment}
-            termName={termName}
-          />
+          <SubmissionStatus assignment={assignment} />
+          <RefreshButton assignment={assignment} />
         </div>
       </div>
     </Link>
@@ -51,16 +44,10 @@ export const AssignmentListItem: FC<{
 
 const SubmissionStatus: FC<{
   assignment: CanvasAssignment;
-  termName: string;
-}> = ({ assignment, termName }) => {
-
-  const { courseId, courseName } = useCurrentCourse();
+}> = ({ assignment }) => {
   const { data: submissions, isLoading } = useSubmissionsQuery({
-    courseId,
     assignmentId: assignment.id,
     assignmentName: assignment.name,
-    courseName,
-    termName,
   });
 
   const { percentage, status } = isLoading
@@ -108,8 +95,7 @@ const SubmissionStatus: FC<{
 
 const RefreshButton: FC<{
   assignment: CanvasAssignment;
-  termName: string;
-}> = ({ assignment, termName }) => {
+}> = ({ assignment }) => {
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
   const handleRefresh = (e: React.MouseEvent) => {
@@ -119,7 +105,6 @@ const RefreshButton: FC<{
     updateSubmissionsMutation.mutate({
       assignmentId: assignment.id,
       assignmentName: assignment.name,
-      termName,
     });
   };
 

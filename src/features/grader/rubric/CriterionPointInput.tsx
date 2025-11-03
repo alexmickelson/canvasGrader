@@ -17,8 +17,6 @@ export const CriterionPointInput: FC<{
   courseId: number;
   assignmentId: number;
   studentName: string;
-  termName: string;
-  courseName: string;
   assignmentName: string;
   criterionId: string;
 }> = ({
@@ -27,8 +25,6 @@ export const CriterionPointInput: FC<{
   onRatingSelect,
   assignmentId,
   assignmentName,
-  courseName,
-  termName,
   studentName,
   criterionId,
 }) => {
@@ -36,8 +32,6 @@ export const CriterionPointInput: FC<{
   const { data: allEvaluations } = useAllEvaluationsQuery({
     assignmentId,
     assignmentName,
-    courseName,
-    termName,
     studentName,
   });
 

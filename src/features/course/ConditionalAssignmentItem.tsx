@@ -6,17 +6,11 @@ import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 
 export const ConditionalAssignmentItem: FC<{
   assignment: CanvasAssignment;
-  courseId: number;
   hideGraded: boolean;
-  courseName: string;
-  termName: string;
-}> = ({ assignment, courseId, hideGraded, courseName, termName }) => {
+}> = ({ assignment, hideGraded }) => {
   const { data: submissions, isLoading } = useSubmissionsQuery({
-    courseId,
     assignmentId: assignment.id,
     assignmentName: assignment.name,
-    courseName,
-    termName,
   });
 
   const { status } = isLoading
@@ -32,7 +26,6 @@ export const ConditionalAssignmentItem: FC<{
   return (
     <AssignmentListItem
       assignment={assignment}
-      termName={termName}
     />
   );
 };

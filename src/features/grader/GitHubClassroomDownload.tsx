@@ -1,27 +1,21 @@
 import { useState } from "react";
 import { useGitHubClassroomMutation } from "./graderHooks";
 import { GitHubClassroomAssignmentPicker } from "../../components/GitHubClassroomAssignmentPicker";
-import type { SettingsCourse } from "../../server/trpc/routers/settingsRouter";
+import { useCurrentCourse } from "../../components/contexts/CourseProvider";
+import { useCurrentAssignment } from "../../components/contexts/AssignmentProvider";
+import { useSettingsQuery } from "../home/settingsHooks";
 
-export const GitHubClassroomDownload: React.FC<{
-  courseId: number;
-  assignmentId: number;
-  course: SettingsCourse;
-  termName: string;
-  courseName: string;
-  assignmentName: string;
-}> = ({
-  courseId,
-  assignmentId,
-  course,
-  termName,
-  courseName,
-  assignmentName,
-}) => {
+export const GitHubClassroomDownload = () => {
+  const { courseId, courseName, termName } = useCurrentCourse();
+  const { assignmentId, assignmentName } = useCurrentAssignment();
+  const { data: settings } = useSettingsQuery();
+  const courseSettings = settings?.courses.find((c) => c.canvasId === courseId);
+
   const [isGitHubPanelOpen, setIsGitHubPanelOpen] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<
     string | null
   >(null);
+
 
   const gitHubClassroomMutation = useGitHubClassroomMutation();
 
@@ -32,7 +26,7 @@ export const GitHubClassroomDownload: React.FC<{
       classroomAssignmentId: selectedAssignmentId,
       assignmentId,
       courseId,
-      githubUserMap: course?.githubUserMap || [],
+      githubUserMap: courseSettings?.githubUserMap || [],
       termName,
       courseName,
       assignmentName,

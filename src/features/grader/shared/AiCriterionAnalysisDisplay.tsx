@@ -24,8 +24,6 @@ export const AiCriterionAnalysisDisplay: FC<{
     useAllEvaluationsQuery({
       assignmentId,
       assignmentName,
-      courseName,
-      termName,
       studentName,
     });
 
@@ -38,7 +36,6 @@ export const AiCriterionAnalysisDisplay: FC<{
 
   const { data: rubric } = useRubricQuery(
     selectedAnalysis?.metadata.courseId || 0,
-    assignmentId
   );
 
   const criterion =

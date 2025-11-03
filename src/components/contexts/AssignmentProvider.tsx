@@ -1,22 +1,26 @@
 import { createContext, useContext, type FC, type ReactNode } from "react";
+import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
 
 interface AssignmentContextValue {
   assignmentId: number;
   assignmentName: string;
+  assignment: CanvasAssignment;
 }
 
-const AssignmentContext = createContext<AssignmentContextValue>({
-  assignmentId: 0,
-  assignmentName: "",
-});
+const AssignmentContext = createContext<AssignmentContextValue | undefined>(
+  undefined
+);
 
 export const AssignmentProvider: FC<{
   assignmentId: number;
   assignmentName: string;
+  assignment: CanvasAssignment;
   children: ReactNode;
-}> = ({ assignmentId, assignmentName, children }) => {
+}> = ({ assignmentId, assignmentName, assignment, children }) => {
   return (
-    <AssignmentContext.Provider value={{ assignmentId, assignmentName }}>
+    <AssignmentContext.Provider
+      value={{ assignmentId, assignmentName, assignment }}
+    >
       {children}
     </AssignmentContext.Provider>
   );

@@ -9,22 +9,16 @@ export const CriterionPreviousAnalysis: FC<{
   criterion: CanvasRubricCriterion;
   assignmentId: number;
   assignmentName: string;
-  courseName: string;
-  termName: string;
   studentName: string;
 }> = ({
   criterion,
   assignmentId,
   assignmentName,
-  courseName,
-  termName,
   studentName,
 }) => {
   const { data: allEvaluations, isLoading } = useAllEvaluationsQuery({
     assignmentId,
     assignmentName,
-    courseName,
-    termName,
     studentName,
   });
 
