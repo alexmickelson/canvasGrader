@@ -131,7 +131,7 @@ export const ManageSettings = () => {
   }, [filteredCanvasCourses]);
 
   return (
-    <div className="space-y-6 bg-gray-900 p-6 rounded-xl">
+    <div className="space-y-6 bg-gray-900 p-6 rounded-xl min-h-0 flex flex-col">
       <h2 className="text-xl font-bold mb-4 text-gray-100">Canvas Courses</h2>
 
       <div className="flex gap-2 mb-4">
@@ -164,9 +164,8 @@ export const ManageSettings = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Available Courses */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700">
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-6 ">
+        <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700 min-h-0 flex flex-col">
           <h3 className="font-semibold mb-3 text-gray-200">
             Available Courses
           </h3>
@@ -175,7 +174,7 @@ export const ManageSettings = () => {
               <Spinner className="text-blue-400" />
             </div>
           ) : (
-            <div className="max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+            <div className="  flex-1 overflow-y-auto pr-2">
               {groupedByTerm.length > 0 ? (
                 <div className="space-y-4">
                   {groupedByTerm.map((group) => (
@@ -208,14 +207,14 @@ export const ManageSettings = () => {
         </div>
 
         {/* Selected Courses */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700">
+        <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700 min-h-0 flex flex-col">
           <h3 className="font-semibold mb-3 text-gray-200">Selected Courses</h3>
           {isLoadingSettings ? (
             <div className="flex justify-center p-4">
               <Spinner  className="text-blue-400" />
             </div>
           ) : (
-            <div className="max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+            <div className="overflow-y-auto pr-2">
               {filteredSelectedCourses.length > 0 ? (
                 <ul className="space-y-2">
                   {filteredSelectedCourses.map((course: SettingsCourse) => (

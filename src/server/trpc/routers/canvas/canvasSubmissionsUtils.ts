@@ -48,7 +48,7 @@ export const fetchSingleSubmissionByIdFromCanvas = async (
     return parsedSubmission;
   } catch (error) {
     console.error(`Failed to fetch submission for user ID ${userId}:`, error);
-    return null;
+    throw error;
   }
 };
 
