@@ -11,10 +11,8 @@ export const useGradeSubmissionMutation = () => {
     trpc.canvas.course.gradeSubmissionWithRubric.mutationOptions({
       onSuccess: async (_, variables) => {
         await updateSubmissionsMutation.mutateAsync({
-          courseId: variables.courseId,
           assignmentId: variables.assignmentId,
           termName: variables.termName,
-          courseName: variables.courseName,
           assignmentName: variables.assignmentName,
           studentId: variables.studentId,
           studentName: variables.studentName,

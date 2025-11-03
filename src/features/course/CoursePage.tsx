@@ -17,6 +17,10 @@ import { Toggle } from "../../components/Toggle";
 import { DisplayWeek } from "./DisplayWeek";
 import Spinner from "../../utils/Spinner";
 import { useCanvasCoursesQuery } from "../home/canvasHooks";
+import {
+  CourseProvider,
+  useCurrentCourse,
+} from "../../components/contexts/CourseProvider";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -26,24 +30,46 @@ export const CoursePage = () => {
 
   return (
     <div className="p-4 text-gray-200">
-      <h2 className="unstyled text-2xl">
-        Course{" "}
-        {parsedCourseId && <CourseNameDisplay courseId={parsedCourseId} />}
-      </h2>
-      {parsedCourseId && (
-        <button
-          onClick={() =>
-            updateAssignmentsMutation.mutate({ courseId: parsedCourseId })
-          }
-          disabled={updateAssignmentsMutation.isPending}
-        >
-          Refetch Assignemnts{" "}
-          {updateAssignmentsMutation.isPending && <Spinner />}
-        </button>
-      )}
+      {parsedCourseId ? (
+        <CoursePageCourseProvider courseId={parsedCourseId}>
+          <h2 className="unstyled text-2xl">
+            Course <CourseNameDisplay courseId={parsedCourseId} />
+          </h2>
+          {parsedCourseId && (
+            <button
+              onClick={() =>
+                updateAssignmentsMutation.mutate({ courseId: parsedCourseId })
+              }
+              disabled={updateAssignmentsMutation.isPending}
+            >
+              Refetch Assignemnts{" "}
+              {updateAssignmentsMutation.isPending && <Spinner />}
+            </button>
+          )}
 
-      {parsedCourseId && <CourseAssignments courseId={parsedCourseId} />}
+          <CourseAssignments courseId={parsedCourseId} />
+        </CoursePageCourseProvider>
+      ) : (
+        <div>Invalid course ID: {parsedCourseId}</div>
+      )}
     </div>
+  );
+};
+
+const CoursePageCourseProvider: FC<{
+  courseId: number;
+  children: React.ReactNode;
+}> = ({ courseId, children }) => {
+  const { data: courses } = useCanvasCoursesQuery();
+  const currentCourse = courses?.find((c) => c.id === courseId);
+  if (!currentCourse) {
+    return <>no course found to provide context</>;
+  }
+
+  return (
+    <CourseProvider courseName={currentCourse?.name} courseId={courseId}>
+      {children}
+    </CourseProvider>
   );
 };
 
@@ -85,9 +111,7 @@ export const CourseAssignments: FC<{
           {currentCourse && (
             <RefreshAllButton
               assignments={filtered || []}
-              courseId={courseId}
               termName={currentCourse?.term.name}
-              courseName={currentCourse?.name}
             />
           )}
         </div>
@@ -131,10 +155,9 @@ export const CourseAssignments: FC<{
 
 const RefreshAllButton: FC<{
   assignments: CanvasAssignment[];
-  courseId: number;
   termName: string;
-  courseName: string;
-}> = ({ assignments, courseId, courseName, termName }) => {
+}> = ({ assignments, termName }) => {
+  const { courseId, courseName } = useCurrentCourse();
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
   const trpc = useTRPC();
 
@@ -168,10 +191,8 @@ const RefreshAllButton: FC<{
     // Call mutation for each non-graded assignment concurrently
     const refreshPromises = assignmentsToRefresh.map((assignment) =>
       updateSubmissionsMutation.mutateAsync({
-        courseId,
         assignmentId: assignment.id,
         assignmentName: assignment.name,
-        courseName,
         termName,
       })
     );

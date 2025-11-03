@@ -6,7 +6,8 @@ import {
   useQueries,
   useSuspenseQueries,
 } from "@tanstack/react-query";
-import { useTRPC } from "../../server/trpc/trpcClient";
+import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
+import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 
 export const useSubmissionsQuery = ({
   courseId,
@@ -186,20 +187,35 @@ export const useGitHubClassroomAssignmentsQuery = (
 
 export const useUpdateSubmissionsMutation = () => {
   const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
+  const { courseId, courseName } = useCurrentCourse();
 
-  return useMutation(
-    trpc.canvas.assignments.refreshAssignmentSubmissions.mutationOptions({
-      onSuccess: (_, variables) => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.canvas.assignments.getAssignmentSubmissions.queryKey({
-            courseId: variables.courseId,
-            assignmentId: variables.assignmentId,
-          }),
-        });
-      },
-    })
-  );
+  return useMutation({
+    mutationFn: async (variables: {
+      assignmentId: number;
+      assignmentName: string;
+      termName: string;
+      studentName?: string;
+      studentId?: number;
+    }) => {
+      return await trpcClient.canvas.assignments.refreshAssignmentSubmissions.mutate(
+        {
+          courseId,
+          courseName,
+          ...variables,
+        }
+      );
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: trpc.canvas.assignments.getAssignmentSubmissions.queryKey({
+          courseId,
+          assignmentId: variables.assignmentId,
+        }),
+      });
+    },
+  });
 };
 
 export const useTranscribeSubmissionImagesMutation = () => {

@@ -148,11 +148,9 @@ const InnerAssignmentPage: FC<{
           <button
             onClick={() =>
               updateSubmissionsMutation.mutate({
-                courseId: courseId,
                 assignmentId: assignmentId,
                 assignmentName,
                 termName: canvasCourse.term.name,
-                courseName: canvasCourse.name,
               })
             }
             disabled={updateSubmissionsMutation.isPending}

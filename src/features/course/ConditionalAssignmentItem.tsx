@@ -32,8 +32,6 @@ export const ConditionalAssignmentItem: FC<{
   return (
     <AssignmentListItem
       assignment={assignment}
-      courseId={courseId}
-      courseName={courseName}
       termName={termName}
     />
   );

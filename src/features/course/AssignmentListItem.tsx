@@ -6,13 +6,13 @@ import {
   useUpdateSubmissionsMutation,
   useSubmissionsQuery,
 } from "../grader/graderHooks";
+import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 
 export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
-  courseId: number;
-  courseName: string;
   termName: string;
-}> = ({ assignment, courseId, courseName, termName }) => {
+}> = ({ assignment, termName }) => {
+  const { courseId } = useCurrentCourse();
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -37,14 +37,10 @@ export const AssignmentListItem: FC<{
         <div className="flex justify-between items-center gap-2">
           <SubmissionStatus
             assignment={assignment}
-            courseId={courseId}
-            courseName={courseName}
             termName={termName}
           />
           <RefreshButton
             assignment={assignment}
-            courseId={courseId}
-            courseName={courseName}
             termName={termName}
           />
         </div>
@@ -55,10 +51,10 @@ export const AssignmentListItem: FC<{
 
 const SubmissionStatus: FC<{
   assignment: CanvasAssignment;
-  courseId: number;
-  courseName: string;
   termName: string;
-}> = ({ assignment, courseId, courseName, termName }) => {
+}> = ({ assignment, termName }) => {
+
+  const { courseId, courseName } = useCurrentCourse();
   const { data: submissions, isLoading } = useSubmissionsQuery({
     courseId,
     assignmentId: assignment.id,
@@ -112,10 +108,8 @@ const SubmissionStatus: FC<{
 
 const RefreshButton: FC<{
   assignment: CanvasAssignment;
-  courseId: number;
-  courseName: string;
   termName: string;
-}> = ({ assignment, courseId, courseName, termName }) => {
+}> = ({ assignment, termName }) => {
   const updateSubmissionsMutation = useUpdateSubmissionsMutation();
 
   const handleRefresh = (e: React.MouseEvent) => {
@@ -123,10 +117,8 @@ const RefreshButton: FC<{
     e.stopPropagation();
 
     updateSubmissionsMutation.mutate({
-      courseId,
       assignmentId: assignment.id,
       assignmentName: assignment.name,
-      courseName,
       termName,
     });
   };
