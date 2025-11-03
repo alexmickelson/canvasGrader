@@ -322,6 +322,23 @@ export async function downloadCommentAttachments(
   return results.filter((result) => result !== null);
 }
 
+// Extract downloadable attachment matches from submission body HTML
+export function getDownloadableAttachmentMatches(
+  submissionBody: string
+): Array<{ href: string; apiEndpoint: string; fileName: string }> {
+  // Extract file links from HTML using regex
+  // Looking for instructure_file_link anchors with href and data-api-endpoint
+  const linkRegex =
+    /<a[^>]*class="[^"]*instructure_file_link[^"]*"[^>]*href="([^"]+)"[^>]*data-api-endpoint="([^"]+)"[^>]*>([^<]+)<\/a>/g;
+
+  const matches = [...submissionBody.matchAll(linkRegex)];
+
+  return matches.map((match) => {
+    const [, href, apiEndpoint, fileName] = match;
+    return { href, apiEndpoint, fileName };
+  });
+}
+
 // Download embedded attachments from submission body HTML
 export async function downloadEmbeddedAttachments(
   submission: CanvasSubmission,
@@ -333,12 +350,7 @@ export async function downloadEmbeddedAttachments(
     return [];
   }
 
-  // Extract file links from HTML using regex
-  // Looking for instructure_file_link anchors with href and data-api-endpoint
-  const linkRegex =
-    /<a[^>]*class="[^"]*instructure_file_link[^"]*"[^>]*href="([^"]+)"[^>]*data-api-endpoint="([^"]+)"[^>]*>([^<]+)<\/a>/g;
-
-  const matches = [...submissionBody.matchAll(linkRegex)];
+  const matches = getDownloadableAttachmentMatches(submissionBody);
 
   if (matches.length === 0) {
     // console.log("No embedded file links found in submission body");
@@ -349,7 +361,7 @@ export async function downloadEmbeddedAttachments(
 
   return await Promise.all(
     matches.map(async (match) => {
-      const [, , apiEndpoint, fileName] = match;
+      const { apiEndpoint, fileName } = match;
 
       try {
         // Get file metadata from API endpoint
