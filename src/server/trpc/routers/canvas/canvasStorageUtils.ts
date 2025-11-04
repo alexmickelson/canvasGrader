@@ -128,35 +128,22 @@ export function convertHtmlToMarkdown(htmlContent: string): string {
 
 export function replaceMarkdownImagesWithTranscriptions(
   markdown: string,
-  transcriptions: Array<
-    | {
-        index: number;
-        fileName: string;
-        transcription: string;
-      }
-    | null
-    | undefined
-  >
+  transcriptions: {
+    index: number;
+    transcription: string;
+  }[]
 ): string {
+  const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
+  const imagesFromMarkdown = Array.from(markdown.matchAll(imageRegex));
+
   let newMarkdown = markdown;
   transcriptions.forEach((result) => {
     if (result && result.transcription) {
-      const imageIndex = result.index;
-      const transcription = result.transcription;
-
-      // Find the image at this index in the markdown
-      const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
-      let match;
-      let currentIndex = 0;
-
-      while ((match = imageRegex.exec(markdown)) !== null) {
-        if (currentIndex === imageIndex) {
-          const fullMatch = match[0];
-          const replacement = `![<descriptionOfImage>${transcription}</descriptionOfImage>]`;
-          newMarkdown = newMarkdown.replace(fullMatch, replacement);
-          break;
-        }
-        currentIndex++;
+      const image = imagesFromMarkdown[result.index];
+      if (image) {
+        const fullMatch = image[0];
+        const replacement = `![<descriptionOfImage>${result.transcription}</descriptionOfImage>]`;
+        newMarkdown = newMarkdown.replace(fullMatch, replacement);
       }
     }
   });

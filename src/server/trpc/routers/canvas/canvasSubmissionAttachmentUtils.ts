@@ -225,9 +225,9 @@ export async function transcribeSubmissionAttachments(
 
   console.log("Transcribing submission images", assignmentName, studentName);
 
-  return await Promise.all(
-    imagesWithPaths
-      .map(async (imageWithPath, index) => {
+  return (
+    await Promise.all(
+      imagesWithPaths.map(async (imageWithPath, index) => {
         try {
           const sanitizedTitle = sanitizeImageTitle(imageWithPath.title);
           const fileName = `submission.${index}.${sanitizedTitle}.md`;
@@ -235,7 +235,7 @@ export async function transcribeSubmissionAttachments(
 
           // Check if transcription file already exists
           if (fs.existsSync(transcriptionPath)) {
-            return;
+            return null;
           }
 
           console.log(
@@ -268,7 +268,7 @@ export async function transcribeSubmissionAttachments(
           console.log(`Saved transcription to: ${transcriptionPath}`);
           return {
             index,
-            fileName,
+            // fileName,
             transcription,
           };
         } catch (error) {
@@ -279,6 +279,6 @@ export async function transcribeSubmissionAttachments(
           return null;
         }
       })
-      .filter((result) => result !== null)
-  );
+    )
+  ).filter((result) => result !== null);
 }
