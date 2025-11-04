@@ -14,6 +14,7 @@ import {
   type AnalyzeRubricCriterionResponse,
 } from "./rubricAiReportModels";
 import { analyzeRubricCriterion } from "./rubricAiUtils";
+import { getRubricCriterionAnalysesBySubmission } from "./rubricAiDbUtils";
 
 export const rubricAiReportRouter = createTRPCRouter({
   analyzeRubricCriterion: publicProcedure
@@ -28,6 +29,7 @@ export const rubricAiReportRouter = createTRPCRouter({
         criterionId: z.string().optional(),
         termName: z.string(),
         courseName: z.string(),
+        submissionId: z.number(),
       })
     )
     .mutation(async ({ input }): Promise<AnalyzeRubricCriterionResponse> => {
@@ -62,137 +64,16 @@ export const rubricAiReportRouter = createTRPCRouter({
   getAllEvaluations: publicProcedure
     .input(
       z.object({
-        assignmentId: z.number(),
-        assignmentName: z.string(),
-        courseName: z.string(),
-        termName: z.string(),
-        studentName: z.string(),
+        submissionId: z.number(),
       })
     )
     .query(async ({ input }): Promise<FullEvaluation[]> => {
       const {
-        courseName,
-        termName,
-        assignmentName,
-        assignmentId,
-        studentName,
+        submissionId,
       } = input;
 
-      try {
-        const submissionDir = getMetadataSubmissionDirectory({
-          termName,
-          courseName,
-          assignmentId,
-          assignmentName,
-          studentName,
-        });
-        const sanitizedStudentName = sanitizeName(studentName);
+      const submissions  = await getRubricCriterionAnalysesBySubmission(submissionId)
+      return submissions;
 
-        const files = fs.readdirSync(submissionDir);
-
-        // Filter for evaluation files (format: <student-name>.rubric.<criterion-id>-<timestamp>.json)
-        const evaluationFiles = files.filter(
-          (file) =>
-            file.startsWith(`${sanitizedStudentName}.rubric.`) &&
-            file.endsWith(".json")
-        );
-
-
-        const evaluations: FullEvaluation[] = [];
-
-        if (evaluationFiles.length === 0) {
-          return [];
-        }
-
-        console.log(`Processing ${evaluationFiles.length} evaluation files...`);
-
-        for (const fileName of evaluationFiles) {
-          try {
-            const filePath = path.join(submissionDir, fileName);
-            const content = fs.readFileSync(filePath, "utf-8");
-
-            let evaluationData;
-            try {
-              evaluationData = JSON.parse(content);
-            } catch (error) {
-              console.error("❌ Failed to parse evaluation file as JSON:", {
-                fileName,
-                filePath,
-                error: error,
-                content: content.substring(0, 500),
-              });
-              throw new Error(
-                `Failed to parse evaluation file as JSON: ${fileName}. Error: ${error}. Content: ${content.substring(
-                  0,
-                  500
-                )}...`
-              );
-            }
-
-            // Validate the evaluation data against the schema
-            let validatedEvaluation;
-            try {
-              validatedEvaluation = parseSchema(
-                FullEvaluationSchema,
-                {
-                  filePath,
-                  fileName,
-                  metadata: evaluationData.metadata,
-                  conversation: evaluationData.conversation,
-                  evaluation: evaluationData.evaluation,
-                  submissionPath: evaluationData.submissionPath,
-                },
-                `FullEvaluation validation for ${fileName}`
-              );
-            } catch (error) {
-              console.error("❌ FullEvaluationSchema validation failed:", {
-                fileName,
-                filePath,
-                error: error,
-                evaluationData: JSON.stringify(evaluationData, null, 2),
-              });
-              throw new Error(
-                `FullEvaluationSchema validation failed for file: ${fileName}. Data: ${JSON.stringify(
-                  evaluationData,
-                  null,
-                  2
-                )}. Error: ${error}`
-              );
-            }
-
-            evaluations.push(validatedEvaluation);
-          } catch (error) {
-            console.error(
-              `❌ Error reading evaluation file ${fileName}:`,
-              error
-            );
-            console.error(
-              "Validation error details:",
-              error instanceof Error ? error.message : String(error)
-            );
-            // Continue with other files instead of failing completely
-          }
-        }
-
-        // Sort by timestamp, newest first
-        evaluations.sort((a, b) => {
-          const aTime = a.metadata?.timestamp || "";
-          const bTime = b.metadata?.timestamp || "";
-          return bTime.localeCompare(aTime);
-        });
-
-        return evaluations;
-      } catch (error) {
-        console.error("❌ Error loading all evaluations:", error);
-        console.error("Error details:", {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        throw new Error(
-          `Failed to load evaluations: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
     }),
 });

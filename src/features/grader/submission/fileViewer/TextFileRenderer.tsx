@@ -105,7 +105,9 @@ export const TextFileRenderer: FC<{
           <div
             className="p-4 text-gray-100"
             dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(marked(selectedContent) as string),
+              __html: DOMPurify.sanitize(
+                marked(removeDescriptionOfImageTags(selectedContent)) as string
+              ),
             }}
           />
         ) : (
@@ -130,5 +132,12 @@ export const TextFileRenderer: FC<{
         )}
       </div>
     </div>
+  );
+};
+
+const removeDescriptionOfImageTags = (markdown: string): string => {
+  return markdown.replace(
+    /<descriptionOfImage>[\s\S]*?<\/descriptionOfImage>/g,
+    ""
   );
 };

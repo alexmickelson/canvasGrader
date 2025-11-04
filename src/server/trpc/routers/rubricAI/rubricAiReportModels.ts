@@ -155,7 +155,6 @@ export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
 
 // Schema for full evaluation data
 export const FullEvaluationSchema = z.object({
-  filePath: z.string().describe("Full path to the evaluation file"),
   fileName: z.string().describe("Name of the evaluation file"),
   metadata: EvaluationMetadataSchema.describe("Evaluation metadata"),
   conversation: z
@@ -164,7 +163,6 @@ export const FullEvaluationSchema = z.object({
   evaluation: AnalysisResultSchema.describe(
     "Structured analysis result from AI"
   ),
-  submissionPath: z.string().describe("Path to the original submission files"),
 });
 
 export type FullEvaluation = z.infer<typeof FullEvaluationSchema>;

@@ -2,9 +2,9 @@ import type { AiTool } from "../../../../utils/aiUtils/createAiTool";
 import { executeToolCall } from "../../../../utils/aiUtils/executeToolCall";
 import { z } from "zod";
 import {
-  getMetadataSubmissionDirectory,
   sanitizeName,
   getSubmissionDirectory,
+  imageDescriptionXMLTag,
 } from "../canvas/canvasStorageUtils";
 import fs from "fs";
 import path from "path";
@@ -29,6 +29,7 @@ import {
   combinePageTranscriptions,
   storeTranscriptionPage,
 } from "../../../../utils/aiUtils/extractTextFromImages";
+import { storeRubricCriterionAnalysis } from "./rubricAiDbUtils";
 
 // Helper functions to convert between domain model and OpenAI types
 export function toOpenAIMessage(
@@ -429,9 +430,7 @@ export async function saveEvaluationResults({
   criterionDescription,
   conversationMessages,
   analysis,
-  termName,
-  courseName,
-  assignmentName,
+  submissionId,
 }: {
   courseId: number;
   assignmentId: number;
@@ -440,102 +439,75 @@ export async function saveEvaluationResults({
   criterionDescription: string;
   conversationMessages: ConversationMessage[];
   analysis: AnalysisResult;
-  termName: string;
-  courseName: string;
-  assignmentName: string;
+  submissionId: number;
 }) {
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const sanitizedStudentName = sanitizeName(studentName);
-    const criterionIdSafe =
-      criterionId || sanitizeName(criterionDescription).slice(0, 20);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const sanitizedStudentName = sanitizeName(studentName);
+  const criterionIdSafe =
+    criterionId || sanitizeName(criterionDescription).slice(0, 20);
 
-    // Create filename: <student-name>.rubric.<rubriccriterionid>-<timestamp>.json
-    const fileName = `${sanitizedStudentName}.rubric.${criterionIdSafe}-${timestamp}.json`;
+  // Create filename: <student-name>.rubric.<rubriccriterionid>-<timestamp>.json
+  const fileName = `${sanitizedStudentName}.rubric.${criterionIdSafe}-${timestamp}.json`;
 
-    // Get the student submission directory to place the file next to it
-    const submissionDir = getMetadataSubmissionDirectory({
-      termName,
-      courseName,
+  // Create the evaluation data using the proper schema
+  const evaluationData: FullEvaluation = {
+    fileName,
+    metadata: {
+      courseId,
       assignmentId,
-      assignmentName,
       studentName,
-    });
-    const evaluationFilePath = path.join(submissionDir, fileName);
+      criterionId,
+      criterionDescription,
+      timestamp: new Date().toISOString(),
+      model: aiModel,
+    },
+    conversation: conversationMessages.map((msg) => {
+      const baseMessage = {
+        role: msg.role as "system" | "user" | "assistant" | "tool",
+        content: typeof msg.content === "string" ? msg.content : undefined,
+      };
 
-    // Create the evaluation data using the proper schema
-    const evaluationData: FullEvaluation = {
-      filePath: evaluationFilePath,
-      fileName,
-      metadata: {
-        courseId,
-        assignmentId,
-        studentName,
-        criterionId,
-        criterionDescription,
-        timestamp: new Date().toISOString(),
-        model: aiModel,
-      },
-      conversation: conversationMessages.map((msg) => {
-        const baseMessage = {
-          role: msg.role as "system" | "user" | "assistant" | "tool",
-          content: typeof msg.content === "string" ? msg.content : undefined,
+      // Handle tool calls for assistant messages
+      if (msg.role === "assistant" && "tool_calls" in msg && msg.tool_calls) {
+        return {
+          ...baseMessage,
+          tool_calls: msg.tool_calls.map((tc) => ({
+            id: tc.id,
+            type: tc.type,
+            function:
+              "function" in tc && tc.function
+                ? {
+                    name: tc.function.name,
+                    arguments: tc.function.arguments,
+                  }
+                : undefined,
+          })),
         };
+      }
 
-        // Handle tool calls for assistant messages
-        if (msg.role === "assistant" && "tool_calls" in msg && msg.tool_calls) {
-          return {
-            ...baseMessage,
-            tool_calls: msg.tool_calls.map((tc) => ({
-              id: tc.id,
-              type: tc.type,
-              function:
-                "function" in tc && tc.function
-                  ? {
-                      name: tc.function.name,
-                      arguments: tc.function.arguments,
-                    }
-                  : undefined,
-            })),
-          };
-        }
+      // Handle tool call id for tool messages
+      if (msg.role === "tool" && "tool_call_id" in msg) {
+        return {
+          ...baseMessage,
+          tool_call_id: msg.tool_call_id,
+        };
+      }
 
-        // Handle tool call id for tool messages
-        if (msg.role === "tool" && "tool_call_id" in msg) {
-          return {
-            ...baseMessage,
-            tool_call_id: msg.tool_call_id,
-          };
-        }
+      return baseMessage;
+    }),
+    evaluation: analysis,
+  };
 
-        return baseMessage;
-      }),
-      evaluation: analysis,
-      submissionPath: submissionDir,
-    };
-
-    // Validate the data against the schema before saving
-    const validatedData = parseSchema(
-      FullEvaluationSchema,
-      evaluationData,
-      "Full evaluation data"
-    );
-
-    // Ensure the directory exists
-    fs.mkdirSync(path.dirname(evaluationFilePath), { recursive: true });
-
-    // Write the evaluation results
-    fs.writeFileSync(
-      evaluationFilePath,
-      JSON.stringify(validatedData, null, 2),
-      "utf-8"
-    );
-
-    console.log(`Saved evaluation results to: ${evaluationFilePath}`);
-  } catch (error) {
-    console.error("Error saving evaluation results:", error);
-    // Don't throw - this shouldn't break the main analysis
-  }
+  // Validate the data against the schema before saving
+  const validatedData = parseSchema(
+    FullEvaluationSchema,
+    evaluationData,
+    "Full evaluation data"
+  );
+  await storeRubricCriterionAnalysis({
+    evaluation: validatedData,
+    submissionId,
+  });
 }
 
 // Helper function to check if file is an image
@@ -611,6 +583,7 @@ export async function* analyzeRubricCriterion({
   criterionId,
   termName,
   courseName,
+  submissionId,
 }: {
   courseId: number;
   assignmentId: number;
@@ -621,6 +594,7 @@ export async function* analyzeRubricCriterion({
   criterionId?: string;
   termName: string;
   courseName: string;
+  submissionId: number;
 }): AsyncGenerator<ConversationMessage, AnalyzeRubricCriterionResponse> {
   try {
     // Get submission directory
@@ -654,7 +628,7 @@ export async function* analyzeRubricCriterion({
     const readFileTool = createAiTool({
       name: "read_file",
       description: `Read the contents of a specific file from the submission folder, 
-embedded images been pre-processed to be text with <descriptionOfImage></<descriptionOfImage>`,
+embedded images been pre-processed to be text with <${imageDescriptionXMLTag}></${imageDescriptionXMLTag}>`,
       paramsSchema: z.object({
         fileName: z
           .string()
@@ -753,9 +727,7 @@ embedded images been pre-processed to be text with <descriptionOfImage></<descri
       criterionDescription,
       conversationMessages,
       analysis,
-      courseName,
-      assignmentName,
-      termName,
+      submissionId,
     });
 
     // Prepare and validate the response

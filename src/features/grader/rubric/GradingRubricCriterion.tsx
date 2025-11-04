@@ -20,6 +20,7 @@ export const GradingRubricCriterion: FC<{
   termName: string;
   courseName: string;
   assignmentName: string;
+  submissionId: number;
   onChange: (assessment: {
     rating_id?: string;
     points?: number;
@@ -35,6 +36,7 @@ export const GradingRubricCriterion: FC<{
   termName,
   courseName,
   assignmentName,
+  submissionId
 }) => {
   const [localComments, setLocalComments] = useState(
     assessment?.comments || ""
@@ -102,11 +104,9 @@ export const GradingRubricCriterion: FC<{
                 ratings={criterion.ratings}
                 onRatingSelect={handleRatingSelect}
                 courseId={courseId}
-                assignmentId={assignmentId}
-                studentName={studentName}
-                assignmentName={assignmentName}
                 criterionId={criterion.id}
                 assessment={assessment}
+                submissionId={submissionId}
               />
             </div>
             <button
@@ -161,6 +161,7 @@ export const GradingRubricCriterion: FC<{
               courseName={courseName}
               assignmentName={assignmentName}
               criterionId={criterion.id}
+              submissionId={submissionId}
             />
           </div>
         </div>

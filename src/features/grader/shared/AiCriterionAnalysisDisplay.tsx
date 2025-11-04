@@ -12,6 +12,7 @@ export const AiCriterionAnalysisDisplay: FC<{
   termName: string;
   studentName: string;
   analysisName: string;
+  submissionId: number;
 }> = ({
   assignmentId,
   assignmentName,
@@ -19,19 +20,17 @@ export const AiCriterionAnalysisDisplay: FC<{
   termName,
   studentName,
   analysisName,
+  submissionId,
 }) => {
   const { data: allEvaluations, isLoading: evaluationsLoading } =
     useAllEvaluationsQuery({
-      assignmentId,
-      assignmentName,
-      studentName,
+      submissionId,
     });
 
   const selectedAnalysis = allEvaluations?.find(
     (evaluation) =>
       evaluation.fileName === analysisName ||
-      evaluation.fileName.includes(analysisName) ||
-      evaluation.filePath.includes(analysisName)
+      evaluation.fileName.includes(analysisName)
   );
 
   const { data: rubric } = useRubricQuery(assignmentId);

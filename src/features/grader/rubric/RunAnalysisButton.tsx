@@ -12,6 +12,7 @@ export const RunAnalysisButton: FC<{
   termName: string;
   courseName: string;
   assignmentName: string;
+  submissionId: number;
 }> = ({
   courseId,
   assignmentId,
@@ -22,10 +23,10 @@ export const RunAnalysisButton: FC<{
   termName,
   courseName,
   assignmentName,
+  submissionId
 }) => {
   const liveAnalysisMutation = useAiAnalysisMutation();
   const [status, _setStatus] = useState("");
-  // const _trpcClient = useTRPCClient();
 
   return (
     <button
@@ -41,6 +42,7 @@ export const RunAnalysisButton: FC<{
           termName,
           courseName,
           assignmentName,
+          submissionId
         });
       }}
       disabled={liveAnalysisMutation.isPending}

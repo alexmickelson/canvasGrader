@@ -9,8 +9,7 @@
       assignmentId: number;
       studentName: string;
       className: string;
-    }
-    > = ({
+    }> = ({
       courseId,
       assignmentId,
       studentName,

@@ -86,6 +86,13 @@ db.none(
     github_username TEXT,
     UNIQUE(course_id, enrollment_id)
   );
+
+  CREATE TABLE IF NOT EXISTS rubric_criterion_analysis (
+    id SERIAL PRIMARY KEY,
+    rubric_criterion_id text NOT NULL,
+    submission_id BIGINT REFERENCES submissions(id) NOT NULL,
+    evaluation_object JSONB NOT NULL
+  );
 `
 ).catch((err) => {
   console.error("Error creating tables:", err);

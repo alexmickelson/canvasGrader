@@ -15,9 +15,6 @@ export const CriterionPointInput: FC<{
   onRatingSelect: (ratingId: string | undefined, points: number) => void;
 
   courseId: number;
-  assignmentId: number;
-  studentName: string;
-  assignmentName: string;
   criterionId: string;
 
   assessment?: {
@@ -25,21 +22,18 @@ export const CriterionPointInput: FC<{
     points?: number;
     comments?: string;
   };
+  submissionId: number;
 }> = ({
   customPoints,
   ratings,
   onRatingSelect,
-  assignmentId,
-  assignmentName,
-  studentName,
   criterionId,
   assessment,
+  submissionId
 }) => {
   // Get analysis data for this criterion
   const { data: allEvaluations } = useAllEvaluationsQuery({
-    assignmentId,
-    assignmentName,
-    studentName,
+    submissionId
   });
 
   const criterionEvaluations =

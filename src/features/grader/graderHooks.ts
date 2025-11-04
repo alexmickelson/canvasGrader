@@ -89,23 +89,14 @@ export const useAiAnalysisMutation = () => {
 };
 
 export const useAllEvaluationsQuery = ({
-  assignmentId,
-  assignmentName,
-  studentName,
+  submissionId,
 }: {
-  assignmentId: number;
-  assignmentName: string;
-  studentName: string;
+  submissionId: number;
 }) => {
-  const { courseName, termName } = useCurrentCourse();
   const trpc = useTRPC();
   return useQuery(
     trpc.rubricAiReport.getAllEvaluations.queryOptions({
-      assignmentId,
-      assignmentName,
-      courseName,
-      termName,
-      studentName,
+      submissionId,
     })
   );
 };
@@ -202,6 +193,9 @@ export const useTranscribeSubmissionImagesMutation = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: trpc.fileViewer.getFileContent.queryKey(),
       });
     },
   });

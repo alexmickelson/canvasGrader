@@ -151,6 +151,7 @@ export const GradingRubricDisplay: FC<{
           termName={termName}
           courseName={courseName}
           assignmentName={assignmentName}
+          submissionId={submission.id}
         />
         <div className=" text-gray-400 pe-3">
           <span className=" font-bold text-green-400">{totalScore}</span>/
@@ -176,6 +177,7 @@ export const GradingRubricDisplay: FC<{
             termName={termName}
             courseName={courseName}
             assignmentName={assignmentName}
+            submissionId={submission.id}
           />
         ))}
       </div>

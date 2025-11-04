@@ -94,6 +94,7 @@ export const SubmissionDetails: FC<{
                   termName={termName}
                   courseName={courseName}
                   analysisName={viewingItem.name}
+                  submissionId={submission.id}
                 />
               )}
             </div>

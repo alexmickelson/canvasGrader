@@ -9,6 +9,7 @@ export const RunAllAnalysis: FC<{
   termName: string;
   courseName: string;
   assignmentName: string;
+  submissionId: number;
 }> = ({
   courseId,
   assignmentId,
@@ -16,6 +17,7 @@ export const RunAllAnalysis: FC<{
   termName,
   courseName,
   assignmentName,
+  submissionId
 }) => {
   const aiAnalysisMutation = useAiAnalysisMutation();
   const { data: rubric, isLoading: rubricLoading } = useRubricQuery(
@@ -50,6 +52,7 @@ export const RunAllAnalysis: FC<{
           termName,
           courseName,
           assignmentName,
+          submissionId
         });
         setCompletedCount((prev) => prev + 1);
       } catch (error) {

@@ -16,6 +16,8 @@ const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
+export const imageDescriptionXMLTag = "descriptionOfImage";
+
 export function ensureDir(dirPath: string) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -142,7 +144,8 @@ export function replaceMarkdownImagesWithTranscriptions(
       const image = imagesFromMarkdown[result.index];
       if (image) {
         const fullMatch = image[0];
-        const replacement = `![<descriptionOfImage>${result.transcription}</descriptionOfImage>]`;
+        const imageUrl = image[2];
+        const replacement = `![<${imageDescriptionXMLTag}>${result.transcription}</${imageDescriptionXMLTag}>](${imageUrl})`;
         newMarkdown = newMarkdown.replace(fullMatch, replacement);
       }
     }
@@ -231,7 +234,7 @@ export async function transcribeSubmissionImages(
             "CanvasSubmission"
           );
 
-          const markdown = convertHtmlToMarkdown(parsedSubmission.body);
+          const markdown = convertHtmlToMarkdown(parsedSubmission.body ?? "");
           const images = extractAttachmentsFromMarkdown(markdown);
           const imagesWithPaths = await dowloadSubmissionAttachments(images, {
             termName,

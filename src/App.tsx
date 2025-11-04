@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router";
 import { Home } from "./features/home/Home";
 import { CoursePage } from "./features/course/CoursePage";
 import { AssignmentGraderPage } from "./features/grader/AssignmentGraderPage";
+import { SuspenseAndError } from "./utils/SuspenseAndError";
 
 function App() {
   return (
@@ -9,9 +10,20 @@ function App() {
       <Routes>
         <Route
           path="/course/:courseId/assignment/:assignmentId"
-          element={<AssignmentGraderPage />}
+          element={
+            <SuspenseAndError>
+              <AssignmentGraderPage />
+            </SuspenseAndError>
+          }
         />
-        <Route path="/course/:courseId" element={<CoursePage />} />
+        <Route
+          path="/course/:courseId"
+          element={
+            <SuspenseAndError>
+              <CoursePage />
+            </SuspenseAndError>
+          }
+        />
         <Route path="/" element={<Home />} />
       </Routes>
     </>
