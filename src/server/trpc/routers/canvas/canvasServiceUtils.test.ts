@@ -9,7 +9,7 @@ describe("getDownloadableAttachmentMatches", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      href: "https://snow.instructure.com/users/2342342/files/188068861?wrap=1&amp;verifier=asdfasdfadf",
+      href: "https://snow.instructure.com/users/2342342/files/188068861?wrap=1&amp;verifier=asdfasdfasdf",
       apiEndpoint:
         "https://snow.instructure.com/api/v1/users/2342342/files/188068861",
       fileName: "Final Project Proposal.pdf",

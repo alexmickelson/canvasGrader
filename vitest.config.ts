@@ -8,6 +8,7 @@ export default defineConfig({
     exclude: [
       "**/node_modules/**",
       "**/dist/**",
+      "**/dist-server/**",
       "**/cypress/**",
       "**/.{idea,git,cache,output,temp}/**",
       "**/storage/**",
