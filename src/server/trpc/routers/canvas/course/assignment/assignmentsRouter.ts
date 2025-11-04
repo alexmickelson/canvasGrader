@@ -103,7 +103,16 @@ export const assignmentsRouter = createTRPCRouter({
             await fetchAndStoreSingleSubmissionByIdFromCanvas(
               input.courseId,
               input.assignmentId,
-              input.studentId
+              input.studentId,
+              input.termName,
+              input.courseName,
+              input.assignmentName,
+              input.studentName ||
+                (() => {
+                  throw new Error(
+                    "studentName is required when studentId is provided to get single submission"
+                  );
+                })()
             ),
           ]
         : await fetchAndStoreSubmissionsFromCanvas({

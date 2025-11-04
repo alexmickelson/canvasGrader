@@ -195,8 +195,7 @@ export async function dowloadSubmissionAttachments(
   return downloaded.filter((item) => item !== null);
 }
 
-// Transcribe images and save transcriptions as markdown files
-export async function transcribeAndStoreSubmissionAttachments(
+export async function transcribeSubmissionAttachments(
   imagesWithPaths: Array<{
     title: string;
     url: string;
@@ -215,7 +214,7 @@ export async function transcribeAndStoreSubmissionAttachments(
     assignmentName: string;
     studentName: string;
   }
-): Promise<void> {
+) {
   const submissionDir = getSubmissionDirectory({
     termName,
     courseName,
@@ -226,51 +225,60 @@ export async function transcribeAndStoreSubmissionAttachments(
 
   console.log("Transcribing submission images", assignmentName, studentName);
 
-  await Promise.all(
-    imagesWithPaths.map(async (imageWithPath, index) => {
-      try {
-        const sanitizedTitle = sanitizeImageTitle(imageWithPath.title);
-        const fileName = `submission.${index}.${sanitizedTitle}.md`;
-        const transcriptionPath = path.join(submissionDir, fileName);
+  return await Promise.all(
+    imagesWithPaths
+      .map(async (imageWithPath, index) => {
+        try {
+          const sanitizedTitle = sanitizeImageTitle(imageWithPath.title);
+          const fileName = `submission.${index}.${sanitizedTitle}.md`;
+          const transcriptionPath = path.join(submissionDir, fileName);
 
-        // Check if transcription file already exists
-        if (fs.existsSync(transcriptionPath)) {
-          return;
-        }
+          // Check if transcription file already exists
+          if (fs.existsSync(transcriptionPath)) {
+            return;
+          }
 
-        console.log(
-          `Transcribing image: ${imageWithPath.title} at ${imageWithPath.filePath}`
-        );
-
-        // Determine if this is a PDF or image file
-        const fileExtension = path
-          .extname(imageWithPath.filePath)
-          .toLowerCase();
-        let transcription: string;
-
-        if (fileExtension === ".pdf") {
-          const pageTranscriptions = await extractTextFromPdf(
-            imageWithPath.filePath
+          console.log(
+            `Transcribing image: ${imageWithPath.title} at ${imageWithPath.filePath}`
           );
-          // Combine all page transcriptions into a single string
-          transcription = pageTranscriptions
-            .map(
-              (page) => `=== Page ${page.pageNumber} ===\n${page.transcription}`
-            )
-            .join("\n\n");
-        } else {
-          // Handle as image file
-          transcription = await extractTextFromImage(imageWithPath.filePath);
-        }
 
-        fs.writeFileSync(transcriptionPath, transcription, "utf8");
-        console.log(`Saved transcription to: ${transcriptionPath}`);
-      } catch (error) {
-        console.error(
-          `Error transcribing image ${imageWithPath.title}:`,
-          error
-        );
-      }
-    })
+          // Determine if this is a PDF or image file
+          const fileExtension = path
+            .extname(imageWithPath.filePath)
+            .toLowerCase();
+          let transcription: string;
+
+          if (fileExtension === ".pdf") {
+            const pageTranscriptions = await extractTextFromPdf(
+              imageWithPath.filePath
+            );
+            // Combine all page transcriptions into a single string
+            transcription = pageTranscriptions
+              .map(
+                (page) =>
+                  `=== Page ${page.pageNumber} ===\n${page.transcription}`
+              )
+              .join("\n\n");
+          } else {
+            // Handle as image file
+            transcription = await extractTextFromImage(imageWithPath.filePath);
+          }
+
+          // fs.writeFileSync(transcriptionPath, transcription, "utf8");
+          console.log(`Saved transcription to: ${transcriptionPath}`);
+          return {
+            index,
+            fileName,
+            transcription,
+          };
+        } catch (error) {
+          console.error(
+            `Error transcribing image ${imageWithPath.title}:`,
+            error
+          );
+          return null;
+        }
+      })
+      .filter((result) => result !== null)
   );
 }

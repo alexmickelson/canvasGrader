@@ -106,6 +106,7 @@ export const GradingRubricCriterion: FC<{
                 studentName={studentName}
                 assignmentName={assignmentName}
                 criterionId={criterion.id}
+                assessment={assessment}
               />
             </div>
             <button

@@ -39,11 +39,9 @@ export function toOpenAIMessage(
   };
 
   if (message.content) {
-    // Handle both string content and structured content
     if (typeof message.content === "string") {
       baseMessage.content = message.content;
     } else {
-      // Handle array content (for images and mixed content)
       baseMessage.content = message.content.map((item) => {
         if (item.type === "text") {
           return {
@@ -51,7 +49,6 @@ export function toOpenAIMessage(
             text: item.text || "",
           };
         } else if (item.type === "image_url") {
-          // Convert base64 data to data URL for OpenAI
           const mediaType = item.image_url?.mediaType || "image/png";
           const dataUrl = `data:${mediaType};base64,${
             item.image_url?.base64 || ""
@@ -287,7 +284,6 @@ export async function* analyzeSubmissionWithStreaming({
   ConversationMessage,
   { conversation: ConversationMessage[]; analysis: AnalysisResult }
 > {
-
   const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
 
 RUBRIC CRITERION TO EVALUATE:
@@ -335,14 +331,12 @@ When there is doubt, favor giving points to students. Provide caveats and condit
     },
   ];
 
-
   // Create the generator
   const generator = getRubricAnalysisConversation({
     startingMessages: [...messages],
     tools,
     resultSchema: AnalysisResultSchema,
   });
-
 
   // Yield all messages as they're generated
   for await (const message of generator) {
@@ -659,8 +653,8 @@ export async function* analyzeRubricCriterion({
 
     const readFileTool = createAiTool({
       name: "read_file",
-      description:
-        "Read the contents of a specific file from the submission folder",
+      description: `Read the contents of a specific file from the submission folder, 
+embedded images been pre-processed to be text with <descriptionOfImage></<descriptionOfImage>`,
       paramsSchema: z.object({
         fileName: z
           .string()
@@ -690,7 +684,6 @@ export async function* analyzeRubricCriterion({
             );
           }
 
-          // Return combined transcription for the AI tool
           return combinePageTranscriptions(filePath, pageTranscriptions);
         } else if (isImageFile(params.fileName)) {
           return `[Image file: ${params.fileName} - Visual analysis not available, but file is present]`;
@@ -716,7 +709,6 @@ export async function* analyzeRubricCriterion({
     let analysis: AnalysisResult | null = null;
 
     try {
-
       // Yield each message as it comes in and collect them
       for await (const message of analysisGenerator) {
         console.log(

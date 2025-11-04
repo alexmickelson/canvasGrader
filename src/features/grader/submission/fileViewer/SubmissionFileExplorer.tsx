@@ -1,12 +1,9 @@
 import type { FC } from "react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useListStudentFilesQuery } from "./fileViewerHooks";
 import Spinner from "../../../../utils/Spinner";
 import { useViewingItem } from "../../shared/viewingItemContext/ViewingItemContext";
-import {
-  FileTreeNodeComponent,
-  type TreeNode,
-} from "./FileTreeNodeComponent";
+import { FileTreeNodeComponent, type TreeNode } from "./FileTreeNodeComponent";
 
 const buildFileTree = (filePaths: string[]): TreeNode[] => {
   const root: TreeNode[] = [];
@@ -95,6 +92,12 @@ export const SubmissionFileExplorer: FC<{
     }
     setExpandedNodes(newExpanded);
   };
+
+  useEffect(() => {
+    if (!viewingItem && allFilePaths && allFilePaths.includes("submission.md")) {
+      setViewingFile("submission.md");
+    }
+  }, [allFilePaths, setViewingFile, viewingItem]);
 
   const handleSelectFile = (path: string) => {
     setViewingFile(path);

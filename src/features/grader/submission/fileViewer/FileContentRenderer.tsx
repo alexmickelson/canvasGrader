@@ -81,7 +81,7 @@ export const FileContentRenderer: FC<{
     case "pdf":
       if (fileData?.type === "binary") {
         return (
-          <div className="h-96 border border-gray-700 rounded">
+          <div className="border border-gray-700 rounded h-full">
             <iframe
               src={`data:${fileData.mimeType};base64,${fileData.content}`}
               className="w-full h-full rounded"

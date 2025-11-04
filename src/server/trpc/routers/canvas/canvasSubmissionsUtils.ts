@@ -11,7 +11,11 @@ import {
   CanvasSubmissionSchema,
 } from "./canvasModels.js";
 import { rateLimitAwareGet } from "./canvasRequestUtils.js";
-import { ensureDir, getSubmissionDirectory } from "./canvasStorageUtils.js";
+import {
+  ensureDir,
+  getSubmissionDirectory,
+  storeSubmissionMarkdown,
+} from "./canvasStorageUtils.js";
 import path from "path";
 import {
   storeAttachments,
@@ -69,32 +73,36 @@ async function storeSubmissionAttachments({
 export const fetchAndStoreSingleSubmissionByIdFromCanvas = async (
   courseId: number,
   assignmentId: number,
-  userId: number
+  userId: number,
+  termName: string,
+  courseName: string,
+  assignmentName: string,
+  studentName: string
 ): Promise<CanvasSubmission> => {
-  console.log(`Fetching submission for user ID ${userId}`);
-
-  // Fetch the specific submission using the single submission endpoint
   const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
 
-  try {
-    const { data: submission } = await rateLimitAwareGet(submissionUrl, {
-      headers: canvasRequestOptions.headers,
-      params: {
-        include: ["user", "submission_comments", "rubric_assessment"],
-      },
-    });
+  const { data: submission } = await rateLimitAwareGet(submissionUrl, {
+    headers: canvasRequestOptions.headers,
+    params: {
+      include: ["user", "submission_comments", "rubric_assessment"],
+    },
+  });
 
-    const parsedSubmission = parseSchema(
-      CanvasSubmissionSchema,
-      submission,
-      "CanvasSubmission"
-    );
+  const parsedSubmission = parseSchema(
+    CanvasSubmissionSchema,
+    submission,
+    "CanvasSubmission"
+  );
+  await storeSubmissions([parsedSubmission]);
+  storeSubmissionMarkdown(parsedSubmission, {
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+    studentName,
+  });
 
-    return parsedSubmission;
-  } catch (error) {
-    console.error(`Failed to fetch submission for user ID ${userId}:`, error);
-    throw error;
-  }
+  return parsedSubmission;
 };
 
 export const fetchAndStoreSubmissionsFromCanvas = async ({
@@ -128,6 +136,16 @@ export const fetchAndStoreSubmissionsFromCanvas = async ({
   );
 
   await storeSubmissions(filteredSubmissions);
+
+  filteredSubmissions.map((s) =>
+    storeSubmissionMarkdown(s, {
+      termName,
+      courseName,
+      assignmentId,
+      assignmentName,
+      studentName: s.user.name,
+    })
+  );
 
   await Promise.all(
     submissions.map(async (submission) => {

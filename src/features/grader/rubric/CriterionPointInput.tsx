@@ -19,6 +19,12 @@ export const CriterionPointInput: FC<{
   studentName: string;
   assignmentName: string;
   criterionId: string;
+
+  assessment?: {
+    rating_id?: string;
+    points?: number;
+    comments?: string;
+  };
 }> = ({
   customPoints,
   ratings,
@@ -27,6 +33,7 @@ export const CriterionPointInput: FC<{
   assignmentName,
   studentName,
   criterionId,
+  assessment,
 }) => {
   // Get analysis data for this criterion
   const { data: allEvaluations } = useAllEvaluationsQuery({
@@ -59,15 +66,18 @@ export const CriterionPointInput: FC<{
       {allPoints.map((points) => {
         const rating = ratings.find((r) => r.points === points);
         const isSelected = customPoints === points;
+        const matchesAssessment = assessment?.points === points;
         const evaluations = evaluationsByPoints[points] || [];
 
         const buttonClass = `
           unstyled cursor-pointer
-          py-3 px-3 rounded border-1 transition-all 
+          py-3 px-3 rounded transition-all 
           ${
             isSelected
-              ? "bg-blue-950 border-blue-700 text-white"
-              : "border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
+              ? "bg-blue-950 border-2 border-blue-700 text-white"
+              : matchesAssessment
+              ? "border-2 border-green-900 text-gray-300 hover:bg-gray-800"
+              : "border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
           }
         `;
 

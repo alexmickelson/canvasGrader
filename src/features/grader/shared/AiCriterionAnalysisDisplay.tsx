@@ -34,9 +34,7 @@ export const AiCriterionAnalysisDisplay: FC<{
       evaluation.filePath.includes(analysisName)
   );
 
-  const { data: rubric } = useRubricQuery(
-    selectedAnalysis?.metadata.courseId || 0,
-  );
+  const { data: rubric } = useRubricQuery(assignmentId);
 
   const criterion =
     !rubric || !selectedAnalysis?.metadata.criterionId

@@ -13,7 +13,7 @@ export const SubmissionsList: FC<{
 }> = ({ selectedId, onSelect }) => {
   const { assignmentId, assignmentName, assignment } = useCurrentAssignment();
 
-  const { setViewingFile } = useViewingItem();
+  const { clearViewingItem } = useViewingItem();
   const { data: submissions } = useSubmissionsQuery({
     assignmentId,
     assignmentName,
@@ -67,7 +67,7 @@ export const SubmissionsList: FC<{
                   : "border-gray-700 bg-gray-800 hover:bg-gray-800/70"
               }`}
               onClick={() => {
-                setViewingFile("submission.md");
+                clearViewingItem();
                 onSelect(s);
               }}
               role="button"
@@ -76,7 +76,7 @@ export const SubmissionsList: FC<{
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setViewingFile("submission.md");
+                  clearViewingItem();
                   onSelect(s);
                 }
               }}

@@ -35,7 +35,6 @@ if (!canvasToken) {
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
 export const courseRouter = createTRPCRouter({
-  // Fetch enrollments for a course and store in enrollments.json
   getCourseEnrollments: publicProcedure
     .input(z.object({ courseId: z.coerce.number() }))
     .query(async ({ input }) => {

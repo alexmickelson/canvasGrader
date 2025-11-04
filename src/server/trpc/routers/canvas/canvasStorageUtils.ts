@@ -3,16 +3,13 @@ import path from "path";
 import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 import { canvasRequestOptions } from "./canvasServiceUtils.js";
 import { parseSchema } from "../parseSchema.js";
-import type {
-  CanvasSubmission,
-  CanvasRubric,
-} from "./canvasModels.js";
+import type { CanvasSubmission, CanvasRubric } from "./canvasModels.js";
 import { CanvasSubmissionSchema } from "./canvasModels.js";
 import TurndownService from "turndown";
 import {
   extractAttachmentsFromMarkdown,
   dowloadSubmissionAttachments,
-  transcribeAndStoreSubmissionAttachments,
+  transcribeSubmissionAttachments,
 } from "./canvasSubmissionAttachmentUtils.js";
 
 const canvasBaseUrl =
@@ -129,6 +126,43 @@ export function convertHtmlToMarkdown(htmlContent: string): string {
   return turndownService.turndown(htmlContent);
 }
 
+export function replaceMarkdownImagesWithTranscriptions(
+  markdown: string,
+  transcriptions: Array<
+    | {
+        index: number;
+        fileName: string;
+        transcription: string;
+      }
+    | null
+    | undefined
+  >
+): string {
+  let newMarkdown = markdown;
+  transcriptions.forEach((result) => {
+    if (result && result.transcription) {
+      const imageIndex = result.index;
+      const transcription = result.transcription;
+
+      // Find the image at this index in the markdown
+      const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
+      let match;
+      let currentIndex = 0;
+
+      while ((match = imageRegex.exec(markdown)) !== null) {
+        if (currentIndex === imageIndex) {
+          const fullMatch = match[0];
+          const replacement = `![<descriptionOfImage>${transcription}</descriptionOfImage>]`;
+          newMarkdown = newMarkdown.replace(fullMatch, replacement);
+          break;
+        }
+        currentIndex++;
+      }
+    }
+  });
+  return newMarkdown;
+}
+
 export async function getCourseMeta(courseId: number): Promise<{
   courseName: string;
   termName: string;
@@ -150,7 +184,6 @@ export async function getCourseMeta(courseId: number): Promise<{
     return { courseName: `Course ${courseId}`, termName: "Unknown Term" };
   }
 }
-
 
 // export async function persistSubmissionsToStorage(
 //   courseId: number,
@@ -221,13 +254,37 @@ export async function transcribeSubmissionImages(
             studentName: userName,
           });
 
-          await transcribeAndStoreSubmissionAttachments(imagesWithPaths, {
+          const transcriptions = await transcribeSubmissionAttachments(
+            imagesWithPaths,
+            {
+              termName,
+              courseName,
+              assignmentId,
+              assignmentName,
+              studentName: userName,
+            }
+          );
+
+          // Replace images in markdown with transcriptions
+          const newMarkdown = replaceMarkdownImagesWithTranscriptions(
+            markdown,
+            transcriptions
+          );
+
+          // Store the updated markdown
+          const submissionDir = getSubmissionDirectory({
             termName,
             courseName,
             assignmentId,
             assignmentName,
             studentName: userName,
           });
+          const submissionMdPath = path.join(submissionDir, "submission.md");
+          fs.writeFileSync(submissionMdPath, newMarkdown, "utf8");
+          console.log(
+            "Updated submission.md with transcriptions:",
+            submissionMdPath
+          );
         } catch (err) {
           console.warn(
             "Failed to write submission.json for user",
@@ -271,7 +328,6 @@ export async function persistRubricToStorage(
     console.warn("Failed to persist rubric to storage", err);
   }
 }
-
 
 // Convert HTML to markdown and store as submission.md
 export function storeSubmissionMarkdown(
