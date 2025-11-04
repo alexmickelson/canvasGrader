@@ -4,7 +4,7 @@ import { paginatedRequest } from "../../canvasServiceUtils.js";
 import {
   fetchAndStoreSingleSubmissionByIdFromCanvas,
   fetchAndStoreSubmissionsFromCanvas as fetchAndStoreSubmissionsFromCanvas,
-} from "../../canvasSubmissionsUtils.js";
+} from "./canvasSubmissionsUtils.js";
 import { fetchAssignmentRubric } from "../../canvasRubricUtils.js";
 import { parseSchema } from "../../../parseSchema.js";
 import {
@@ -142,6 +142,15 @@ export const assignmentsRouter = createTRPCRouter({
     .query(async ({ input }): Promise<CanvasRubric> => {
       return await fetchAssignmentRubric(input.courseId, input.assignmentId);
     }),
+
+  // storeAiAnalysisResult: publicProcedure
+  //   .input(
+  //     z.object({
+  //       submissionId: z.coerce.number(),
+  //       evaluationObject: z.record(z.any()),
+  //     })
+  //   )
+  //   .mutation(async ({ input }) => {}),
 });
 
 async function fetchAndStoreCanvasAssignments(

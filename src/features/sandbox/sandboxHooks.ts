@@ -46,17 +46,3 @@ export const useLoadSubmissionToSandbox = () => {
     },
   });
 };
-
-export const useAiTask = () => {
-  const queryClient = useQueryClient();
-  const trpc = useTRPC();
-  return useMutation(
-    trpc.sandbox.aiTask.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.sandbox.getOutput.queryKey(),
-        });
-      },
-    })
-  );
-};

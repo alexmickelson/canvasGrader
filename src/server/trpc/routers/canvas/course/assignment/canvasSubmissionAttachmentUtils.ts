@@ -1,16 +1,16 @@
 import fs from "fs";
 import path from "path";
-import { rateLimitAwareGet } from "./canvasRequestUtils.js";
-import { canvasRequestOptions } from "./canvasServiceUtils.js";
+import { rateLimitAwareGet } from "../../canvasRequestUtils.js";
+import { canvasRequestOptions } from "../../canvasServiceUtils.js";
 import {
   extractTextFromImage,
   extractTextFromPdf,
-} from "../../../../utils/aiUtils/extractTextFromImages.js";
+} from "../../../../../../utils/aiUtils/extractTextFromImages.js";
 import {
   getMetadataSubmissionDirectory,
   getSubmissionDirectory,
   sanitizeImageTitle,
-} from "./canvasStorageUtils.js";
+} from "../../canvasStorageUtils.js";
 
 export function getResponseFileExtension(
   bytes: Uint8Array,

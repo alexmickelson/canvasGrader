@@ -29,11 +29,11 @@ export const CriterionPointInput: FC<{
   onRatingSelect,
   criterionId,
   assessment,
-  submissionId
+  submissionId,
 }) => {
   // Get analysis data for this criterion
   const { data: allEvaluations } = useAllEvaluationsQuery({
-    submissionId
+    submissionId,
   });
 
   const criterionEvaluations =
@@ -113,7 +113,7 @@ export const CriterionPointInput: FC<{
               <div className="mt-2 space-y-1">
                 {evaluations.map((evaluation) => (
                   <AnalysisItem
-                    key={evaluation.filePath}
+                    key={evaluation.fileName}
                     evaluation={evaluation}
                   />
                 ))}

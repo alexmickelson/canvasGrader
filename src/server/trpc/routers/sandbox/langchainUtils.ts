@@ -245,7 +245,7 @@ start executing tool calls immediately, do not update the user what with what is
       }
     );
 
-    const allMessages: BaseMessage<MessageStructure, MessageType>[] = [];
+    const allMessages: BaseMessage[] = [];
 
     for await (const [message] of stream) {
       console.log("stream message:", message);
@@ -267,7 +267,7 @@ start executing tool calls immediately, do not update the user what with what is
       const state = await agent.getState({
         configurable: { thread_id: threadId },
       });
-      const messages = state.values.messages;
+      const messages = state.values.messages as BaseMessage[];
       console.log("state=============================", state);
 
       const summaryModel = new ChatOpenAI({
@@ -283,15 +283,13 @@ start executing tool calls immediately, do not update the user what with what is
         role: "user" as const,
         content: `The agent hit the recursion limit while working on: "${task}". 
         
-Based on the command history executed so far, provide a summary of what was discovered and what still needs to be done. Be concise and helpful.`,
+Based on the command history executed so far, provide a summary of what was discovered and what still needs to be done. Be concise.`,
       };
 
       console.log("Generating summary of incomplete task...");
 
-      const formattedMessages = formatMessagesForInvoke(messages);
-
       const summaryResponse = await summaryModel.invoke([
-        ...formattedMessages,
+        ...messages,
         summaryPrompt,
       ]);
       console.log("Summary response:", summaryResponse);

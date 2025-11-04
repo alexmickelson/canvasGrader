@@ -1,26 +1,23 @@
-import { parseSchema } from "../parseSchema.js";
+import { parseSchema } from "../../../parseSchema.js";
 import {
   canvasRequestOptions,
   paginatedRequest,
   downloadAllAttachmentsUtil,
   downloadCommentAttachments,
   downloadEmbeddedAttachments,
-} from "./canvasServiceUtils.js";
+} from "../../canvasServiceUtils.js";
 import {
   type CanvasSubmission,
   CanvasSubmissionSchema,
-} from "./canvasModels.js";
-import { rateLimitAwareGet } from "./canvasRequestUtils.js";
+} from "../../canvasModels.js";
+import { rateLimitAwareGet } from "../../canvasRequestUtils.js";
 import {
   ensureDir,
   getSubmissionDirectory,
   storeSubmissionMarkdown,
-} from "./canvasStorageUtils.js";
+} from "../../canvasStorageUtils.js";
 import path from "path";
-import {
-  storeAttachments,
-  storeSubmissions,
-} from "./course/assignment/assignmentDbUtils.js";
+import { storeAttachments, storeSubmissions } from "./assignmentDbUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";

@@ -10,7 +10,7 @@ import {
   extractAttachmentsFromMarkdown,
   dowloadSubmissionAttachments,
   transcribeSubmissionAttachments,
-} from "./canvasSubmissionAttachmentUtils.js";
+} from "./course/assignment/canvasSubmissionAttachmentUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -175,44 +175,6 @@ export async function getCourseMeta(courseId: number): Promise<{
   }
 }
 
-// export async function persistSubmissionsToStorage(
-//   courseId: number,
-//   assignmentId: number,
-//   submissions: CanvasSubmission[],
-//   assignmentName: string
-// ): Promise<void> {
-//   const { courseName, termName } = await getCourseMeta(courseId);
-
-//   await Promise.all(
-//     submissions.map(async (submission) => {
-//       const userName =
-//         (typeof submission.user === "object" && submission.user?.name) ||
-//         `User ${submission.user_id}`;
-//       const parsedSubmission = parseSchema(
-//         CanvasSubmissionSchema,
-//         submission,
-//         "CanvasSubmission"
-//       );
-
-//       storeSubmissionJson(parsedSubmission, {
-//         termName,
-//         courseName,
-//         assignmentId,
-//         assignmentName,
-//         studentName: userName,
-//       });
-
-//       // Convert HTML to markdown and store as submission.md
-//       storeSubmissionMarkdown(parsedSubmission, {
-//         termName,
-//         courseName,
-//         assignmentId,
-//         assignmentName,
-//         studentName: userName,
-//       });
-//     })
-//   );
-// }
 export async function transcribeSubmissionImages(
   courseId: number,
   assignmentId: number,
@@ -321,13 +283,7 @@ export async function persistRubricToStorage(
 
 // Convert HTML to markdown and store as submission.md
 export function storeSubmissionMarkdown(
-  submission: {
-    id?: number;
-    user?: { id: number; name: string };
-    body?: string;
-    attachments?: unknown[];
-    [key: string]: unknown;
-  },
+  submission: CanvasSubmission,
   {
     termName,
     courseName,

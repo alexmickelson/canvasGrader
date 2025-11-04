@@ -93,6 +93,12 @@ db.none(
     submission_id BIGINT REFERENCES submissions(id) NOT NULL,
     evaluation_object JSONB NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS submission_ai_tasks (
+    id SERIAL PRIMARY KEY,
+    submission_id BIGINT REFERENCES submissions(id) NOT NULL,
+    task_object JSONB NOT NULL
+  );
 `
 ).catch((err) => {
   console.error("Error creating tables:", err);

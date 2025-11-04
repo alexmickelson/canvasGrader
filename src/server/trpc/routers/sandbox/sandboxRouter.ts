@@ -141,12 +141,8 @@ export const sandboxRouter = createTRPCRouter({
         yield value.value;
         value = await itterable.next();
       }
-      return value.value;
 
-      // for await (const message of itterable) {
-      //   yield { message };
-      // }
-
-      // return await itterable
+      const endResult = value.value;
+      return endResult;
     }),
 });
