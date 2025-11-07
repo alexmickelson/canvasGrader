@@ -34,7 +34,6 @@ db.$config.options.error = (err, e) => {
     }
   }
 };
-
 // Apply schema on startup
 db.none(
   `
@@ -80,12 +79,33 @@ db.none(
     course_id BIGINT REFERENCES courses(id) NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS github_usernames (
+  -- github classroom tables
+  CREATE TABLE IF NOT EXISTS github_student_usernames (
     course_id BIGINT REFERENCES courses(id) NOT NULL,
     enrollment_id BIGINT REFERENCES enrollments(id) NOT NULL,
     github_username TEXT,
     UNIQUE(course_id, enrollment_id)
   );
+
+  CREATE TABLE IF NOT EXISTS github_classroom_courses (
+    github_classroom_id BIGINT UNIQUE NOT NULL,
+    course_id BIGINT REFERENCES courses(id) NOT NULL,
+  );
+
+  CREATE TABLE IF NOT EXISTS github_classroom_assignments (
+    github_classroom_assignment_id BIGINT UNIQUE NOT NULL,
+    assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
+    github_classroom_id BIGINT NOT NULL references github_classroom_courses(github_classroom_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS submission_git_repository (
+    id SERIAL PRIMARY KEY,
+    enrollment_id BIGINT REFERENCES enrollments(id) NOT NULL,
+    assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
+    repo_url TEXT NOT NULL,
+    repo_path TEXT
+  );
+
 
   CREATE TABLE IF NOT EXISTS rubric_criterion_analysis (
     id SERIAL PRIMARY KEY,
@@ -99,6 +119,7 @@ db.none(
     submission_id BIGINT REFERENCES submissions(id) NOT NULL,
     task_object JSONB NOT NULL
   );
+
 `
 ).catch((err) => {
   console.error("Error creating tables:", err);

@@ -1,16 +1,7 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../../utils/trpc";
-import { parseSchema } from "../parseSchema";
-
-import fs from "fs";
-import path from "path";
-import {
-  getMetadataSubmissionDirectory,
-  sanitizeName,
-} from "../canvas/canvasStorageUtils";
 import {
   type FullEvaluation,
-  FullEvaluationSchema,
   type AnalyzeRubricCriterionResponse,
 } from "./rubricAiReportModels";
 import { analyzeRubricCriterion } from "./rubricAiUtils";
