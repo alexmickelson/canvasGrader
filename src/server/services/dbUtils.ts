@@ -89,7 +89,7 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS github_classroom_courses (
     github_classroom_id BIGINT UNIQUE NOT NULL,
-    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    course_id BIGINT REFERENCES courses(id) NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS github_classroom_assignments (

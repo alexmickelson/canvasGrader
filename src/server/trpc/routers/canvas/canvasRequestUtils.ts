@@ -14,6 +14,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const isRateLimited = async (
   response: AxiosResponse
 ): Promise<boolean> => {
+  if (response.status === 429) {
+    return true;
+  }
   const content = await response.data;
   return (
     response.status === 403 &&

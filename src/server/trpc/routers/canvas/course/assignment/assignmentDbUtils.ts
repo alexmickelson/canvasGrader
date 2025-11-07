@@ -40,6 +40,7 @@ export async function storeAssignments(assignments: CanvasAssignment[]) {
         canvas_object = EXCLUDED.canvas_object,
         updated_at = CURRENT_TIMESTAMP
       `,
+      
       {
         id: assignment.id,
         courseId: assignment.course_id,
@@ -149,7 +150,7 @@ export async function getAssignmentSubmissions(assignmentId: number) {
     `SELECT canvas_object 
     FROM submissions 
     WHERE assignment_id = $<assignmentId>
-    ORDER BY updated_at DESC`,
+    ORDER BY id DESC`,
     { assignmentId }
   );
   return results.map((r) =>
@@ -165,7 +166,6 @@ export async function storeAttachments(
   attachments: Array<{ id: number; submissionId: number; filepath: string }>,
   type: "embedded" | "uploaded" | "comment"
 ) {
-
   const queries = attachments.map((attachment) =>
     db.none(
       `
