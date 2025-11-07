@@ -40,7 +40,6 @@ export async function storeAssignments(assignments: CanvasAssignment[]) {
         canvas_object = EXCLUDED.canvas_object,
         updated_at = CURRENT_TIMESTAMP
       `,
-      
       {
         id: assignment.id,
         courseId: assignment.course_id,
