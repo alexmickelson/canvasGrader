@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 export const GitHubClassroomSchema = z.object({
-  id: z.string(),
+  id: z.number(),
   name: z.string(),
   url: z.string(),
 });
 
 export const GitHubAssignmentSchema = z.object({
-  id: z.string(),
+  id: z.number(),
   title: z.string(),
   type: z.string(),
   status: z.string(),
@@ -49,12 +49,15 @@ export function parseClassroomList(output: string): GitHubClassroom[] {
       const parts = trimmed.split(/\s{2,}/);
       if (parts.length < 3) return null;
 
-      const id = parts[0]?.trim();
+      const idStr = parts[0]?.trim();
       const name = parts[1]?.trim();
       const url = parts[2]?.trim();
 
       // Validate that ID is numeric and other fields exist
-      if (!id || !id.match(/^\d+$/) || !name || !url) return null;
+      if (!idStr || !idStr.match(/^\d+$/) || !name || !url) return null;
+
+      const id = parseInt(idStr);
+      if (isNaN(id)) return null;
 
       return {
         id,
@@ -64,7 +67,7 @@ export function parseClassroomList(output: string): GitHubClassroom[] {
     })
     .filter(
       (classroom): classroom is GitHubClassroom =>
-        classroom !== null && classroom.name !== "" && classroom.id !== ""
+        classroom !== null && classroom.name !== "" && !isNaN(classroom.id)
     );
 }
 
@@ -102,15 +105,18 @@ export function parseAssignmentList(output: string): GitHubAssignment[] {
   // Parse data lines after header
   return lines
     .slice(headerIndex + 1)
-    .map((line) => {
+    .map((line): GitHubAssignment | null => {
       const trimmed = line.trim();
       if (!trimmed) return null;
 
       // Split by tab or multiple spaces, but be more flexible
       const parts = trimmed.split(/\t|\s{2,}/);
 
-      const id = parts[0]?.trim();
-      if (!id || !id.match(/^\d+$/)) return null; // ID should be numeric
+      const idStr = parts[0]?.trim();
+      if (!idStr || !idStr.match(/^\d+$/)) return null; // ID should be numeric
+
+      const id = parseInt(idStr);
+      if (isNaN(id)) return null;
 
       // For the actual GitHub CLI format, title is in column 1, type might be in column 4
       const title = parts[1]?.trim() || `Assignment ${id}`;
@@ -143,7 +149,11 @@ export function parseAssignmentList(output: string): GitHubAssignment[] {
       };
     })
     .filter(
-      (assignment): assignment is GitHubAssignment =>
-        assignment !== null && assignment.id !== ""
+      (assignment): assignment is GitHubAssignment => assignment !== null
     );
+}
+
+
+export function parseAcceptedAssignmentList(output: string) {
+
 }

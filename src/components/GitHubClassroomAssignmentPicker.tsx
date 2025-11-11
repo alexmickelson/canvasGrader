@@ -14,15 +14,16 @@ interface GitHubClassroomAssignmentPickerProps {
 export const GitHubClassroomAssignmentPicker: React.FC<
   GitHubClassroomAssignmentPickerProps
 > = ({ selectedAssignmentId, onAssignmentSelect, className = "" }) => {
-  const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(
+  const [selectedClassroomId, setSelectedClassroomId] = useState<number | null>(
     null
   );
 
   const classroomsQuery = useLoadGithubClassroomDataQuery();
-  const assignmentsQuery =
-    useGitHubClassroomAssignmentsQuery(selectedClassroomId);
+  const assignmentsQuery = useGitHubClassroomAssignmentsQuery(
+    selectedClassroomId || 0
+  );
 
-  const handleClassroomSelect = (classroomId: string | null) => {
+  const handleClassroomSelect = (classroomId: number | null) => {
     setSelectedClassroomId(classroomId);
     onAssignmentSelect(null); // Reset assignment selection
   };
@@ -30,9 +31,7 @@ export const GitHubClassroomAssignmentPicker: React.FC<
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
-        <div
-          className="block text-sm font-medium text-gray-300 mb-2"
-        >
+        <div className="block text-sm font-medium text-gray-300 mb-2">
           Classroom:
         </div>
         {classroomsQuery.isLoading ? (
@@ -74,9 +73,7 @@ export const GitHubClassroomAssignmentPicker: React.FC<
 
       {selectedClassroomId && (
         <div>
-          <div
-            className="block text-sm font-medium text-gray-300 mb-2"
-          >
+          <div className="block text-sm font-medium text-gray-300 mb-2">
             Select Assignment
           </div>
           {assignmentsQuery.isLoading ? (
@@ -105,7 +102,7 @@ export const GitHubClassroomAssignmentPicker: React.FC<
                       className={`unstyled w-full text-left px-3 py-2 rounded text-sm transition-colors ${
                         selectedAssignmentId === assignment.id
                           ? "bg-purple-600 text-white"
-                        : "hover:bg-slate-700 border border-slate-500 rounded"
+                          : "hover:bg-slate-700 border border-slate-500 rounded"
                       }`}
                     >
                       <div className="font-medium">{assignment.title}</div>

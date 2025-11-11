@@ -113,7 +113,7 @@ export const useLoadGithubClassroomDataQuery = () => {
   const assignmentQueries = useQueries({
     queries: (classroomsQuery.data || []).map((classroom) => ({
       ...trpc.githubClassroom.getClassroomAssignments.queryOptions({
-        classroomId: classroom.id || "",
+        classroomId: classroom.id,
       }),
       enabled: !!classroom.id && !!classroomsQuery.data,
     })),
@@ -126,12 +126,12 @@ export const useLoadGithubClassroomDataQuery = () => {
 };
 
 export const useGitHubClassroomAssignmentsQuery = (
-  classroomId: string | null
+  classroomId: number
 ) => {
   const trpc = useTRPC();
   return useQuery({
     ...trpc.githubClassroom.getClassroomAssignments.queryOptions({
-      classroomId: classroomId || "",
+      classroomId: classroomId,
     }),
     enabled: !!classroomId,
   });

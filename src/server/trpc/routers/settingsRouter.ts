@@ -11,51 +11,9 @@ import {
   removeFavoriteCourse,
 } from "./settingsDbUtils";
 
-const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
-function ensureStorageDirExists() {
-  if (!fs.existsSync(storageDirectory)) {
-    fs.mkdirSync(storageDirectory, { recursive: true });
-  }
-}
 
-// Sanitize a string to be safe as a folder/file name
-function sanitizeName(name: string): string {
-  return name
-    .replace(/[\n\r\t]/g, " ") // remove control whitespace
-    .replace(/[\\/:*?"<>|]/g, "_") // invalid filename chars on most OS
-    .replace(/\s+/g, " ") // collapse whitespace
-    .trim();
-}
-
-async function getCourseTermName(courseId: number): Promise<string> {
-  try {
-    const url = `${canvasApi}/courses/${courseId}`;
-    const { data } = await axios.get(url, {
-      ...canvasRequestOptions,
-      params: { include: "term" },
-    });
-    const termName: string | undefined =
-      (data?.term?.name as string) || undefined;
-    return termName && termName !== "The End of Time"
-      ? termName
-      : "Unknown Term";
-  } catch {
-    return "Unknown Term";
-  }
-}
-
-function ensureCourseDir(termName: string, courseName: string) {
-  const term = sanitizeName(termName || "Unknown Term");
-  const course = sanitizeName(courseName || "Course");
-  const dir = path.join(storageDirectory, term, course);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  return dir;
-}
-
-const settingsSchema = z.object({
+export const settingsSchema = z.object({
   courses: z
     .array(
       z.object({
@@ -146,3 +104,47 @@ export const settingsRouter = createTRPCRouter({
       await removeFavoriteCourse(input.courseId);
     }),
 });
+
+const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
+
+function ensureStorageDirExists() {
+  if (!fs.existsSync(storageDirectory)) {
+    fs.mkdirSync(storageDirectory, { recursive: true });
+  }
+}
+
+// Sanitize a string to be safe as a folder/file name
+function sanitizeName(name: string): string {
+  return name
+    .replace(/[\n\r\t]/g, " ") // remove control whitespace
+    .replace(/[\\/:*?"<>|]/g, "_") // invalid filename chars on most OS
+    .replace(/\s+/g, " ") // collapse whitespace
+    .trim();
+}
+
+async function getCourseTermName(courseId: number): Promise<string> {
+  try {
+    const url = `${canvasApi}/courses/${courseId}`;
+    const { data } = await axios.get(url, {
+      ...canvasRequestOptions,
+      params: { include: "term" },
+    });
+    const termName: string | undefined =
+      (data?.term?.name as string) || undefined;
+    return termName && termName !== "The End of Time"
+      ? termName
+      : "Unknown Term";
+  } catch {
+    return "Unknown Term";
+  }
+}
+
+function ensureCourseDir(termName: string, courseName: string) {
+  const term = sanitizeName(termName || "Unknown Term");
+  const course = sanitizeName(courseName || "Course");
+  const dir = path.join(storageDirectory, term, course);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}

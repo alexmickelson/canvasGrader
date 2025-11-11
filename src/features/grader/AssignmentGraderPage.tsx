@@ -27,6 +27,7 @@ import {
   AssignmentProvider,
   useCurrentAssignment,
 } from "../../components/contexts/AssignmentProvider";
+import { GithubClassroomSubmissionDownloader } from "./gitDownload/GithubClassroomSubmissionDownloader";
 
 export const AssignmentGraderPage = () => {
   useLoadGithubClassroomDataQuery();
@@ -162,7 +163,6 @@ const InnerAssignmentPage = () => {
               ? "Refreshing..."
               : "Refresh Submissions"}
           </button>
-
           <button
             onClick={() =>
               transcribeImagesMutation.mutate({
@@ -177,8 +177,8 @@ const InnerAssignmentPage = () => {
               ? "Transcribing..."
               : "Transcribe Images"}
           </button>
-
           <GitHubClassroomDownload />
+          <GithubClassroomSubmissionDownloader />
         </div>
       </div>
       {

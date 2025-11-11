@@ -89,18 +89,23 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS github_classroom_courses (
     github_classroom_id BIGINT UNIQUE NOT NULL,
-    course_id BIGINT REFERENCES courses(id) NOT NULL
+    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    name TEXT not null,
+    url TEXT not null,
+    UNIQUE(github_classroom_id, course_id)
   );
 
   CREATE TABLE IF NOT EXISTS github_classroom_assignments (
     github_classroom_assignment_id BIGINT UNIQUE NOT NULL,
     assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
-    github_classroom_id BIGINT NOT NULL references github_classroom_courses(github_classroom_id)
+    github_classroom_id BIGINT NOT NULL references github_classroom_courses(github_classroom_id),
+    name TEXT not null,
+    UNIQUE(github_classroom_assignment_id, assignment_id)
   );
 
   CREATE TABLE IF NOT EXISTS submission_git_repository (
     id SERIAL PRIMARY KEY,
-    enrollment_id BIGINT REFERENCES enrollments(id) NOT NULL,
+    user_id BIGINT NOT NULL,
     assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
     repo_url TEXT NOT NULL,
     repo_path TEXT

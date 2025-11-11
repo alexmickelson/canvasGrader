@@ -18,7 +18,6 @@ import {
   getGithubUsernamesForCourse,
   setGithubUsername,
 } from "./githubDbUtils.js";
-import { CanvasSubmissionSchema } from "../canvas/canvasModels.js";
 import {
   getAssignment,
   getAssignmentSubmissions,
@@ -27,6 +26,9 @@ import {
   getAssignmentGitRepositories,
   getGithubClassroomAssignmentsByCanvasAssignmentId,
   getGithubClassroomCoursesByCanvasCourseId,
+  setSubmissionGitRepository,
+  storeGithubClassroomAssignment,
+  storeGithubClassroomCourse,
 } from "./gitDbUtils.js";
 import { getCourseEnrollments } from "../canvas/course/canvasCourseDbUtils.js";
 
@@ -78,7 +80,7 @@ export const githubClassroomRouter = createTRPCRouter({
   }),
 
   getClassroomAssignments: publicProcedure
-    .input(z.object({ classroomId: z.string() }))
+    .input(z.object({ classroomId: z.number() }))
     .query(async ({ input }) => {
       try {
         console.log(
@@ -105,6 +107,13 @@ export const githubClassroomRouter = createTRPCRouter({
           `Failed to fetch assignments for classroom ${input.classroomId}. Error: ${message}`
         );
       }
+    }),
+  getClassroomAssignmentGitUrls: publicProcedure
+    .input(z.object({ classroomAssignmentId: z.string() }))
+    .query(async ({ input }) => {
+
+
+
     }),
 
   downloadAndOrganizeRepositories: publicProcedure
@@ -297,6 +306,99 @@ export const githubClassroomRouter = createTRPCRouter({
       }
     }),
 
+  getAssignedGithubClassroomId: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const courseGithubClassroom =
+        await getGithubClassroomCoursesByCanvasCourseId(input.courseId);
+      return { classroom: courseGithubClassroom };
+    }),
+
+  setAssignedGithubClassroom: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        githubClassroomId: z.number(),
+        name: z.string(),
+        url: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await storeGithubClassroomCourse({
+        courseId: input.courseId,
+        githubClassroomId: input.githubClassroomId,
+        name: input.name,
+        url: input.url,
+      });
+    }),
+
+  getAssignedGithubClassroomAssignment: publicProcedure
+    .input(
+      z.object({
+        assignmentId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const githubClassroomAssignment =
+        await getGithubClassroomAssignmentsByCanvasAssignmentId(
+          input.assignmentId
+        );
+      return { githubClassroomAssignment };
+    }),
+
+  setAssignedGithubClassroomAssignment: publicProcedure
+    .input(
+      z.object({
+        assignmentId: z.number(),
+        githubClassroomAssignmentId: z.number(),
+        githubClassroomId: z.number(),
+        name: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await storeGithubClassroomAssignment({
+        assignmentId: input.assignmentId,
+        githubClassroomAssignmentId: input.githubClassroomAssignmentId,
+        githubClassroomId: input.githubClassroomId,
+        name: input.name,
+      });
+    }),
+
+  getAssignedStudentRepositories: publicProcedure
+    .input(
+      z.object({
+        assignmentId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const githubRepositories = await getAssignmentGitRepositories(
+        input.assignmentId
+      );
+      return { githubRepositories };
+    }),
+  setAssignedStudentRepository: publicProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        assignmentId: z.number(),
+        repoUrl: z.string(),
+        repoPath: z.string().nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { userId, assignmentId, repoUrl, repoPath } = input;
+      setSubmissionGitRepository({
+        userId,
+        assignmentId,
+        repoUrl,
+        repoPath: repoPath || undefined,
+      });
+    }),
+
   figureOutStudentRepositories: publicProcedure
     .input(
       z.object({
@@ -338,7 +440,7 @@ export const githubClassroomRouter = createTRPCRouter({
 
       const unAssignedEnrollments = enrollments.filter((enrollment) => {
         const gitRepo = githubRepositories.find(
-          (repo) => repo.enrollment_id === enrollment.id
+          (repo) => repo.user_id === enrollment.user_id
         );
         return !gitRepo;
       });

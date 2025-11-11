@@ -265,4 +265,19 @@ ID      Title             Submission Public  Type        Deadline  Editor  Invit
       });
     });
   });
+
+  describe("parseAcceptedAssignmentList", () => {
+    it("can parse list", () => {
+      //  gh classroom accepted-assignments --assignment-id 890322
+      const output = `Assignment: lab10Assignment
+ID: 890322
+
+ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  Student                       Repository
+21391584  false      false    7                                               student1, student2            https://github.com/test-org-2025/lab10assignment-student1-student2
+21391589  false      false    2                                               student3                      https://github.com/test-org-2025/lab10assignment-student3-student4
+21391592  false      false    6                                               student5, student6            https://github.com/test-org-2025/lab10assignment-student5-student6
+21391597  false      false    4                                               student7, student8            https://github.com/test-org-2025/lab10assignment-student7-student8
+21391619  false      false    3                                               student9, student10           https://github.com/test-org-2025/lab10assignment-student9-student10`;
+    });
+  });
 });
