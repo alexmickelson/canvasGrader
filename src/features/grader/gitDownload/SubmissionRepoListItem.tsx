@@ -58,7 +58,14 @@ export const SubmissionRepoListItem: FC<{
           {studentRepository ? (
             <div>{studentRepository.repo_url}</div>
           ) : (
-            <div>repo not assigned</div>
+            <div>
+              repo not assigned
+              {githubClassroomRepository && (
+                <button onClick={() => {
+                  
+                }}>Assign github classroom Repo</button>
+              )}
+            </div>
           )}
         </div>
         <div>
