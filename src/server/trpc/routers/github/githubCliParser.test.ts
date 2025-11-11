@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseClassroomList, parseAssignmentList } from "./githubCliParser";
+import {
+  parseClassroomList,
+  parseAssignmentList,
+  parseAcceptedAssignmentList,
+} from "./githubCliParser";
 
 describe("GitHub CLI Parser", () => {
   describe("parseClassroomList", () => {
@@ -14,22 +18,22 @@ describe("GitHub CLI Parser", () => {
 
       expect(result).toHaveLength(4);
       expect(result[0]).toEqual({
-        id: "100001",
+        id: 100001,
         name: "distributed",
         url: "https://classroom.github.com/classrooms/example-org/distributed",
       });
       expect(result[1]).toEqual({
-        id: "100002",
+        id: 100002,
         name: "2025-fall-1420",
         url: "https://classroom.github.com/classrooms/example-org/2025-fall-1420",
       });
       expect(result[2]).toEqual({
-        id: "100003",
+        id: 100003,
         name: "adv-frontend",
         url: "https://classroom.github.com/classrooms/example-org/adv-frontend",
       });
       expect(result[3]).toEqual({
-        id: "100004",
+        id: 100004,
         name: "webIntroFall2025",
         url: "https://classroom.github.com/classrooms/example-org/webintrofall2025",
       });
@@ -44,12 +48,12 @@ describe("GitHub CLI Parser", () => {
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: "200001",
+        id: 200001,
         name: "Advanced Web Development",
         url: "https://classroom.github.com/classrooms/test-org/advanced-web-dev",
       });
       expect(result[1]).toEqual({
-        id: "200002",
+        id: 200002,
         name: "Intro to Programming",
         url: "https://classroom.github.com/classrooms/test-org/intro-prog",
       });
@@ -76,7 +80,7 @@ describe("GitHub CLI Parser", () => {
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: "300001",
+        id: 300001,
         name: "distributed",
         url: "https://classroom.github.com/classrooms/demo-org/distributed",
       });
@@ -91,8 +95,8 @@ invalid-line
       const result = parseClassroomList(output);
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe("400001");
-      expect(result[1].id).toBe("400002");
+      expect(result[0].id).toBe(400001);
+      expect(result[1].id).toBe(400002);
     });
   });
 
@@ -107,19 +111,19 @@ invalid-line
 
       expect(result).toHaveLength(3);
       expect(result[0]).toEqual({
-        id: "10001",
+        id: 10001,
         title: "Assignment 1",
         type: "individual",
         status: "active",
       });
       expect(result[1]).toEqual({
-        id: "10002",
+        id: 10002,
         title: "Group Project",
         type: "group",
         status: "draft",
       });
       expect(result[2]).toEqual({
-        id: "10003",
+        id: 10003,
         title: "Final Exam",
         type: "individual",
         status: "published",
@@ -138,19 +142,19 @@ ID      Title                 Submission Public  Type        Deadline  Editor  I
 
       expect(result).toHaveLength(3);
       expect(result[0]).toEqual({
-        id: "828226",
+        id: 828226,
         title: "Tic Tac Toe Tutorial",
         type: "individual",
         status: "active",
       });
       expect(result[1]).toEqual({
-        id: "828255",
+        id: 828255,
         title: "embeddings",
         type: "individual",
         status: "active",
       });
       expect(result[2]).toEqual({
-        id: "852193",
+        id: 852193,
         title: "aiChat",
         type: "individual",
         status: "active",
@@ -166,7 +170,7 @@ ID      Title                 Submission Public  Type        Deadline  Editor  I
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: "20001",
+        id: 20001,
         title: "Assignment 1",
         type: "individual",
         status: "active",
@@ -194,13 +198,13 @@ ID      Title                 Submission Public  Type        Deadline  Editor  I
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: "40001",
+        id: 40001,
         title: "Assignment 1",
         type: "individual",
         status: "active",
       });
       expect(result[1]).toEqual({
-        id: "40002",
+        id: 40002,
         title: "Group Project",
         type: "group",
         status: "active",
@@ -216,13 +220,13 @@ ID      Title                 Submission Public  Type        Deadline  Editor  I
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: "50001",
+        id: 50001,
         title: "Assignment One",
         type: "individual",
         status: "active",
       });
       expect(result[1]).toEqual({
-        id: "50002",
+        id: 50002,
         title: "Assignment Two",
         type: "individual",
         status: "active",
@@ -252,13 +256,13 @@ ID      Title             Submission Public  Type        Deadline  Editor  Invit
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: "60001",
+        id: 60001,
         title: "Web Assignment",
         type: "individual",
         status: "active",
       });
       expect(result[1]).toEqual({
-        id: "60002",
+        id: 60002,
         title: "Group Work",
         type: "group",
         status: "active",
@@ -278,6 +282,82 @@ ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  St
 21391592  false      false    6                                               student5, student6            https://github.com/test-org-2025/lab10assignment-student5-student6
 21391597  false      false    4                                               student7, student8            https://github.com/test-org-2025/lab10assignment-student7-student8
 21391619  false      false    3                                               student9, student10           https://github.com/test-org-2025/lab10assignment-student9-student10`;
+
+      const result = parseAcceptedAssignmentList(output);
+
+      expect(result).toHaveLength(5);
+      expect(result[0]).toEqual({
+        id: 21391584,
+        submitted: false,
+        passing: false,
+        commitCount: 7,
+        students: ["student1", "student2"],
+        repositoryUrl:
+          "https://github.com/test-org-2025/lab10assignment-student1-student2",
+      });
+      expect(result[1]).toEqual({
+        id: 21391589,
+        submitted: false,
+        passing: false,
+        commitCount: 2,
+        students: ["student3"],
+        repositoryUrl:
+          "https://github.com/test-org-2025/lab10assignment-student3-student4",
+      });
+      expect(result[2]).toEqual({
+        id: 21391592,
+        submitted: false,
+        passing: false,
+        commitCount: 6,
+        students: ["student5", "student6"],
+        repositoryUrl:
+          "https://github.com/test-org-2025/lab10assignment-student5-student6",
+      });
+    });
+
+    it("should handle submitted and passing assignments", () => {
+      const output = `Assignment: testAssignment
+ID: 123456
+
+ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  Student           Repository
+10001     true       true     10                                              studentA          https://github.com/test-org/assignment-studentA
+10002     true       false    5                                               studentB          https://github.com/test-org/assignment-studentB`;
+
+      const result = parseAcceptedAssignmentList(output);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 10001,
+        submitted: true,
+        passing: true,
+        commitCount: 10,
+        students: ["studentA"],
+        repositoryUrl: "https://github.com/test-org/assignment-studentA",
+      });
+      expect(result[1]).toEqual({
+        id: 10002,
+        submitted: true,
+        passing: false,
+        commitCount: 5,
+        students: ["studentB"],
+        repositoryUrl: "https://github.com/test-org/assignment-studentB",
+      });
+    });
+
+    it("should return empty array for no data", () => {
+      const output = `Assignment: testAssignment
+ID: 123456
+
+ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  Student           Repository`;
+
+      const result = parseAcceptedAssignmentList(output);
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array for empty output", () => {
+      const output = ``;
+      const result = parseAcceptedAssignmentList(output);
+      expect(result).toEqual([]);
     });
   });
 });
