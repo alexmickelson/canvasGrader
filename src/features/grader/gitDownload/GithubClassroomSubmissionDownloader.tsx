@@ -27,11 +27,10 @@ export const GithubClassroomSubmissionDownloader = () => {
   return (
     <Modal
       title="Download Git Repos"
-      width="2xl"
+      width="4xl"
       Button={({ onClick }) => (
         <button
           onClick={onClick}
-          // disabled={!githubClassroom}
           className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
         >
           New GitHub Classroom

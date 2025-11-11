@@ -123,14 +123,14 @@ export const githubClassroomRouter = createTRPCRouter({
 
       const acceptedAssignments = parseAcceptedAssignmentList(stdout);
 
-      console.log(
-        "Executing command:",
-        commandString,
-        "output",
-        acceptedAssignments,
-        "stdout:",
-        stdout
-      );
+      // console.log(
+      //   "Executing command:",
+      //   commandString,
+      //   "output",
+      //   acceptedAssignments,
+      //   "stdout:",
+      //   stdout
+      // );
       return acceptedAssignments;
     }),
 

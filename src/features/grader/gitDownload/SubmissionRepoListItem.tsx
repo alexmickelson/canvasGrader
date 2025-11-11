@@ -19,9 +19,7 @@ export const SubmissionRepoListItem: FC<{
     githubClassroomAssignmentId
   );
 
-  const { data: studentGithubUsernames } = useGithubStudentUsernames(
-    githubClassroomAssignmentId
-  );
+  const { data: studentGithubUsernames } = useGithubStudentUsernames();
 
   const studentRepository = submissionRepositories.find(
     (repo) => repo.user_id === submission.user_id
@@ -73,6 +71,7 @@ export const SubmissionRepoListItem: FC<{
         <StudentGithubUsernameAssignor
           githubClassroomAssignmentId={githubClassroomAssignmentId}
           canvasUserId={submission.user_id}
+          onSelected={() => setShowGithubUsernameSelector(false)}
         />
       )}
     </div>

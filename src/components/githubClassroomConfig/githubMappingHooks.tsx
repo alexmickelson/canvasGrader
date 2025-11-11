@@ -3,7 +3,8 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useTRPC } from "../../server/trpc/trpcClient";
+import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
+import { useCurrentCourse } from "../contexts/CourseProvider";
 
 export type CourseGithubMappingItem = {
   enrollmentId: number;
@@ -33,27 +34,34 @@ export const useUpdateCourseGithubMapping = (courseId: number) => {
   );
 };
 
-export const useGithubStudentUsernames = (courseId: number) => {
+export const useGithubStudentUsernames = () => {
+  const { courseId } = useCurrentCourse();
   const trpc = useTRPC();
   return useSuspenseQuery(
     trpc.githubClassroom.getGithubStudentUsernames.queryOptions({ courseId })
   );
 };
 
-export const useStoreGithubStudentUsername = (courseId: number) => {
+export const useStoreGithubStudentUsername = () => {
   const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
-  return useMutation(
-    trpc.githubClassroom.storeGithubStudentUsername.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.githubClassroom.getGithubStudentUsernames.queryKey({
-            courseId,
-          }),
-        });
-      },
-    })
-  );
+  const { courseId } = useCurrentCourse();
+
+  return useMutation({
+    mutationFn: async (variables: { userId: number; githubUsername: string }) =>
+      await trpcClient.githubClassroom.storeGithubStudentUsername.mutate({
+        courseId,
+        ...variables,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: trpc.githubClassroom.getGithubStudentUsernames.queryKey({
+          courseId,
+        }),
+      });
+    },
+  });
 };
 
 export const useScanGithubClassroomQuery = (classroomAssignmentId: string) => {

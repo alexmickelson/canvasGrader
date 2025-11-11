@@ -2,16 +2,15 @@ import type { FC } from "react";
 import {
   useClassroomAssignmentGitUrlsQuery,
   useGithubStudentUsernames,
+  useStoreGithubStudentUsername,
 } from "../../../components/githubClassroomConfig/githubMappingHooks";
-import type { CanvasEnrollment } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const StudentGithubUsernameAssignor: FC<{
   githubClassroomAssignmentId: number;
   canvasUserId: number;
-}> = ({ githubClassroomAssignmentId, canvasUserId }) => {
-  const { data: assignedStudentGithubUsernames } = useGithubStudentUsernames(
-    githubClassroomAssignmentId
-  );
+  onSelected: () => void;
+}> = ({ githubClassroomAssignmentId, canvasUserId, onSelected }) => {
+  const { data: assignedStudentGithubUsernames } = useGithubStudentUsernames();
   const { data: githubClassroomRepoUrls } = useClassroomAssignmentGitUrlsQuery(
     githubClassroomAssignmentId
   );
@@ -20,22 +19,51 @@ export const StudentGithubUsernameAssignor: FC<{
     (ghu) => ghu.user_id === canvasUserId
   );
 
-  
   const usernameOptions = githubClassroomRepoUrls.flatMap(
     (repo) => repo.students
   );
-  console.log(githubClassroomRepoUrls, githubClassroomAssignmentId);
+  const storeGithubUsernameMutation = useStoreGithubStudentUsername();
+
+  const assignedUsernames = new Set(
+    assignedStudentGithubUsernames
+      .map((ghu) => ghu.github_username?.toLowerCase())
+      .filter(Boolean)
+  );
+
+  console.log("assigned", assignedStudentGithubUsernames);
 
   return (
-    <div>
+    <div className="flex flex-wrap gap-1">
       {usernameOptions.map((username) => {
-        return <div key={username}>{username}</div>;
+        const isAssignedToThis =
+          alreadyAssignedUsername?.github_username?.toLowerCase() ===
+          username.toLowerCase();
+        const isAssignedToOther =
+          assignedUsernames.has(username.toLowerCase()) && !isAssignedToThis;
+
+        return (
+          <button
+            key={username}
+            className={`unstyled px-2 py-1 rounded text-xs transition-colors ${
+              isAssignedToThis
+                ? "bg-green-900 text-white"
+                : isAssignedToOther
+                ? "bg-gray-900 text-gray-400 cursor-not-allowed"
+                : "bg-blue-900 hover:bg-blue-700 text-white"
+            }`}
+            disabled={isAssignedToOther}
+            onClick={() => {
+              storeGithubUsernameMutation.mutate({
+                userId: canvasUserId,
+                githubUsername: username,
+              });
+              onSelected();
+            }}
+          >
+            {username}
+          </button>
+        );
       })}
-
-      {/* {assignedStudentGithubUsernames.map((username) => {
-
-        return <div key={username.github_username}></div>;
-      })} */}
     </div>
   );
 };
