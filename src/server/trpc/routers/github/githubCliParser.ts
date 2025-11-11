@@ -208,8 +208,10 @@ export function parseAcceptedAssignmentList(
       const trimmed = line.trim();
       if (!trimmed) return null;
 
-      // Split by multiple spaces (2 or more)
-      const parts = trimmed.split(/\s{2,}/);
+      // Split by tabs or multiple spaces (2 or more)
+      const parts = trimmed
+        .split(/\t|\s{2,}/)
+        .filter((part) => part.trim() !== "");
       if (parts.length < 5) return null;
 
       const idStr = parts[0]?.trim();

@@ -276,12 +276,12 @@ ID      Title             Submission Public  Type        Deadline  Editor  Invit
       const output = `Assignment: lab10Assignment
 ID: 890322
 
-ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  Student                       Repository
-21391584  false      false    7                                               student1, student2            https://github.com/test-org-2025/lab10assignment-student1-student2
-21391589  false      false    2                                               student3                      https://github.com/test-org-2025/lab10assignment-student3-student4
-21391592  false      false    6                                               student5, student6            https://github.com/test-org-2025/lab10assignment-student5-student6
-21391597  false      false    4                                               student7, student8            https://github.com/test-org-2025/lab10assignment-student7-student8
-21391619  false      false    3                                               student9, student10           https://github.com/test-org-2025/lab10assignment-student9-student10`;
+ID	Submitted	Passing	Commit Count	Grade	Feedback Pull Request URL	Student	Repository
+21391584	false	false	7			student1, student2	https://github.com/test-org-2025/lab10assignment-student1-student2
+21391589	false	false	2			student3	https://github.com/test-org-2025/lab10assignment-student3-student4
+21391592	false	false	6			student5, student6	https://github.com/test-org-2025/lab10assignment-student5-student6
+21391597	false	false	4			student7, student8	https://github.com/test-org-2025/lab10assignment-student7-student8
+21391619	false	false	3			student9, student10	https://github.com/test-org-2025/lab10assignment-student9-student10`;
 
       const result = parseAcceptedAssignmentList(output);
 
@@ -319,9 +319,9 @@ ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  St
       const output = `Assignment: testAssignment
 ID: 123456
 
-ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  Student           Repository
-10001     true       true     10                                              studentA          https://github.com/test-org/assignment-studentA
-10002     true       false    5                                               studentB          https://github.com/test-org/assignment-studentB`;
+ID	Submitted	Passing	Commit Count	Grade	Feedback Pull Request URL	Student	Repository
+10001	true	true	10			studentA	https://github.com/test-org/assignment-studentA
+10002	true	false	5			studentB	https://github.com/test-org/assignment-studentB`;
 
       const result = parseAcceptedAssignmentList(output);
 
@@ -348,7 +348,7 @@ ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  St
       const output = `Assignment: testAssignment
 ID: 123456
 
-ID        Submitted  Passing  Commit Count  Grade  Feedback Pull Request URL  Student           Repository`;
+ID	Submitted	Passing	Commit Count	Grade	Feedback Pull Request URL	Student	Repository`;
 
       const result = parseAcceptedAssignmentList(output);
       expect(result).toEqual([]);

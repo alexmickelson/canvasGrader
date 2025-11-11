@@ -82,9 +82,9 @@ db.none(
   -- github classroom tables
   CREATE TABLE IF NOT EXISTS github_student_usernames (
     course_id BIGINT REFERENCES courses(id) NOT NULL,
-    enrollment_id BIGINT REFERENCES enrollments(id) NOT NULL,
+    user_id BIGINT NOT NULL,
     github_username TEXT,
-    UNIQUE(course_id, enrollment_id)
+    UNIQUE(course_id, user_id)
   );
 
   CREATE TABLE IF NOT EXISTS github_classroom_courses (

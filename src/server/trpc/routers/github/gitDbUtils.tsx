@@ -10,28 +10,28 @@ import {
 // GitHub Student Usernames
 export async function storeGithubStudentUsername({
   courseId,
-  enrollmentId,
+  userId,
   githubUsername,
 }: {
   courseId: number;
-  enrollmentId: number;
+  userId: number;
   githubUsername: string;
 }) {
   return await db.none(
     `
-    INSERT INTO github_student_usernames (course_id, enrollment_id, github_username)
-    VALUES ($<courseId>, $<enrollmentId>, $<githubUsername>)
-    ON CONFLICT (course_id, enrollment_id)
+    INSERT INTO github_student_usernames (course_id, user_id, github_username)
+    VALUES ($<courseId>, $<userId>, $<githubUsername>)
+    ON CONFLICT (course_id, user_id)
     DO UPDATE SET github_username = EXCLUDED.github_username
     `,
-    { courseId, enrollmentId, githubUsername }
+    { courseId, userId, githubUsername }
   );
 }
 
 export async function getGithubStudentUsernames(courseId: number) {
   const result = await db.manyOrNone(
     `
-    SELECT course_id, enrollment_id, github_username
+    SELECT course_id, user_id, github_username
     FROM github_student_usernames
     WHERE course_id = $<courseId>
     `,

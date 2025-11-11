@@ -3,7 +3,7 @@ import { z } from "zod";
 // Schemas
 export const GithubStudentUsernameSchema = z.object({
   course_id: z.coerce.number(),
-  enrollment_id: z.coerce.number(),
+  user_id: z.coerce.number(),
   github_username: z.string().nullable(),
 });
 

@@ -1,6 +1,10 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../../utils/trpc.js";
-import { parseClassroomList, parseAssignmentList } from "./githubCliParser.js";
+import {
+  parseClassroomList,
+  parseAssignmentList,
+  parseAcceptedAssignmentList,
+} from "./githubCliParser.js";
 import { promisify } from "util";
 import { exec } from "child_process";
 import fs from "fs";
@@ -26,9 +30,11 @@ import {
   getAssignmentGitRepositories,
   getGithubClassroomAssignmentsByCanvasAssignmentId,
   getGithubClassroomCoursesByCanvasCourseId,
+  getGithubStudentUsernames,
   setSubmissionGitRepository,
   storeGithubClassroomAssignment,
   storeGithubClassroomCourse,
+  storeGithubStudentUsername,
 } from "./gitDbUtils.js";
 import { getCourseEnrollments } from "../canvas/course/canvasCourseDbUtils.js";
 
@@ -108,12 +114,24 @@ export const githubClassroomRouter = createTRPCRouter({
         );
       }
     }),
+
   getClassroomAssignmentGitUrls: publicProcedure
-    .input(z.object({ classroomAssignmentId: z.string() }))
+    .input(z.object({ classroomAssignmentId: z.number() }))
     .query(async ({ input }) => {
+      const commandString = `gh classroom accepted-assignments -a ${input.classroomAssignmentId}`;
+      const { stdout } = await execAsync(commandString);
 
+      const acceptedAssignments = parseAcceptedAssignmentList(stdout);
 
-
+      console.log(
+        "Executing command:",
+        commandString,
+        "output",
+        acceptedAssignments,
+        "stdout:",
+        stdout
+      );
+      return acceptedAssignments;
     }),
 
   downloadAndOrganizeRepositories: publicProcedure
@@ -224,6 +242,35 @@ export const githubClassroomRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { courseId, enrollmentId, githubUsername } = input;
       await setGithubUsername(courseId, enrollmentId, githubUsername);
+      return { success: true };
+    }),
+
+  getGithubStudentUsernames: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { courseId } = input;
+      return await getGithubStudentUsernames(courseId);
+    }),
+
+  storeGithubStudentUsername: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        userId: z.number(),
+        githubUsername: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { courseId, userId, githubUsername } = input;
+      await storeGithubStudentUsername({
+        courseId,
+        userId,
+        githubUsername,
+      });
       return { success: true };
     }),
 

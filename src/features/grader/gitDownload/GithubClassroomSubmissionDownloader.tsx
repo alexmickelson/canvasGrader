@@ -9,6 +9,7 @@ import { Modal } from "../../../components/Modal";
 import { AssignGithubClassroomToCourse } from "./AssignGithubClassroomToCourse";
 import { GithubClassroomAssignmentManagement } from "./GithubClassroomAssignmentManagement";
 import { AssignedStudentGitRepositoriesList } from "./AssignedStudentGitRepositoriesList";
+import { SuspenseAndError } from "../../../utils/SuspenseAndError";
 
 export const GithubClassroomSubmissionDownloader = () => {
   const { courseId } = useCurrentCourse();
@@ -26,6 +27,7 @@ export const GithubClassroomSubmissionDownloader = () => {
   return (
     <Modal
       title="Download Git Repos"
+      width="2xl"
       Button={({ onClick }) => (
         <button
           onClick={onClick}
@@ -38,75 +40,79 @@ export const GithubClassroomSubmissionDownloader = () => {
     >
       {({ onClose }) => {
         return (
-          <div>
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <SuspenseAndError>
+            <div>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            {githubClassroom?.course_id ? (
-              <div className="flex align-middle justify-between">
-                <div className="my-auto">
-                  Github Classroom Name:
-                  <div>{githubClassroom.name}</div>
-                </div>
-                <button
-                  onClick={() => setReassignClassroom(true)}
-                  className="m-2"
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  ReAssign?
-                </button>
-              </div>
-            ) : (
-              <div>Assign a classroom for the course</div>
-            )}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+              {githubClassroom?.course_id ? (
+                <div className="flex align-middle justify-between">
+                  <div className="my-auto">
+                    Github Classroom Name:
+                    <div>{githubClassroom.name}</div>
+                  </div>
+                  <button
+                    onClick={() => setReassignClassroom(true)}
+                    className="m-2"
+                  >
+                    ReAssign?
+                  </button>
+                </div>
+              ) : (
+                <div>Assign a classroom for the course</div>
+              )}
 
-            {(!githubClassroom?.github_classroom_id || reassignClassroom) && (
-              <AssignGithubClassroomToCourse
-                courseId={courseId}
-                onClick={() => setReassignClassroom(false)}
-              />
-            )}
-            <hr />
-            <br />
-            <div>
-              {githubClassroom && !githubClassroomAssignment && (
-                <GithubClassroomAssignmentManagement
-                  githubClassroom={githubClassroom}
+              {(!githubClassroom?.github_classroom_id || reassignClassroom) && (
+                <AssignGithubClassroomToCourse
+                  courseId={courseId}
+                  onClick={() => setReassignClassroom(false)}
                 />
               )}
-              {githubClassroomAssignment && (
-                <div>
-                  Assigned Classroom Assignment:
+              <hr />
+              <br />
+              <div>
+                {githubClassroom && !githubClassroomAssignment && (
+                  <GithubClassroomAssignmentManagement
+                    githubClassroom={githubClassroom}
+                  />
+                )}
+                {githubClassroomAssignment && (
                   <div>
-                    {githubClassroomAssignment.github_classroom_assignment_id}
+                    Assigned Classroom Assignment:
+                    <div>
+                      {githubClassroomAssignment.github_classroom_assignment_id}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div>
-              {githubClassroomAssignment && (
-                <div>
-                  <AssignedStudentGitRepositoriesList githubClassroomAssignment={githubClassroomAssignment} />
-                </div>
-              )}
+              <div>
+                {githubClassroomAssignment && (
+                  <div>
+                    <AssignedStudentGitRepositoriesList
+                      githubClassroomAssignment={githubClassroomAssignment}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </SuspenseAndError>
         );
       }}
     </Modal>

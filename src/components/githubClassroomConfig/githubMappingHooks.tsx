@@ -33,6 +33,29 @@ export const useUpdateCourseGithubMapping = (courseId: number) => {
   );
 };
 
+export const useGithubStudentUsernames = (courseId: number) => {
+  const trpc = useTRPC();
+  return useSuspenseQuery(
+    trpc.githubClassroom.getGithubStudentUsernames.queryOptions({ courseId })
+  );
+};
+
+export const useStoreGithubStudentUsername = (courseId: number) => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.githubClassroom.storeGithubStudentUsername.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.githubClassroom.getGithubStudentUsernames.queryKey({
+            courseId,
+          }),
+        });
+      },
+    })
+  );
+};
+
 export const useScanGithubClassroomQuery = (classroomAssignmentId: string) => {
   const trpc = useTRPC();
   return useSuspenseQuery(
@@ -113,6 +136,17 @@ export const useSetAssignedStudentRepositoryMutation = () => {
             }),
         });
       },
+    })
+  );
+};
+
+export const useClassroomAssignmentGitUrlsQuery = (
+  classroomAssignmentId: number
+) => {
+  const trpc = useTRPC();
+  return useSuspenseQuery(
+    trpc.githubClassroom.getClassroomAssignmentGitUrls.queryOptions({
+      classroomAssignmentId,
     })
   );
 };

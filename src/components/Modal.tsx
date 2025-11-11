@@ -2,15 +2,24 @@ import type { FC, ReactNode } from "react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
+const widthClasses = {
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-xl",
+  "2xl": "max-w-2xl",
+  "4xl": "max-w-4xl",
+} as const;
+
 export const Modal: FC<{
   Button: (props: { onClick: () => void }) => ReactNode;
   title: string;
+  width?: keyof typeof widthClasses;
   children: (props: { isOpen: boolean; onClose: () => void }) => ReactNode;
-}> = ({ Button, title, children }) => {
+}> = ({ Button, title, width = "md", children }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const onClose = () => setIsOpen(false);
-
 
   return (
     <>
@@ -18,7 +27,9 @@ export const Modal: FC<{
       {isOpen &&
         createPortal(
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div
+              className={`bg-gray-800 rounded-lg shadow-xl ${widthClasses[width]} w-full mx-4`}
+            >
               <div className="flex items-center justify-between p-4 border-b border-gray-700">
                 <h2 className="text-lg font-semibold">{title}</h2>
                 <button
