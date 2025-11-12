@@ -5,7 +5,7 @@ import { useCurrentAssignment } from "../../../components/contexts/AssignmentPro
 import { SubmissionRepoListItem } from "./SubmissionRepoListItem";
 import { SuspenseAndError } from "../../../utils/SuspenseAndError";
 
-export const AssignedStudentGitRepositoriesList: FC<{
+export const AssignedGithubClassroomStudentGitRepositoriesList: FC<{
   githubClassroomAssignment: GithubClassroomAssignment;
 }> = ({ githubClassroomAssignment }) => {
   const { assignmentId, assignmentName } = useCurrentAssignment();

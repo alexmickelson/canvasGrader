@@ -158,3 +158,10 @@ export const useClassroomAssignmentGitUrlsQuery = (
     })
   );
 };
+
+export const useGuessRepositoryFromSubmission = () => {
+  const trpc = useTRPC();
+  return useMutation(
+    trpc.githubClassroom.guessRepositoryFromSubmission.mutationOptions()
+  );
+};

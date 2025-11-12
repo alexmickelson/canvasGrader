@@ -143,18 +143,12 @@ export async function setSubmissionGitRepository({
   repoUrl: string;
   repoPath?: string;
 }) {
-  const result = await db.one(
+  await db.none(
     `
     INSERT INTO submission_git_repository (user_id, assignment_id, repo_url, repo_path)
     VALUES ($<userId>, $<assignmentId>, $<repoUrl>, $<repoPath>)
-    RETURNING id
     `,
     { userId, assignmentId, repoUrl, repoPath: repoPath || null }
-  );
-  return parseSchema(
-    SubmissionGitRepositorySchema,
-    result,
-    "SubmissionGitRepository"
   );
 }
 

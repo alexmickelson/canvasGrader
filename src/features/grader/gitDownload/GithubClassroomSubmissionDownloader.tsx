@@ -8,8 +8,9 @@ import {
 import { Modal } from "../../../components/Modal";
 import { AssignGithubClassroomToCourse } from "./AssignGithubClassroomToCourse";
 import { GithubClassroomAssignmentManagement } from "./GithubClassroomAssignmentManagement";
-import { AssignedStudentGitRepositoriesList } from "./AssignedStudentGitRepositoriesList";
+import { AssignedGithubClassroomStudentGitRepositoriesList } from "./AssignedGithubClassroomStudentGitRepositoriesList";
 import { SuspenseAndError } from "../../../utils/SuspenseAndError";
+import { OtherGitRepoStudentAssignments } from "./OtherGitRepoStudentAssignments";
 
 export const GithubClassroomSubmissionDownloader = () => {
   const { courseId } = useCurrentCourse();
@@ -102,12 +103,14 @@ export const GithubClassroomSubmissionDownloader = () => {
               </div>
 
               <div>
-                {githubClassroomAssignment && (
+                {githubClassroomAssignment ? (
                   <div>
-                    <AssignedStudentGitRepositoriesList
+                    <AssignedGithubClassroomStudentGitRepositoriesList
                       githubClassroomAssignment={githubClassroomAssignment}
                     />
                   </div>
+                ) : (
+                  <OtherGitRepoStudentAssignments />
                 )}
               </div>
             </div>

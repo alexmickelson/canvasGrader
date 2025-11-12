@@ -26,7 +26,7 @@ export const SubmissionGitRepositorySchema = z.object({
   user_id: z.coerce.number(),
   assignment_id: z.coerce.number(),
   repo_url: z.string(),
-  repo_path: z.string().nullable(),
+  repo_path: z.string().optional().nullable(),
 });
 
 export type GithubStudentUsername = z.infer<typeof GithubStudentUsernameSchema>;
