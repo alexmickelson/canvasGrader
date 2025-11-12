@@ -40,10 +40,8 @@ import {
 import { getCourseEnrollments } from "../canvas/course/canvasCourseDbUtils.js";
 import {
   createAiTool,
-  isExitMessage,
   runToolCallingLoop,
 } from "../../../../utils/aiUtils/createAiTool.js";
-import { parseSchema } from "../parseSchema.js";
 
 const execAsync = promisify(exec);
 
@@ -474,82 +472,51 @@ export const githubClassroomRouter = createTRPCRouter({
           `Canvas submission data: ${JSON.stringify(submission)} ` +
           `and the assignment details: ${JSON.stringify(assignment)}, ` +
           `identify the most likely GitHub repository URL associated with this submission. ` +
-          `call set_git_url with the correct url. ` +
           `if no url is in the submission, you may check previous repositories, if the assignments seem to be associated with the same project the github repositories may be the same ` +
-          `If no repository can be determined, respond with { repoUrl: null }.`;
+          `If no repository can be determined, respond with { repoUrl: null, reason: "could not find url" }.`;
+
+        const tools = checkPreviousAssignments
+          ? [
+              createAiTool({
+                name: "get_previous_repositories",
+                description:
+                  "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
+                paramsSchema: z.object({}),
+                fn: async () => {
+                  console.log(
+                    "checking previous repositories for",
+                    submission.user.name
+                  );
+                  const previousRepos =
+                    await getPreviousAssignmentRepositoriesForUser({
+                      userId: submission.user_id,
+                      assignmentId,
+                    });
+                  return previousRepos;
+                },
+              }),
+            ]
+          : [];
 
         const resultSchema = z.object({
           repoUrl: z.string().optional().nullable(),
+          reason: z
+            .string()
+            .describe(
+              "where did you find the repoUrl, if you were unable to find it, state where you checked"
+            ),
         });
-        const tools = [
-          ...(checkPreviousAssignments
-            ? [
-                createAiTool({
-                  name: "get_previous_repositories",
-                  description:
-                    "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
-                  paramsSchema: z.object({}),
-                  fn: async () => {
-                    console.log(
-                      "checking previous repositories for",
-                      submission.user.name
-                    );
-                    const previousRepos =
-                      await getPreviousAssignmentRepositoriesForUser({
-                        userId: submission.user_id,
-                        assignmentId,
-                      });
-                    return previousRepos;
-                  },
-                }),
-              ]
-            : []),
-
-          createAiTool({
-            name: "set_git_url",
-            description:
-              "Store the determined GitHub repository URL for this submission",
-            paramsSchema: resultSchema,
-            fn: async (params) => {
-              return { exitLoop: true, repoUrl: params.repoUrl };
-            },
-          }),
-        ];
-
-        const messages = await runToolCallingLoop(
+        const loopResult = await runToolCallingLoop(
           {
             messages: [{ role: "system", content: prompt }],
             tools: tools,
-            tool_choice: "required",
+            responseFormat: resultSchema,
           },
-          { maxIterations: 7 }
+          {
+            maxIterations: 7,
+          }
         );
-
-        const lastMessageWithExitloop = [...(messages ?? [])]
-          .reverse()
-          .find((m) => {
-            return isExitMessage(
-              typeof m.content === "string" ? m.content : undefined
-            );
-          });
-
-        if (
-          !lastMessageWithExitloop?.content ||
-          typeof lastMessageWithExitloop.content !== "string"
-        ) {
-          console.log(messages);
-          console.log("last message", lastMessageWithExitloop);
-          throw new Error(
-            `No valid tool response found. messages ${JSON.stringify(messages)}`
-          );
-        }
-
-        const result = JSON.parse(lastMessageWithExitloop.content);
-
-        return {
-          messages,
-          result: parseSchema(resultSchema, result, "AI GitHub Repo Guess"),
-        };
+        return loopResult;
       }
     ),
 

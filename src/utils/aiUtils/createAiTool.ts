@@ -1,6 +1,7 @@
 import type z from "zod";
 import { getAiCompletion } from "./getAiCompletion";
 import type { ConversationMessage } from "../../server/trpc/routers/rubricAI/rubricAiReportModels";
+import { parseSchema } from "../../server/trpc/routers/parseSchema";
 
 export interface AiTool {
   name: string;
@@ -75,74 +76,85 @@ export function createAiTool<T>({
     },
   };
 }
-
-export async function runToolCallingLoop(
-  params: Parameters<typeof getAiCompletion>[0],
+export async function runToolCallingLoop<T>(
+  params: {
+    messages: ConversationMessage[];
+    tools?: AiTool[];
+    responseFormat: z.ZodType<T>;
+    model?: string;
+    temperature?: number;
+    tool_choice?:
+      | "auto"
+      | "required"
+      | { type: "function"; function: { name: string } };
+  },
   {
     maxIterations = 10,
     currentItteration = 0,
-  }: { maxIterations?: number; currentItteration?: number } = {}
-): Promise<ConversationMessage[] | null> {
-  const { messages, tools, responseFormat, model, temperature, tool_choice } =
-    params;
-
-  if (currentItteration >= maxIterations) {
-    console.warn(`Tool calling loop reached max iterations (${maxIterations})`);
-    return messages;
-  }
-
+  }: {
+    maxIterations?: number;
+    currentItteration?: number;
+  } = {}
+): Promise<{
+  result: T | undefined;
+  messages: ConversationMessage[];
+}> {
   console.log(`Tool calling loop iteration ${currentItteration + 1}`);
+  if (currentItteration >= maxIterations) {
+    console.error(
+      `Tool calling loop reached max iterations (${maxIterations})`
+    );
+    return {
+      messages: params.messages,
+      result: undefined,
+    };
+  }
 
-  const completion = await getAiCompletion({
-    messages,
-    tools,
-    responseFormat,
-    model,
-    temperature,
-    tool_choice,
-  });
+  const completion = await getAiCompletion(params);
 
-  const noToolCalls =
+  const doneWithLoop =
     !completion.tool_calls || completion.tool_calls.length === 0;
-  if (noToolCalls) {
-    console.log("No more tool calls, ending loop");
-    return [...messages, completion];
+
+  if (doneWithLoop) {
+    const contentStr =
+      typeof completion.content === "string" ? completion.content : undefined;
+    if (!contentStr)
+      throw new Error("Completion content is not a string, it should be json");
+
+    if (!params.responseFormat) {
+      return {
+        messages: [...params.messages, completion],
+        result: undefined,
+      };
+    }
+
+    return {
+      messages: [...params.messages, completion],
+      result: parseSchema(
+        params.responseFormat,
+        JSON.parse(contentStr),
+        "Tool Calling Loop Result"
+      ),
+    };
   }
 
-  const toolCalls = completion.tool_calls ?? [];
   const toolResults = await Promise.all(
-    toolCalls.map((toolCall) => runTool(toolCall, tools))
+    (completion.tool_calls ?? []).map((toolCall) =>
+      runTool(toolCall, params.tools)
+    )
   );
 
-  console.log("tool results", toolResults);
-
-  if (toolResults.some((tr) => tr.exitLoop)) {
-    console.log("Exit loop signal received from tool, ending loop");
-
-    const toolCallsWithoutExit = toolResults.map((tr) => {
-      if (tr.exitLoop) {
-        return {
-          role: tr.role,
-          tool_call_id: tr.tool_call_id,
-          content: tr.content,
-        };
-      }
-      return tr;
-    });
-    return [...messages, completion, ...toolCallsWithoutExit];
-  }
-
-  return runToolCallingLoop(
+  const result = await runToolCallingLoop(
     {
-      messages: [...messages, completion, ...toolResults],
-      tools,
-      responseFormat,
-      model,
-      temperature,
-      tool_choice,
+      ...params,
+      messages: [...params.messages, completion, ...toolResults],
     },
-    { maxIterations, currentItteration: currentItteration + 1 }
+    {
+      maxIterations,
+      currentItteration: currentItteration + 1,
+    }
   );
+  return result;
 }
 
 export async function runTool(
@@ -180,27 +192,9 @@ export async function runTool(
   console.log(`Executing tool: ${toolName}`);
   const toolResult = await tool.fn(toolArgs || "{}");
 
-  if (isExitMessage(toolResult))
-    return {
-      role: "tool" as const,
-      tool_call_id: toolCallId,
-      content: toolResult,
-      exitLoop: true,
-    };
-
   return {
     role: "tool" as const,
     tool_call_id: toolCallId,
     content: toolResult,
   };
-}
-
-export function isExitMessage(content: string | undefined | null) {
-  if (!content || typeof content !== "string") return false;
-  try {
-    const parsed = JSON.parse(content);
-    return !!parsed.exitLoop;
-  } catch {
-    return false;
-  }
 }

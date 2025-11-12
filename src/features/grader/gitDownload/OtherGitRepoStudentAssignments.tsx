@@ -51,6 +51,7 @@ const SubmissionRepoGuesserListItem: FC<{
   const [aiGuessMessages, setAiGuessMessages] = useState<
     ConversationMessage[] | null
   >(null);
+  const [aiGuessReason, setAiGuessReason] = useState("");
 
   const {
     data: { githubRepositories: assignedStudentRepositories },
@@ -96,9 +97,10 @@ const SubmissionRepoGuesserListItem: FC<{
           });
           console.log(guessResult);
 
-          if (guessResult.result.repoUrl) {
+          if (guessResult.result?.repoUrl) {
             setAiGuessUrl(guessResult.result.repoUrl);
             setAiGuessMessages(guessResult.messages || null);
+            setAiGuessReason(guessResult.result.reason);
           } else {
             setAiGuessUrl("null");
           }
@@ -109,29 +111,36 @@ const SubmissionRepoGuesserListItem: FC<{
         {aiGuessMutation.isPending && <Spinner />}
       </button>
       {aiGuessUrl && aiGuessUrl !== "null" && (
-        <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex items-center justify-between gap-2">
-          <a
-            href={aiGuessUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-400/70 hover:text-blue-400 text-sm truncate flex-1"
-          >
-            {aiGuessUrl}
-          </a>
-          <button
-            className="unstyled px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm whitespace-nowrap"
-            onClick={() => {
-              assignRepoMutation.mutate({
-                assignmentId,
-                repoUrl: aiGuessUrl,
-                userId: submission.user_id,
-                repoPath: null,
-              });
-            }}
-          >
-            Assign Repo
-          </button>
-        </div>
+        <>
+          <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex items-center justify-between gap-2">
+            <a
+              href={aiGuessUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-400/70 hover:text-blue-400 text-sm truncate flex-1"
+            >
+              {aiGuessUrl}
+            </a>
+            <button
+              className="unstyled px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm whitespace-nowrap"
+              onClick={() => {
+                assignRepoMutation.mutate({
+                  assignmentId,
+                  repoUrl: aiGuessUrl,
+                  userId: submission.user_id,
+                  repoPath: null,
+                });
+              }}
+            >
+              Assign Repo
+            </button>
+          </div>
+          {aiGuessReason && (
+            <div className="mt-1 text-xs text-gray-400">
+              <strong>Reason:</strong> {aiGuessReason}
+            </div>
+          )}
+        </>
       )}
       {aiGuessUrl === "null" && (
         <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex flex-col gap-2">
