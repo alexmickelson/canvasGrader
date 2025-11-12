@@ -182,14 +182,18 @@ export async function getPreviousAssignmentRepositoriesForUser({
       sgr.assignment_id, 
       sgr.repo_url, 
       sgr.repo_path,
-      a.name as assignment_name,
-      a.due_at
+      a.canvas_object->>'name' as assignment_name,
+      (a.canvas_object->>'due_at')::timestamp as due_at
     FROM submission_git_repository sgr
     JOIN assignments a ON sgr.assignment_id = a.id
     WHERE sgr.user_id = $<userId>
       AND a.course_id = (SELECT course_id FROM assignments WHERE id = $<assignmentId>)
-      AND a.due_at < (SELECT due_at FROM assignments WHERE id = $<assignmentId>)
-    ORDER BY a.due_at DESC
+      AND 
+        (a.canvas_object->>'due_at')::timestamp < (
+          SELECT (canvas_object->>'due_at')::timestamp 
+          FROM assignments WHERE id = $<assignmentId>
+        )
+    ORDER BY (a.canvas_object->>'due_at')::timestamp DESC
     `,
     { userId, assignmentId }
   );

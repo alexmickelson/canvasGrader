@@ -38,8 +38,12 @@ import {
   storeGithubStudentUsername,
 } from "./gitDbUtils.js";
 import { getCourseEnrollments } from "../canvas/course/canvasCourseDbUtils.js";
-import { getAiCompletion } from "../../../../utils/aiUtils/getAiCompletion.js";
-import { createAiTool } from "../../../../utils/aiUtils/createAiTool.js";
+import {
+  createAiTool,
+  isExitMessage,
+  runToolCallingLoop,
+} from "../../../../utils/aiUtils/createAiTool.js";
+import { parseSchema } from "../parseSchema.js";
 
 const execAsync = promisify(exec);
 
@@ -126,14 +130,6 @@ export const githubClassroomRouter = createTRPCRouter({
 
       const acceptedAssignments = parseAcceptedAssignmentList(stdout);
 
-      // console.log(
-      //   "Executing command:",
-      //   commandString,
-      //   "output",
-      //   acceptedAssignments,
-      //   "stdout:",
-      //   stdout
-      // );
       return acceptedAssignments;
     }),
 
@@ -473,62 +469,87 @@ export const githubClassroomRouter = createTRPCRouter({
           throw new Error(`Assignment with ID ${assignmentId} not found`);
         }
 
-        let prompt = `Given the following Canvas submission data: ${JSON.stringify(
-          submission
-        )} and the assignment details: ${JSON.stringify(
-          assignment
-        )}, identify the most likely GitHub repository URL associated with this submission. Provide only the URL as a plain string. 
-      
-      If no repository can be determined, respond with { repoUrl: null }.`;
+        const prompt =
+          `Given the following ` +
+          `Canvas submission data: ${JSON.stringify(submission)} ` +
+          `and the assignment details: ${JSON.stringify(assignment)}, ` +
+          `identify the most likely GitHub repository URL associated with this submission. ` +
+          `call set_git_url with the correct url. ` +
+          `if no url is in the submission, you may check previous repositories, if the assignments seem to be associated with the same project the github repositories may be the same ` +
+          `If no repository can be determined, respond with { repoUrl: null }.`;
 
-        const tools = [];
-
-        if (checkPreviousAssignments) {
-   
-          tools.push(
-            createAiTool({
-              name: "get_previous_repositories",
-              description:
-                "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
-              paramsSchema: z.object({}),
-              fn: async () => {
-                const previousRepos =
-                  await getPreviousAssignmentRepositoriesForUser({
-                    userId: submission.user_id,
-                    assignmentId,
-                  });
-                return previousRepos;
-              },
-            })
-          );
-
-          prompt += `\n\nYou have access to a tool to check this student's repositories from previous assignments. Use this tool if you need additional context to determine the repository.`;
-        }
-
-        // TODO: reformat so that an agentic loop runs, give 2 tool calls
-
-        const responseSchema = z.object({
+        const resultSchema = z.object({
           repoUrl: z.string().optional().nullable(),
         });
-        const completion = await getAiCompletion({
-          messages: [{ role: "system", content: prompt }],
-          responseFormat: responseSchema,
-          tools: tools.length > 0 ? tools : undefined,
-        });
-        console.log("AI guess", completion.content);
+        const tools = [
+          ...(checkPreviousAssignments
+            ? [
+                createAiTool({
+                  name: "get_previous_repositories",
+                  description:
+                    "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
+                  paramsSchema: z.object({}),
+                  fn: async () => {
+                    console.log(
+                      "checking previous repositories for",
+                      submission.user.name
+                    );
+                    const previousRepos =
+                      await getPreviousAssignmentRepositoriesForUser({
+                        userId: submission.user_id,
+                        assignmentId,
+                      });
+                    return previousRepos;
+                  },
+                }),
+              ]
+            : []),
 
-        if (!completion.content) {
-          console.log("no repo url in ai guess, returning null");
-          return { repoUrl: null };
+          createAiTool({
+            name: "set_git_url",
+            description:
+              "Store the determined GitHub repository URL for this submission",
+            paramsSchema: resultSchema,
+            fn: async (params) => {
+              return { exitLoop: true, repoUrl: params.repoUrl };
+            },
+          }),
+        ];
+
+        const messages = await runToolCallingLoop(
+          {
+            messages: [{ role: "system", content: prompt }],
+            tools: tools,
+            tool_choice: "required",
+          },
+          { maxIterations: 7 }
+        );
+
+        const lastMessageWithExitloop = [...(messages ?? [])]
+          .reverse()
+          .find((m) => {
+            return isExitMessage(
+              typeof m.content === "string" ? m.content : undefined
+            );
+          });
+
+        if (
+          !lastMessageWithExitloop?.content ||
+          typeof lastMessageWithExitloop.content !== "string"
+        ) {
+          console.log(messages);
+          console.log("last message", lastMessageWithExitloop);
+          throw new Error(
+            `No valid tool response found. messages ${JSON.stringify(messages)}`
+          );
         }
 
-        const contentString =
-          typeof completion.content === "string"
-            ? completion.content
-            : JSON.stringify(completion.content);
-        const parsedContent = JSON.parse(contentString || "{}");
-        const response = responseSchema.parse(parsedContent);
-        return response;
+        const result = JSON.parse(lastMessageWithExitloop.content);
+
+        return {
+          messages,
+          result: parseSchema(resultSchema, result, "AI GitHub Repo Guess"),
+        };
       }
     ),
 

@@ -10,6 +10,10 @@ import Spinner from "../../../utils/Spinner";
 import { useSubmissionsQuery } from "../graderHooks";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
+import type { ConversationMessage } from "../../../server/trpc/routers/rubricAI/rubricAiReportModels";
+import { ConversationHistory } from "../shared/ConversationHistory";
+import { Expandable } from "../../../utils/Expandable";
+import ExpandIcon from "../../../utils/ExpandIcon";
 
 export const OtherGitRepoStudentAssignments = () => {
   const { assignmentId, assignmentName } = useCurrentAssignment();
@@ -44,6 +48,9 @@ const SubmissionRepoGuesserListItem: FC<{
 
   const [aiGuessUrl, setAiGuessUrl] = useState("");
   const [manualRepoUrl, setManualRepoUrl] = useState("");
+  const [aiGuessMessages, setAiGuessMessages] = useState<
+    ConversationMessage[] | null
+  >(null);
 
   const {
     data: { githubRepositories: assignedStudentRepositories },
@@ -85,10 +92,13 @@ const SubmissionRepoGuesserListItem: FC<{
           const guessResult = await aiGuessMutation.mutateAsync({
             assignmentId,
             submisisonId: submission.id,
+            checkPreviousAssignments: true,
           });
+          console.log(guessResult);
 
-          if (guessResult.repoUrl) {
-            setAiGuessUrl(guessResult.repoUrl);
+          if (guessResult.result.repoUrl) {
+            setAiGuessUrl(guessResult.result.repoUrl);
+            setAiGuessMessages(guessResult.messages || null);
           } else {
             setAiGuessUrl("null");
           }
@@ -160,6 +170,27 @@ const SubmissionRepoGuesserListItem: FC<{
             </button>
           </div>
         </div>
+      )}
+      {aiGuessMessages && (
+        <Expandable
+          ExpandableElement={({ isExpanded, setIsExpanded }) => (
+            <div
+              className="flex flex-row justify-between cursor-pointer p-1 m-1 rounded bg-purple-950/30 "
+              onClick={() => setIsExpanded((e) => !e)}
+            >
+              <div className="px-1 flex-1">AI Guess Conversation History</div>
+              <button className="unstyled">
+                <ExpandIcon
+                  style={{
+                    ...(isExpanded ? { rotate: "-90deg" } : {}),
+                  }}
+                />
+              </button>
+            </div>
+          )}
+        >
+          <ConversationHistory conversation={aiGuessMessages} />
+        </Expandable>
       )}
     </li>
   );
