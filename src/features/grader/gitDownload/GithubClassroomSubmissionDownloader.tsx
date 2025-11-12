@@ -4,6 +4,7 @@ import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 import {
   useGithubClassroomAssignmentQuery,
   useGithubClassroomIdQuery,
+  useDownloadAssignedRepositories,
 } from "../../../components/githubClassroomConfig/githubMappingHooks";
 import { Modal } from "../../../components/Modal";
 import { AssignGithubClassroomToCourse } from "./AssignGithubClassroomToCourse";
@@ -11,6 +12,7 @@ import { GithubClassroomAssignmentManagement } from "./GithubClassroomAssignment
 import { AssignedGithubClassroomStudentGitRepositoriesList } from "./AssignedGithubClassroomStudentGitRepositoriesList";
 import { SuspenseAndError } from "../../../utils/SuspenseAndError";
 import { OtherGitRepoStudentAssignments } from "./OtherGitRepoStudentAssignments";
+import Spinner from "../../../utils/Spinner";
 
 export const GithubClassroomSubmissionDownloader = () => {
   const { courseId } = useCurrentCourse();
@@ -24,6 +26,8 @@ export const GithubClassroomSubmissionDownloader = () => {
   const {
     data: { githubClassroomAssignment },
   } = useGithubClassroomAssignmentQuery(assignmentId);
+
+  const downloadMutation = useDownloadAssignedRepositories();
 
   return (
     <Modal
@@ -98,6 +102,35 @@ export const GithubClassroomSubmissionDownloader = () => {
                     <div>
                       {githubClassroomAssignment.github_classroom_assignment_id}
                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <button
+                  className="unstyled px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-50 mb-3 flex items-center gap-2"
+                  onClick={() =>
+                    downloadMutation.mutate({ assignmentId, courseId })
+                  }
+                  disabled={downloadMutation.isPending}
+                >
+                  Download Assigned Repositories
+                  {downloadMutation.isPending && <Spinner />}
+                </button>
+                {downloadMutation.isSuccess && (
+                  <div className="mb-3 p-3 bg-green-900/30 border border-green-700 rounded text-sm">
+                    <div className="text-green-400 font-medium">
+                      Download Complete
+                    </div>
+                    <div className="text-gray-300 mt-1">
+                      Successful: {downloadMutation.data.successful} / Failed:{" "}
+                      {downloadMutation.data.failed}
+                    </div>
+                  </div>
+                )}
+                {downloadMutation.isError && (
+                  <div className="mb-3 p-3 bg-red-900/30 border border-red-700 rounded text-sm text-red-400">
+                    Error: {downloadMutation.error.message}
                   </div>
                 )}
               </div>

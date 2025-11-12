@@ -96,7 +96,7 @@ export async function runToolCallingLoop<T>(
     currentItteration?: number;
   } = {}
 ): Promise<{
-  result: T | undefined;
+  result: T | undefined; // undefined means hit too many itterations
   messages: ConversationMessage[];
 }> {
   console.log(`Tool calling loop iteration ${currentItteration + 1}`);
@@ -120,13 +120,6 @@ export async function runToolCallingLoop<T>(
       typeof completion.content === "string" ? completion.content : undefined;
     if (!contentStr)
       throw new Error("Completion content is not a string, it should be json");
-
-    if (!params.responseFormat) {
-      return {
-        messages: [...params.messages, completion],
-        result: undefined,
-      };
-    }
 
     return {
       messages: [...params.messages, completion],

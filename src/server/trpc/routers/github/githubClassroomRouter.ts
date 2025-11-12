@@ -37,11 +37,15 @@ import {
   storeGithubClassroomCourse,
   storeGithubStudentUsername,
 } from "./gitDbUtils.js";
-import { getCourseEnrollments } from "../canvas/course/canvasCourseDbUtils.js";
+import {
+  getCourseEnrollments,
+  getCourse,
+} from "../canvas/course/canvasCourseDbUtils.js";
 import {
   createAiTool,
   runToolCallingLoop,
 } from "../../../../utils/aiUtils/createAiTool.js";
+import { getSubmissionDirectory } from "../canvas/canvasStorageUtils.js";
 
 const execAsync = promisify(exec);
 
@@ -215,6 +219,108 @@ export const githubClassroomRouter = createTRPCRouter({
           }`
         );
       }
+    }),
+
+  downloadAssignedRepositories: publicProcedure
+    .input(
+      z.object({
+        assignmentId: z.number(),
+        courseId: z.number(),
+      })
+    )
+    .mutation(async ({ input: { assignmentId, courseId } }) => {
+      const assignment = await getAssignment(assignmentId);
+      if (!assignment) {
+        throw new Error(`Assignment with ID ${assignmentId} not found`);
+      }
+
+      const course = await getCourse(courseId);
+      if (!course) {
+        throw new Error(`Course with ID ${courseId} not found`);
+      }
+
+      const submissions = await getAssignmentSubmissions(assignmentId);
+      const githubRepositories = await getAssignmentGitRepositories(
+        assignmentId
+      );
+
+      const results = await Promise.all(
+        submissions.map(async (submission) => {
+          const repo = githubRepositories.find(
+            (r) => r.user_id === submission.user_id
+          );
+
+          if (!repo) {
+            console.log(
+              `No repository assigned for ${submission.user.name}, skipping`
+            );
+            return {
+              success: false,
+              studentName: submission.user.name,
+              repoUrl: null,
+              path: null,
+              reason: "No repository assigned",
+            };
+          }
+
+          const termName = course.term.name;
+          const courseName = course.name;
+          const assignmentName = assignment.name;
+          const studentName = submission.user.name;
+
+          const submissionDirectory = getSubmissionDirectory({
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName,
+          });
+          const targetPath = submissionDirectory + "/githubClassroom";
+
+          if (fs.existsSync(targetPath)) {
+            console.log(
+              `Repository already exists at ${targetPath}, pulling latest...`
+            );
+            await execAsync("gh repo sync", {
+              cwd: targetPath,
+              shell: "/bin/bash",
+            });
+          } else {
+            console.log(
+              `Cloning ${repo.repo_url} for ${studentName} to ${targetPath}`
+            );
+
+            await execAsync(
+              `gh repo clone "${repo.repo_url}" "${targetPath}"`,
+              {
+                shell: "/bin/bash",
+              }
+            );
+          }
+
+          return {
+            success: true,
+            studentName,
+            repoUrl: repo.repo_url,
+            path: targetPath,
+          };
+        })
+      );
+
+      const successful = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+
+      console.log(`=== Download Complete ===`);
+      console.log(`Successful: ${successful}`);
+      console.log(`Failed: ${failed}`);
+
+      return {
+        success: true,
+        total: results.length,
+        successful,
+        failed,
+        results,
+      };
     }),
 
   getGithubUsernames: publicProcedure
@@ -472,45 +578,45 @@ export const githubClassroomRouter = createTRPCRouter({
           `Canvas submission data: ${JSON.stringify(submission)} ` +
           `and the assignment details: ${JSON.stringify(assignment)}, ` +
           `identify the most likely GitHub repository URL associated with this submission. ` +
-          `if no url is in the submission, you may check previous repositories, if the assignments seem to be associated with the same project the github repositories may be the same ` +
+          `if no url is in the submission, you may check previous repositories, ` +
+          `if the assignments seem to be associated with the same project the github repositories may be the same ` +
           `If no repository can be determined, respond with { repoUrl: null, reason: "could not find url" }.`;
 
-        const tools = checkPreviousAssignments
-          ? [
-              createAiTool({
-                name: "get_previous_repositories",
-                description:
-                  "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
-                paramsSchema: z.object({}),
-                fn: async () => {
-                  console.log(
-                    "checking previous repositories for",
-                    submission.user.name
-                  );
-                  const previousRepos =
-                    await getPreviousAssignmentRepositoriesForUser({
-                      userId: submission.user_id,
-                      assignmentId,
-                    });
-                  return previousRepos;
-                },
-              }),
-            ]
-          : [];
-
-        const resultSchema = z.object({
-          repoUrl: z.string().optional().nullable(),
-          reason: z
-            .string()
-            .describe(
-              "where did you find the repoUrl, if you were unable to find it, state where you checked"
-            ),
+        const checkPreviousAssignmentsTool = createAiTool({
+          name: "get_previous_repositories",
+          description:
+            "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
+          paramsSchema: z.object({}),
+          fn: async () => {
+            console.log(
+              "checking previous repositories for",
+              submission.user.name
+            );
+            const previousRepos =
+              await getPreviousAssignmentRepositoriesForUser({
+                userId: submission.user_id,
+                assignmentId,
+              });
+            return previousRepos;
+          },
         });
+
         const loopResult = await runToolCallingLoop(
           {
             messages: [{ role: "system", content: prompt }],
-            tools: tools,
-            responseFormat: resultSchema,
+            tools: checkPreviousAssignments
+              ? [checkPreviousAssignmentsTool]
+              : [],
+            responseFormat: z.object({
+              repoUrl: z.string().optional().nullable(),
+              reason: z
+                .string()
+                .optional()
+                .nullable()
+                .describe(
+                  "where did you find the repoUrl, if you were unable to find it, state where you checked"
+                ),
+            }),
           },
           {
             maxIterations: 7,

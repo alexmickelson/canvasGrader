@@ -165,3 +165,17 @@ export const useGuessRepositoryFromSubmission = () => {
     trpc.githubClassroom.guessRepositoryFromSubmission.mutationOptions()
   );
 };
+
+export const useDownloadAssignedRepositories = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.githubClassroom.downloadAssignedRepositories.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
+        });
+      },
+    })
+  );
+};

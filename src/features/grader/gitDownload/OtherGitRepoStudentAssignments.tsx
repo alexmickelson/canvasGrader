@@ -23,41 +23,168 @@ export const OtherGitRepoStudentAssignments = () => {
     assignmentName,
   });
 
-  return (
-    <ul
-      className={
-        "divide-y divide-gray-800 bg-gray-900 rounded border border-gray-700 my-3 " +
-        "max-h-[600px] overflow-auto"
+  const {
+    data: { githubRepositories: assignedStudentRepositories },
+  } = useAssignedStudentRepositoriesQuery(assignmentId);
+
+  const [aiGuesses, setAiGuesses] = useState<
+    Record<
+      number,
+      {
+        url: string;
+        messages: ConversationMessage[] | null;
+        reason: string;
       }
     >
-      {canvasAssignmentSubmissions.map((submission) => (
-        <SubmissionRepoGuesserListItem
-          key={submission.id}
-          submission={submission}
-        />
-      ))}
-    </ul>
+  >({});
+
+  const [manualRepoUrls, setManualRepoUrls] = useState<Record<number, string>>(
+    {}
+  );
+
+  const aiGuessMutation = useGuessRepositoryFromSubmission();
+  const assignRepoMutation = useSetAssignedStudentRepositoryMutation();
+
+  const unassignedSubmissions = canvasAssignmentSubmissions.filter(
+    (submission) =>
+      !assignedStudentRepositories.some(
+        (repo) => repo.user_id === submission.user_id
+      )
+  );
+
+  const guessAllUnassigned = async () => {
+    await Promise.all(
+      unassignedSubmissions.map(async (submission) => {
+        const guessResult = await aiGuessMutation.mutateAsync({
+          assignmentId,
+          submisisonId: submission.id,
+          checkPreviousAssignments: true,
+        });
+
+        const guess = guessResult.result?.repoUrl
+          ? {
+              url: guessResult.result.repoUrl,
+              messages: guessResult.messages || null,
+              reason: guessResult.result.reason ?? "",
+            }
+          : { url: "null", messages: null, reason: "" };
+
+        setAiGuesses((prev) => ({
+          ...prev,
+          [submission.id]: guess,
+        }));
+      })
+    );
+  };
+
+  const assignAllGuesses = () => {
+    Object.entries(aiGuesses).forEach(([submissionIdStr, guess]) => {
+      if (guess.url && guess.url !== "null") {
+        const submission = canvasAssignmentSubmissions.find(
+          (s) => s.id === Number(submissionIdStr)
+        );
+        if (submission) {
+          assignRepoMutation.mutate({
+            assignmentId,
+            repoUrl: guess.url,
+            userId: submission.user_id,
+            repoPath: null,
+          });
+        }
+      }
+    });
+  };
+
+  const validGuessesCount = Object.values(aiGuesses).filter(
+    (guess) => guess.url && guess.url !== "null"
+  ).length;
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-3">
+        {unassignedSubmissions.length > 0 && (
+          <button
+            className="unstyled px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            onClick={guessAllUnassigned}
+            disabled={aiGuessMutation.isPending}
+          >
+            Guess All Unassigned
+            {aiGuessMutation.isPending && <Spinner />}
+          </button>
+        )}
+        {validGuessesCount > 0 && (
+          <button
+            className="unstyled px-4 py-2 rounded bg-green-700 hover:bg-green-600 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            onClick={assignAllGuesses}
+            disabled={assignRepoMutation.isPending}
+          >
+            Assign All Guesses ({validGuessesCount})
+            {assignRepoMutation.isPending && <Spinner />}
+          </button>
+        )}
+      </div>
+      <ul
+        className={
+          "divide-y divide-gray-800 bg-gray-900 rounded border border-gray-700 my-3 " +
+          "max-h-[600px] overflow-auto"
+        }
+      >
+        {canvasAssignmentSubmissions.map((submission) => (
+          <SubmissionRepoGuesserListItem
+            key={submission.id}
+            submission={submission}
+            aiGuess={aiGuesses[submission.id]}
+            setAiGuess={(guess: {
+              url: string;
+              messages: ConversationMessage[] | null;
+              reason: string;
+            }) => setAiGuesses((prev) => ({ ...prev, [submission.id]: guess }))}
+            manualRepoUrl={manualRepoUrls[submission.id] || ""}
+            setManualRepoUrl={(url: string) =>
+              setManualRepoUrls((prev) => ({ ...prev, [submission.id]: url }))
+            }
+            aiGuessMutation={aiGuessMutation}
+            assignRepoMutation={assignRepoMutation}
+          />
+        ))}
+      </ul>
+    </div>
   );
 };
 
 const SubmissionRepoGuesserListItem: FC<{
   submission: CanvasSubmission;
-}> = ({ submission }) => {
+  aiGuess?: {
+    url: string;
+    messages: ConversationMessage[] | null;
+    reason: string;
+  };
+  setAiGuess: (guess: {
+    url: string;
+    messages: ConversationMessage[] | null;
+    reason: string;
+  }) => void;
+  manualRepoUrl: string;
+  setManualRepoUrl: (url: string) => void;
+  aiGuessMutation: ReturnType<typeof useGuessRepositoryFromSubmission>;
+  assignRepoMutation: ReturnType<
+    typeof useSetAssignedStudentRepositoryMutation
+  >;
+}> = ({
+  submission,
+  aiGuess,
+  setAiGuess,
+  manualRepoUrl,
+  setManualRepoUrl,
+  aiGuessMutation,
+  assignRepoMutation,
+}) => {
   const { assignmentId } = useCurrentAssignment();
   const { courseId } = useCurrentCourse();
-
-  const [aiGuessUrl, setAiGuessUrl] = useState("");
-  const [manualRepoUrl, setManualRepoUrl] = useState("");
-  const [aiGuessMessages, setAiGuessMessages] = useState<
-    ConversationMessage[] | null
-  >(null);
-  const [aiGuessReason, setAiGuessReason] = useState("");
 
   const {
     data: { githubRepositories: assignedStudentRepositories },
   } = useAssignedStudentRepositoriesQuery(assignmentId);
-  const aiGuessMutation = useGuessRepositoryFromSubmission();
-  const assignRepoMutation = useSetAssignedStudentRepositoryMutation();
 
   const assignedRepo = assignedStudentRepositories.find(
     (repo) => repo.user_id === submission.user_id
@@ -98,11 +225,13 @@ const SubmissionRepoGuesserListItem: FC<{
           console.log(guessResult);
 
           if (guessResult.result?.repoUrl) {
-            setAiGuessUrl(guessResult.result.repoUrl);
-            setAiGuessMessages(guessResult.messages || null);
-            setAiGuessReason(guessResult.result.reason);
+            setAiGuess({
+              url: guessResult.result.repoUrl,
+              messages: guessResult.messages || null,
+              reason: guessResult.result.reason ?? "",
+            });
           } else {
-            setAiGuessUrl("null");
+            setAiGuess({ url: "null", messages: null, reason: "" });
           }
         }}
         disabled={aiGuessMutation.isPending}
@@ -110,23 +239,23 @@ const SubmissionRepoGuesserListItem: FC<{
         Guess repo from submission
         {aiGuessMutation.isPending && <Spinner />}
       </button>
-      {aiGuessUrl && aiGuessUrl !== "null" && (
+      {aiGuess?.url && aiGuess.url !== "null" && (
         <>
           <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex items-center justify-between gap-2">
             <a
-              href={aiGuessUrl}
+              href={aiGuess.url}
               target="_blank"
               rel="noreferrer"
               className="text-blue-400/70 hover:text-blue-400 text-sm truncate flex-1"
             >
-              {aiGuessUrl}
+              {aiGuess.url}
             </a>
             <button
               className="unstyled px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm whitespace-nowrap"
               onClick={() => {
                 assignRepoMutation.mutate({
                   assignmentId,
-                  repoUrl: aiGuessUrl,
+                  repoUrl: aiGuess.url,
                   userId: submission.user_id,
                   repoPath: null,
                 });
@@ -135,14 +264,14 @@ const SubmissionRepoGuesserListItem: FC<{
               Assign Repo
             </button>
           </div>
-          {aiGuessReason && (
+          {aiGuess.reason && (
             <div className="mt-1 text-xs text-gray-400">
-              <strong>Reason:</strong> {aiGuessReason}
+              <strong>Reason:</strong> {aiGuess.reason}
             </div>
           )}
         </>
       )}
-      {aiGuessUrl === "null" && (
+      {aiGuess?.url === "null" && (
         <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex flex-col gap-2">
           <div className="text-sm text-gray-400">
             Could not guess repository. Review submission:
@@ -180,7 +309,7 @@ const SubmissionRepoGuesserListItem: FC<{
           </div>
         </div>
       )}
-      {aiGuessMessages && (
+      {aiGuess?.messages && (
         <Expandable
           ExpandableElement={({ isExpanded, setIsExpanded }) => (
             <div
@@ -198,7 +327,7 @@ const SubmissionRepoGuesserListItem: FC<{
             </div>
           )}
         >
-          <ConversationHistory conversation={aiGuessMessages} />
+          <ConversationHistory conversation={aiGuess.messages} />
         </Expandable>
       )}
     </li>

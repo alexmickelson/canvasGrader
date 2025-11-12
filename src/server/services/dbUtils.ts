@@ -111,7 +111,6 @@ db.none(
     repo_path TEXT
   );
 
-
   CREATE TABLE IF NOT EXISTS rubric_criterion_analysis (
     id SERIAL PRIMARY KEY,
     rubric_criterion_id text NOT NULL,
@@ -125,6 +124,14 @@ db.none(
     task_object JSONB NOT NULL
   );
 
+
+  -- not used yet...
+  CREATE TABLE IF NOT EXISTS ai_conversations(
+    id SERIAL PRIMARY KEY,
+    conversation_type TEXT NOT NULL,
+    related_id BIGINT,
+    conversation_object JSONB NOT NULL
+  );
 `
 ).catch((err) => {
   console.error("Error creating tables:", err);
