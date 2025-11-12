@@ -9,6 +9,7 @@ import {
 import Spinner from "../../../utils/Spinner";
 import { useSubmissionsQuery } from "../graderHooks";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
+import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 
 export const OtherGitRepoStudentAssignments = () => {
   const { assignmentId, assignmentName } = useCurrentAssignment();
@@ -19,12 +20,16 @@ export const OtherGitRepoStudentAssignments = () => {
   });
 
   return (
-    <ul className="divide-y divide-gray-800 bg-gray-800 rounded border border-gray-700">
+    <ul
+      className={
+        "divide-y divide-gray-800 bg-gray-900 rounded border border-gray-700 my-3 " +
+        "max-h-[600px] overflow-auto"
+      }
+    >
       {canvasAssignmentSubmissions.map((submission) => (
         <SubmissionRepoGuesserListItem
           key={submission.id}
           submission={submission}
-          assignmentId={assignmentId}
         />
       ))}
     </ul>
@@ -33,9 +38,12 @@ export const OtherGitRepoStudentAssignments = () => {
 
 const SubmissionRepoGuesserListItem: FC<{
   submission: CanvasSubmission;
-  assignmentId: number;
-}> = ({ submission, assignmentId }) => {
+}> = ({ submission }) => {
+  const { assignmentId } = useCurrentAssignment();
+  const { courseId } = useCurrentCourse();
+
   const [aiGuessUrl, setAiGuessUrl] = useState("");
+  const [manualRepoUrl, setManualRepoUrl] = useState("");
 
   const {
     data: { githubRepositories: assignedStudentRepositories },
@@ -79,14 +87,18 @@ const SubmissionRepoGuesserListItem: FC<{
             submisisonId: submission.id,
           });
 
-          if (guessResult.repoUrl) setAiGuessUrl(guessResult.repoUrl);
+          if (guessResult.repoUrl) {
+            setAiGuessUrl(guessResult.repoUrl);
+          } else {
+            setAiGuessUrl("null");
+          }
         }}
         disabled={aiGuessMutation.isPending}
       >
         Guess repo from submission
         {aiGuessMutation.isPending && <Spinner />}
       </button>
-      {aiGuessUrl && (
+      {aiGuessUrl && aiGuessUrl !== "null" && (
         <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex items-center justify-between gap-2">
           <a
             href={aiGuessUrl}
@@ -109,6 +121,44 @@ const SubmissionRepoGuesserListItem: FC<{
           >
             Assign Repo
           </button>
+        </div>
+      )}
+      {aiGuessUrl === "null" && (
+        <div className="mt-2 p-3 bg-gray-900/50 rounded border border-gray-700 flex flex-col gap-2">
+          <div className="text-sm text-gray-400">
+            Could not guess repository. Review submission:
+          </div>
+          <a
+            href={`https://snow.instructure.com/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}&student_id=${submission.user_id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-400/70 hover:text-blue-400 text-sm"
+          >
+            Open SpeedGrader
+          </a>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Paste repository URL"
+              value={manualRepoUrl}
+              onChange={(e) => setManualRepoUrl(e.target.value)}
+              className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-300 text-sm focus:outline-none focus:border-gray-600"
+            />
+            <button
+              className="unstyled px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm whitespace-nowrap disabled:opacity-50"
+              disabled={!manualRepoUrl.trim()}
+              onClick={() => {
+                assignRepoMutation.mutate({
+                  assignmentId,
+                  repoUrl: manualRepoUrl.trim(),
+                  userId: submission.user_id,
+                  repoPath: null,
+                });
+              }}
+            >
+              Assign
+            </button>
+          </div>
         </div>
       )}
     </li>

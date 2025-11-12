@@ -31,6 +31,7 @@ import {
   getGithubClassroomAssignmentsByCanvasAssignmentId,
   getGithubClassroomCoursesByCanvasCourseId,
   getGithubStudentUsernames,
+  getPreviousAssignmentRepositoriesForUser,
   setSubmissionGitRepository,
   storeGithubClassroomAssignment,
   storeGithubClassroomCourse,
@@ -38,6 +39,7 @@ import {
 } from "./gitDbUtils.js";
 import { getCourseEnrollments } from "../canvas/course/canvasCourseDbUtils.js";
 import { getAiCompletion } from "../../../../utils/aiUtils/getAiCompletion.js";
+import { createAiTool } from "../../../../utils/aiUtils/createAiTool.js";
 
 const execAsync = promisify(exec);
 
@@ -452,51 +454,83 @@ export const githubClassroomRouter = createTRPCRouter({
       z.object({
         submisisonId: z.number(),
         assignmentId: z.number(),
+        checkPreviousAssignments: z.boolean().optional(),
       })
     )
-    .mutation(async ({ input: { submisisonId, assignmentId } }) => {
-      const submissions = await getAssignmentSubmissions(assignmentId);
-      const submission = submissions.find((s) => s.id === submisisonId);
-      if (!submission) {
-        throw new Error(
-          `Submission with ID ${submisisonId} not found for assignment ${assignmentId}`
-        );
-      }
-      const assignment = await getAssignment(assignmentId);
-      if (!assignment) {
-        throw new Error(`Assignment with ID ${assignmentId} not found`);
-      }
+    .mutation(
+      async ({
+        input: { submisisonId, assignmentId, checkPreviousAssignments },
+      }) => {
+        const submissions = await getAssignmentSubmissions(assignmentId);
+        const submission = submissions.find((s) => s.id === submisisonId);
+        if (!submission) {
+          throw new Error(
+            `Submission with ID ${submisisonId} not found for assignment ${assignmentId}`
+          );
+        }
+        const assignment = await getAssignment(assignmentId);
+        if (!assignment) {
+          throw new Error(`Assignment with ID ${assignmentId} not found`);
+        }
 
-      const prompt = `Given the following Canvas submission data: ${JSON.stringify(
-        submission
-      )} and the assignment details: ${JSON.stringify(
-        assignment
-      )}, identify the most likely GitHub repository URL associated with this submission. Provide only the URL as a plain string. 
+        let prompt = `Given the following Canvas submission data: ${JSON.stringify(
+          submission
+        )} and the assignment details: ${JSON.stringify(
+          assignment
+        )}, identify the most likely GitHub repository URL associated with this submission. Provide only the URL as a plain string. 
       
       If no repository can be determined, respond with { repoUrl: null }.`;
 
-      const responseSchema = z.object({
-        repoUrl: z.string().optional().nullable(),
-      });
-      const completion = await getAiCompletion({
-        messages: [{ role: "system", content: prompt }],
-        responseFormat: responseSchema,
-      });
-      console.log("AI guess", completion.content);
+        const tools = [];
 
+        if (checkPreviousAssignments) {
+   
+          tools.push(
+            createAiTool({
+              name: "get_previous_repositories",
+              description:
+                "Get repositories assigned to this student for previous assignments in the same course (with earlier due dates)",
+              paramsSchema: z.object({}),
+              fn: async () => {
+                const previousRepos =
+                  await getPreviousAssignmentRepositoriesForUser({
+                    userId: submission.user_id,
+                    assignmentId,
+                  });
+                return previousRepos;
+              },
+            })
+          );
 
-      if(!completion.content) {
-        console.log("no repo url in ai guess, returning null");
-        return { repoUrl: null };
+          prompt += `\n\nYou have access to a tool to check this student's repositories from previous assignments. Use this tool if you need additional context to determine the repository.`;
+        }
+
+        // TODO: reformat so that an agentic loop runs, give 2 tool calls
+
+        const responseSchema = z.object({
+          repoUrl: z.string().optional().nullable(),
+        });
+        const completion = await getAiCompletion({
+          messages: [{ role: "system", content: prompt }],
+          responseFormat: responseSchema,
+          tools: tools.length > 0 ? tools : undefined,
+        });
+        console.log("AI guess", completion.content);
+
+        if (!completion.content) {
+          console.log("no repo url in ai guess, returning null");
+          return { repoUrl: null };
+        }
+
+        const contentString =
+          typeof completion.content === "string"
+            ? completion.content
+            : JSON.stringify(completion.content);
+        const parsedContent = JSON.parse(contentString || "{}");
+        const response = responseSchema.parse(parsedContent);
+        return response;
       }
-
-      const contentString = typeof completion.content === "string" 
-        ? completion.content 
-        : JSON.stringify(completion.content);
-      const parsedContent = JSON.parse(contentString || "{}");
-      const response = responseSchema.parse(parsedContent);
-      return response;
-    }),
+    ),
 
   figureOutStudentRepositories: publicProcedure
     .input(

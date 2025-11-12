@@ -166,3 +166,46 @@ export async function getAssignmentGitRepositories(assignmentId: number) {
     parseSchema(SubmissionGitRepositorySchema, r, "SubmissionGitRepository")
   );
 }
+
+export async function getPreviousAssignmentRepositoriesForUser({
+  userId,
+  assignmentId,
+}: {
+  userId: number;
+  assignmentId: number;
+}) {
+  const result = await db.manyOrNone(
+    `
+    SELECT 
+      sgr.id, 
+      sgr.user_id, 
+      sgr.assignment_id, 
+      sgr.repo_url, 
+      sgr.repo_path,
+      a.name as assignment_name,
+      a.due_at
+    FROM submission_git_repository sgr
+    JOIN assignments a ON sgr.assignment_id = a.id
+    WHERE sgr.user_id = $<userId>
+      AND a.course_id = (SELECT course_id FROM assignments WHERE id = $<assignmentId>)
+      AND a.due_at < (SELECT due_at FROM assignments WHERE id = $<assignmentId>)
+    ORDER BY a.due_at DESC
+    `,
+    { userId, assignmentId }
+  );
+  return result.map((r) => ({
+    ...parseSchema(
+      SubmissionGitRepositorySchema,
+      {
+        id: r.id,
+        user_id: r.user_id,
+        assignment_id: r.assignment_id,
+        repo_url: r.repo_url,
+        repo_path: r.repo_path,
+      },
+      "SubmissionGitRepository"
+    ),
+    assignment_name: r.assignment_name as string,
+    due_at: r.due_at as string | null,
+  }));
+}
