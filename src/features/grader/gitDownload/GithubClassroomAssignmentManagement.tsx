@@ -7,7 +7,8 @@ import { useAiChoiceQuery } from "../../home/generalAiHooks";
 
 export const GithubClassroomAssignmentManagement: FC<{
   githubClassroom: GithubClassroomCourse;
-}> = ({ githubClassroom }) => {
+  onAssigned?: () => void;
+}> = ({ githubClassroom, onAssigned }) => {
   const { assignmentId, assignmentName } = useCurrentAssignment();
 
   const { data: githubClassroomAssignments } =
@@ -23,7 +24,7 @@ export const GithubClassroomAssignmentManagement: FC<{
       `which of the following GitHub Classroom assignment names is the best match? `,
   });
   return (
-    <div className="max-h-[400px] overflow-y-auto my-3 p-1 bg-slate-900">
+    <div className="space-y-1.5 max-h-80 overflow-y-auto">
       {githubClassroomAssignments?.map((assignment) => (
         <button
           key={assignment.id}
@@ -34,15 +35,27 @@ export const GithubClassroomAssignmentManagement: FC<{
               githubClassroomId: githubClassroom.github_classroom_id,
               name: assignment.title,
             });
+            onAssigned?.();
           }}
-          className={`unstyled w-full text-left px-3 py-2 rounded text-sm transition-colors hover:bg-slate-700 border ${
+          className={`unstyled w-full text-left px-3 py-2 rounded text-sm transition-all hover:bg-slate-700 border ${
             assignment.title === aiReccommendedAssignmentName?.choice
-              ? "border-blue-500"
-              : "border-slate-500"
+              ? "border-blue-400/60 bg-blue-500/10"
+              : "border-slate-600/50 bg-slate-800/30"
           }`}
         >
-          <div className="font-medium">{assignment.title}</div>
-          <div className="text-xs opacity-75">({assignment.type})</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-semibold text-slate-200">
+              {assignment.title}
+            </div>
+            <span className="text-xs px-1.5 py-0.5 bg-slate-700/50 rounded text-slate-400">
+              {assignment.type}
+            </span>
+          </div>
+          {assignment.title === aiReccommendedAssignmentName?.choice && (
+            <div className="text-xs text-blue-400/80 mt-0.5">
+              ✨ AI Recommended
+            </div>
+          )}
         </button>
       ))}
     </div>

@@ -90,9 +90,6 @@ export const AssignedGithubClassroomStudentGitRepositoriesList: FC<{
   return (
     <SuspenseAndError>
       <div>
-        Github Classroom Assignment: {githubClassroomAssignment.name}
-        <hr />
-        <br />
         {unassignedWithReposCount > 0 && (
           <button
             className="unstyled px-4 py-2 rounded bg-green-700 hover:bg-green-600 text-white text-sm disabled:opacity-50 mb-3"
@@ -231,6 +228,7 @@ export const SubmissionRepoListItem: FC<{
           <StudentGithubUsernameAssignor
             githubClassroomAssignmentId={githubClassroomAssignmentId}
             canvasUserId={submission.user_id}
+            studentName={submission.user.name}
             onSelected={() => setShowGithubUsernameSelector(false)}
           />
         </div>

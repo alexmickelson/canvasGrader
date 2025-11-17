@@ -4,12 +4,19 @@ import {
   useGithubStudentUsernames,
   useStoreGithubStudentUsername,
 } from "../../../components/githubClassroomConfig/githubMappingHooks";
+import { useAiChoiceQuery } from "../../home/generalAiHooks";
 
 export const StudentGithubUsernameAssignor: FC<{
   githubClassroomAssignmentId: number;
   canvasUserId: number;
+  studentName: string;
   onSelected: () => void;
-}> = ({ githubClassroomAssignmentId, canvasUserId, onSelected }) => {
+}> = ({
+  githubClassroomAssignmentId,
+  canvasUserId,
+  studentName,
+  onSelected,
+}) => {
   const { data: assignedStudentGithubUsernames } = useGithubStudentUsernames();
   const { data: githubClassroomRepoUrls } = useClassroomAssignmentGitUrlsQuery(
     githubClassroomAssignmentId
@@ -30,6 +37,13 @@ export const StudentGithubUsernameAssignor: FC<{
       .filter(Boolean)
   );
 
+  const { data: aiRecommendedUsername } = useAiChoiceQuery({
+    options: usernameOptions || [],
+    prompt:
+      `Given the student name "${studentName}", ` +
+      `which of the following GitHub usernames is the best match?`,
+  });
+
   console.log("assigned", assignedStudentGithubUsernames);
 
   return (
@@ -41,6 +55,8 @@ export const StudentGithubUsernameAssignor: FC<{
         const isAssignedToOther =
           assignedUsernames.has(username.toLowerCase()) && !isAssignedToThis;
 
+        const isAiRecommended = username === aiRecommendedUsername?.choice;
+
         return (
           <button
             key={username}
@@ -49,6 +65,8 @@ export const StudentGithubUsernameAssignor: FC<{
                 ? "bg-green-900 text-white"
                 : isAssignedToOther
                 ? "bg-gray-900 text-gray-400 cursor-not-allowed"
+                : isAiRecommended
+                ? "bg-blue-700 hover:bg-blue-600 text-white border border-blue-500"
                 : "bg-blue-900 hover:bg-blue-700 text-white"
             }`}
             disabled={isAssignedToOther}
@@ -61,6 +79,7 @@ export const StudentGithubUsernameAssignor: FC<{
             }}
           >
             {username}
+            {isAiRecommended && !isAssignedToThis && " ✨"}
           </button>
         );
       })}

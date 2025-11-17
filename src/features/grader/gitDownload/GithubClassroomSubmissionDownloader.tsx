@@ -1,27 +1,19 @@
-import { useState } from "react";
 import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
 import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 import {
   useGithubClassroomAssignmentQuery,
-  useGithubClassroomIdQuery,
   useDownloadAssignedRepositories,
 } from "../../../components/githubClassroomConfig/githubMappingHooks";
 import { Modal } from "../../../components/Modal";
-import { AssignGithubClassroomToCourse } from "./AssignGithubClassroomToCourse";
-import { GithubClassroomAssignmentManagement } from "./GithubClassroomAssignmentManagement";
 import { AssignedGithubClassroomStudentGitRepositoriesList } from "./AssignedGithubClassroomStudentGitRepositoriesList";
 import { SuspenseAndError } from "../../../utils/SuspenseAndError";
 import { OtherGitRepoStudentAssignments } from "./OtherGitRepoStudentAssignments";
 import Spinner from "../../../utils/Spinner";
+import { ClassroomAndAssignmentFromGithubAssignmentCoordinator } from "./ClassroomAndAssignmentFromGithubAssignmentCoordinator";
 
 export const GithubClassroomSubmissionDownloader = () => {
   const { courseId } = useCurrentCourse();
   const { assignmentId } = useCurrentAssignment();
-  const [reassignClassroom, setReassignClassroom] = useState(false);
-
-  const {
-    data: { classroom: githubClassroom },
-  } = useGithubClassroomIdQuery(courseId);
 
   const {
     data: { githubClassroomAssignment },
@@ -65,47 +57,8 @@ export const GithubClassroomSubmissionDownloader = () => {
                   />
                 </svg>
               </button>
-              {githubClassroom?.course_id ? (
-                <div className="flex align-middle justify-between">
-                  <div className="my-auto">
-                    Github Classroom Name:
-                    <div>{githubClassroom.name}</div>
-                  </div>
-                  <button
-                    onClick={() => setReassignClassroom(true)}
-                    className="m-2"
-                  >
-                    ReAssign?
-                  </button>
-                </div>
-              ) : (
-                <div>Assign a classroom for the course</div>
-              )}
 
-              {(!githubClassroom?.github_classroom_id || reassignClassroom) && (
-                <AssignGithubClassroomToCourse
-                  courseId={courseId}
-                  onClick={() => setReassignClassroom(false)}
-                />
-              )}
-              <hr />
-              <br />
-              <div>
-                
-                {githubClassroom && !githubClassroomAssignment && (
-                  <GithubClassroomAssignmentManagement
-                    githubClassroom={githubClassroom}
-                  />
-                )}
-                {githubClassroomAssignment && (
-                  <div>
-                    Assigned Classroom Assignment:
-                    <div>
-                      {githubClassroomAssignment.github_classroom_assignment_id}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ClassroomAndAssignmentFromGithubAssignmentCoordinator />
 
               <div>
                 <button

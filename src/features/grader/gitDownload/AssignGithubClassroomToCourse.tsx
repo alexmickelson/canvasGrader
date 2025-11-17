@@ -19,7 +19,7 @@ export const AssignGithubClassroomToCourse: React.FC<{
   });
 
   return (
-    <div>
+    <div className="space-y-1.5 max-h-80 overflow-y-auto">
       {githubClassroomOptions?.map((classroom) => (
         <button
           key={classroom.id}
@@ -32,13 +32,18 @@ export const AssignGithubClassroomToCourse: React.FC<{
             });
             onClick();
           }}
-          className={`unstyled w-full text-left px-3 py-2 rounded text-sm transition-colors hover:bg-blue-700 border ${
+          className={`unstyled w-full text-left px-3 py-2 rounded text-sm transition-all hover:bg-slate-700 border ${
             classroom.name === aiRecommendedClassroom?.choice
-              ? "border-blue-500"
-              : "border-slate-500"
+              ? "border-blue-400/60 bg-blue-500/10"
+              : "border-slate-600/50 bg-slate-800/30"
           }`}
         >
-          <div className="font-medium">{classroom.name}</div>
+          <div className="font-semibold text-slate-200">{classroom.name}</div>
+          {classroom.name === aiRecommendedClassroom?.choice && (
+            <div className="text-xs text-blue-400/80 mt-0.5">
+              ✨ AI Recommended
+            </div>
+          )}
         </button>
       ))}
     </div>
