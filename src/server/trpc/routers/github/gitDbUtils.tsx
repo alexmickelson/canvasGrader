@@ -54,6 +54,14 @@ export async function storeGithubClassroomCourse({
   name: string;
   url: string;
 }) {
+  await db.none(
+    `
+    DELETE FROM github_classroom_courses
+    WHERE course_id = $<courseId>
+    `,
+    { courseId }
+  );
+
   return await db.none(
     `
     INSERT INTO github_classroom_courses (github_classroom_id, course_id, name, url)

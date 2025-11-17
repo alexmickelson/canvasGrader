@@ -276,14 +276,15 @@ export const githubClassroomRouter = createTRPCRouter({
             studentName,
           });
           const targetPath = submissionDirectory + "/githubClassroom";
+          const absoluteTargetPath = path.resolve(targetPath);
 
           if (fs.existsSync(targetPath)) {
             console.log(
               `Repository already exists at ${targetPath}, pulling latest...`
             );
-            await execAsync("gh repo sync", {
-              cwd: targetPath,
+            await execAsync(`gh repo sync`, {
               shell: "/bin/bash",
+              cwd: absoluteTargetPath,
             });
           } else {
             console.log(
@@ -626,85 +627,85 @@ export const githubClassroomRouter = createTRPCRouter({
       }
     ),
 
-  figureOutStudentRepositories: publicProcedure
-    .input(
-      z.object({
-        assignmentId: z.number(),
-      })
-    )
-    .mutation(async function* ({ input }) {
-      const { assignmentId } = input;
+  // figureOutStudentRepositories: publicProcedure
+  //   .input(
+  //     z.object({
+  //       assignmentId: z.number(),
+  //     })
+  //   )
+  //   .mutation(async function* ({ input }) {
+  //     const { assignmentId } = input;
 
-      const assignment = await getAssignment(assignmentId);
-      if (!assignment)
-        throw new Error(`Assignment with ID ${assignmentId} not found`);
-      yield "got assignment";
+  //     const assignment = await getAssignment(assignmentId);
+  //     if (!assignment)
+  //       throw new Error(`Assignment with ID ${assignmentId} not found`);
+  //     yield "got assignment";
 
-      const submissions = await getAssignmentSubmissions(assignmentId); // could me missing students without a submission, but with a git repo
+  //     const submissions = await getAssignmentSubmissions(assignmentId); // could me missing students without a submission, but with a git repo
 
-      const enrollments = await getCourseEnrollments(assignment.course_id);
+  //     const enrollments = await getCourseEnrollments(assignment.course_id);
 
-      const courseGithubClassroom =
-        await getGithubClassroomCoursesByCanvasCourseId(assignment.course_id);
+  //     const courseGithubClassroom =
+  //       await getGithubClassroomCoursesByCanvasCourseId(assignment.course_id);
 
-      if (!courseGithubClassroom) {
-        // attempt to link the classroom, reset and try again?
-      }
+  //     if (!courseGithubClassroom) {
+  //       // attempt to link the classroom, reset and try again?
+  //     }
 
-      const githubClassroomAssignment =
-        getGithubClassroomAssignmentsByCanvasAssignmentId(assignmentId);
+  //     const githubClassroomAssignment =
+  //       getGithubClassroomAssignmentsByCanvasAssignmentId(assignmentId);
 
-      if (!githubClassroomAssignment) {
-        // attempt to link the assignment, reset and try again?
-      }
-      const githubUsernames = await getGithubUsernamesForCourse(
-        assignment.course_id
-      );
+  //     if (!githubClassroomAssignment) {
+  //       // attempt to link the assignment, reset and try again?
+  //     }
+  //     const githubUsernames = await getGithubUsernamesForCourse(
+  //       assignment.course_id
+  //     );
 
-      const githubRepositories = await getAssignmentGitRepositories(
-        assignmentId
-      );
+  //     const githubRepositories = await getAssignmentGitRepositories(
+  //       assignmentId
+  //     );
 
-      const unAssignedEnrollments = enrollments.filter((enrollment) => {
-        const gitRepo = githubRepositories.find(
-          (repo) => repo.user_id === enrollment.user_id
-        );
-        return !gitRepo;
-      });
+  //     const unAssignedEnrollments = enrollments.filter((enrollment) => {
+  //       const gitRepo = githubRepositories.find(
+  //         (repo) => repo.user_id === enrollment.user_id
+  //       );
+  //       return !gitRepo;
+  //     });
 
-      await Promise.all(
-        unAssignedEnrollments.map(async (enrollment) => {
-          // try to figure out repo
-        })
-      );
+  //     await Promise.all(
+  //       unAssignedEnrollments.map(async (enrollment) => {
+  //         // try to figure out repo
+  //       })
+  //     );
 
-      // get assignment object
-      // get submission objects
-      // if course has been previously linked to github classroom, add it
-      // if not, do an agentic task to try to link it
-      // if assignment has been previously linked to github classroom assignment, add it
-      // if not, do an agentic task to try to link it
+  //     // get assignment object
+  //     // get submission objects
+  //     // if course has been previously linked to github classroom, add it
+  //     // if not, do an agentic task to try to link it
+  //     // if assignment has been previously linked to github classroom assignment, add it
+  //     // if not, do an agentic task to try to link it
 
-      // detect github classroom name
-      // detect github classroom assignment
-      // if found
-      // foreach submission
-      // figure out github usernames -> student names
+  //     // detect github classroom name
+  //     // detect github classroom assignment
+  //     // if found
+  //     // foreach submission
+  //     // figure out github usernames -> student names
 
-      // if not found
-      // does any part of the submission point to repo?
-      // do previous related assignments point to repo?
-      // if so assign
-      // if still not found
-      // go back to UI and have user find something
-      // maybe let user provide additional instructions (like get it from previous assignment)
+  //     // if not found
+  //     // does any part of the submission point to repo?
+  //     // do previous related assignments point to repo?
+  //     // if so assign
+  //     // if still not found
+  //     // go back to UI and have user find something
+  //     // maybe let user provide additional instructions (like get it from previous assignment)
 
-      // tables: assignment -> github assignment
-      //         submission -> github repo
-      // do i need to cross reference previous data? maybe have mutual exclusive or check for recurring
+  //     // tables: assignment -> github assignment
+  //     //         submission -> github repo
+  //     // do i need to cross reference previous data? maybe have mutual exclusive or check for recurring
 
-      // send status back as yields
-      // store repos in a "unconfirmed" status in table, have user confirm
-      // need to store rational as well
-    }),
+  //     // send status back as yields
+  //     // store repos in a "unconfirmed" status in table, have user confirm
+  //     // need to store rational as well
+  //   }),
 });

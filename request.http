@@ -7,10 +7,21 @@ Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
 
 
 ###
+GET https://snow.instructure.com/api/v1/courses/1154759/enrollments
+Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
+
+
+###
 
 GET https://snow.instructure.com/api/v1/courses/1013710
 Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
 ###
 
+GET https://snow.instructure.com/api/v1/courses/1013710/users
+Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
+###
+
 GET https://snow.instructure.com/api/v1/courses/1156075/assignments/16380543/submissions/3365682?include[]=submission_comments&include[]=rubric_assessment&include[]=full_rubric_assessment
 Authorization: Bearer {{$dotenv CANVAS_TOKEN}}
+
+###

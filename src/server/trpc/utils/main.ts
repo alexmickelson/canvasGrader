@@ -8,6 +8,7 @@ import { githubClassroomRouter } from "../routers/github/githubClassroomRouter.j
 import { attachmentsRouter } from "../routers/canvas/attachmentsRouter.js";
 import { assignmentsRouter } from "../routers/canvas/course/assignment/assignmentsRouter.js";
 import { createTRPCRouter } from "./trpc.js";
+import { generalAiRouter } from "../routers/generalAiRouter.js";
 
 export const appRouter = createTRPCRouter({
   settings: settingsRouter,
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
     attachments: attachmentsRouter,
     assignments: assignmentsRouter,
   },
+  generalAi: generalAiRouter,
   rubricAiReport: rubricAiReportRouter,
   fileViewer: fileViewerRouter,
   aiQueue: aiQueueRouter,

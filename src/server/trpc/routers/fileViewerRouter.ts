@@ -5,76 +5,6 @@ import path from "path";
 import { getSubmissionDirectory } from "./canvas/canvasStorageUtils";
 import { getAllFilePaths } from "../utils/fileUtils";
 
-// Helper function to get MIME type based on file extension
-function getMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-
-  switch (ext) {
-    case ".pdf":
-      return "application/pdf";
-    case ".jpg":
-    case ".jpeg":
-      return "image/jpeg";
-    case ".png":
-      return "image/png";
-    case ".gif":
-      return "image/gif";
-    case ".bmp":
-      return "image/bmp";
-    case ".webp":
-      return "image/webp";
-    case ".svg":
-      return "image/svg+xml";
-    case ".txt":
-      return "text/plain";
-    case ".html":
-      return "text/html";
-    case ".css":
-      return "text/css";
-    case ".js":
-    case ".jsx":
-      return "text/javascript";
-    case ".ts":
-    case ".tsx":
-      return "text/typescript";
-    case ".json":
-      return "application/json";
-    case ".xml":
-      return "application/xml";
-    case ".md":
-      return "text/markdown";
-    case ".yml":
-    case ".yaml":
-      return "text/yaml";
-    case ".py":
-      return "text/x-python";
-    case ".java":
-      return "text/x-java";
-    case ".c":
-    case ".h":
-      return "text/x-c";
-    case ".cpp":
-    case ".hpp":
-      return "text/x-c++";
-    case ".cs":
-      return "text/x-csharp";
-    case ".php":
-      return "text/x-php";
-    case ".rb":
-      return "text/x-ruby";
-    case ".go":
-      return "text/x-go";
-    case ".rs":
-      return "text/x-rust";
-    case ".sh":
-      return "text/x-shellscript";
-    case ".sql":
-      return "text/x-sql";
-    default:
-      return "text/plain"; // Default to text instead of binary
-  }
-}
-
 export const fileViewerRouter = createTRPCRouter({
   getFileContent: publicProcedure
     .input(
@@ -212,3 +142,73 @@ export const fileViewerRouter = createTRPCRouter({
       }
     }),
 });
+
+// Helper function to get MIME type based on file extension
+function getMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+
+  switch (ext) {
+    case ".pdf":
+      return "application/pdf";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".gif":
+      return "image/gif";
+    case ".bmp":
+      return "image/bmp";
+    case ".webp":
+      return "image/webp";
+    case ".svg":
+      return "image/svg+xml";
+    case ".txt":
+      return "text/plain";
+    case ".html":
+      return "text/html";
+    case ".css":
+      return "text/css";
+    case ".js":
+    case ".jsx":
+      return "text/javascript";
+    case ".ts":
+    case ".tsx":
+      return "text/typescript";
+    case ".json":
+      return "application/json";
+    case ".xml":
+      return "application/xml";
+    case ".md":
+      return "text/markdown";
+    case ".yml":
+    case ".yaml":
+      return "text/yaml";
+    case ".py":
+      return "text/x-python";
+    case ".java":
+      return "text/x-java";
+    case ".c":
+    case ".h":
+      return "text/x-c";
+    case ".cpp":
+    case ".hpp":
+      return "text/x-c++";
+    case ".cs":
+      return "text/x-csharp";
+    case ".php":
+      return "text/x-php";
+    case ".rb":
+      return "text/x-ruby";
+    case ".go":
+      return "text/x-go";
+    case ".rs":
+      return "text/x-rust";
+    case ".sh":
+      return "text/x-shellscript";
+    case ".sql":
+      return "text/x-sql";
+    default:
+      return "text/plain"; // Default to text instead of binary
+  }
+}
