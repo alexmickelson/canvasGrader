@@ -44,7 +44,7 @@ export const StudentGithubUsernameAssignor: FC<{
       `which of the following GitHub usernames is the best match?`,
   });
 
-  console.log("assigned", assignedStudentGithubUsernames);
+  // console.log("assigned", assignedStudentGithubUsernames);
 
   return (
     <div className="flex flex-wrap gap-1">

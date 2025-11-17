@@ -6,7 +6,7 @@ import path from "path";
 import { appRouter } from "./trpc/utils/main.js";
 import cron from "node-cron";
 import dotenv from "dotenv";
-// import { execSync, spawn } from "child_process";
+import { execSync } from "child_process";
 dotenv.config();
 
 cron.schedule("0 2 * * *", async () => {
@@ -89,15 +89,20 @@ app.get("*", (_req, res) => {
 
 const port = parseInt(process.env.PORT || "3334", 10);
 
-// Check GitHub authentication on startup
+function setupGhCli() {
+  try {
+    console.log("Setting up git authentication with gh...");
+    execSync("gh auth setup-git", { stdio: "inherit" });
+    console.log("✓ Git authentication configured");
+  } catch {
+    console.log(
+      "Warning: Failed to setup git authentication, some features may not work"
+    );
+  }
+}
+
 async function startServer() {
-  // try {
-  //   await checkGitHubAuth();
-  // } catch {
-  //   console.log(
-  //     "Warning: GitHub authentication failed, some features may not work"
-  //   );
-  // }
+  setupGhCli();
 
   app.listen(port, () => {
     console.log(`Express server listening on http://localhost:${port}`);

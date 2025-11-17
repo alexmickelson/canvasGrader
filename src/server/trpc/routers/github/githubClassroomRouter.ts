@@ -38,7 +38,6 @@ import {
   storeGithubStudentUsername,
 } from "./gitDbUtils.js";
 import {
-  getCourseEnrollments,
   getCourse,
 } from "../canvas/course/canvasCourseDbUtils.js";
 import {
@@ -283,16 +282,17 @@ export const githubClassroomRouter = createTRPCRouter({
               `Repository already exists at ${targetPath}, pulling latest...`
             );
             await execAsync(`gh repo sync`, {
-              shell: "/bin/bash",
               cwd: absoluteTargetPath,
+              shell: "/bin/bash",
             });
           } else {
             console.log(
               `Cloning ${repo.repo_url} for ${studentName} to ${targetPath}`
             );
 
+            fs.mkdirSync(submissionDirectory, { recursive: true });
             await execAsync(
-              `gh repo clone "${repo.repo_url}" "${targetPath}"`,
+              `gh repo clone "${repo.repo_url}" "${absoluteTargetPath}" && cd "${absoluteTargetPath}" && gh repo set-default "${repo.repo_url}"`,
               {
                 shell: "/bin/bash",
               }
