@@ -32,14 +32,13 @@ import {
   getGithubClassroomCoursesByCanvasCourseId,
   getGithubStudentUsernames,
   getPreviousAssignmentRepositoriesForUser,
+  removeStudentUsernameAssignment,
   setSubmissionGitRepository,
   storeGithubClassroomAssignment,
   storeGithubClassroomCourse,
   storeGithubStudentUsername,
 } from "./gitDbUtils.js";
-import {
-  getCourse,
-} from "../canvas/course/canvasCourseDbUtils.js";
+import { getCourse } from "../canvas/course/canvasCourseDbUtils.js";
 import {
   createAiTool,
   runToolCallingLoop,
@@ -548,6 +547,18 @@ export const githubClassroomRouter = createTRPCRouter({
         repoUrl,
         repoPath: repoPath || undefined,
       });
+    }),
+
+  removeAssignedStudentUsername: publicProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        courseId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { userId, courseId } = input;
+      await removeStudentUsernameAssignment({ userId, courseId });
     }),
 
   guessRepositoryFromSubmission: publicProcedure

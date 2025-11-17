@@ -7,6 +7,7 @@ import {
   useAssignedStudentRepositoriesQuery,
   useClassroomAssignmentGitUrlsQuery,
   useGithubStudentUsernames,
+  useRemoveAssignedStudentUsernameMutation,
   useSetAssignedStudentRepositoryMutation,
 } from "../../../components/githubClassroomConfig/githubMappingHooks";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
@@ -132,6 +133,7 @@ export const SubmissionRepoListItem: FC<{
   const { data: studentGithubUsernames } = useGithubStudentUsernames();
 
   const assignRepoMutation = useSetAssignedStudentRepositoryMutation();
+  const removeRepoMutation = useRemoveAssignedStudentUsernameMutation();
 
   const studentRepository = submissionRepositories.find(
     (repo) => repo.user_id === submission.user_id
@@ -161,8 +163,26 @@ export const SubmissionRepoListItem: FC<{
           <div className="text-xs text-gray-400">
             GitHub:{" "}
             {knownCurrentStudentGithubUsername?.github_username ? (
-              <span className="text-gray-300">
-                {knownCurrentStudentGithubUsername.github_username}
+              <span className="inline-flex items-center gap-2">
+                <span className="text-gray-300">
+                  {knownCurrentStudentGithubUsername.github_username}
+                </span>
+                <button
+                  className="unstyled text-blue-400 hover:text-blue-300 underline text-xs"
+                  onClick={() => setShowGithubUsernameSelector(true)}
+                >
+                  Reassign
+                </button>
+                <button
+                  className="unstyled px-2 py-1 rounded bg-red-900/30 hover:bg-red-900 text-white text-xs whitespace-nowrap"
+                  onClick={() => {
+                    removeRepoMutation.mutate({
+                      userId: submission.user_id,
+                    });
+                  }}
+                >
+                  Unassign
+                </button>
               </span>
             ) : (
               <button

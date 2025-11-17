@@ -24,22 +24,18 @@ export const rubricAiReportRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input }): Promise<AnalyzeRubricCriterionResponse> => {
-      // Use the generator and consume all messages to get the final result
       const generator = analyzeRubricCriterion(input);
 
       let finalResult: AnalyzeRubricCriterionResponse | undefined;
 
-      // Consume the generator completely
       while (true) {
         const { value, done } = await generator.next();
 
         if (done) {
-          // The value here is the return value of the generator
           finalResult = value;
           break;
         }
 
-        // value here is a yielded ConversationMessage
         if (value && "role" in value) {
           console.log(`📤 Processing message: ${value.role}`);
         }
@@ -59,12 +55,11 @@ export const rubricAiReportRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }): Promise<FullEvaluation[]> => {
-      const {
-        submissionId,
-      } = input;
+      const { submissionId } = input;
 
-      const submissions  = await getRubricCriterionAnalysesBySubmission(submissionId)
+      const submissions = await getRubricCriterionAnalysesBySubmission(
+        submissionId
+      );
       return submissions;
-
     }),
 });

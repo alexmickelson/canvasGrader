@@ -26,9 +26,13 @@ export const Modal: FC<{
       <Button onClick={() => setIsOpen(true)} />
       {isOpen &&
         createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={onClose}
+          >
             <div
               className={`bg-gray-800 rounded-lg shadow-xl ${widthClasses[width]} w-full mx-4`}
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-700">
                 <h2 className="text-lg font-semibold">{title}</h2>

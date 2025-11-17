@@ -160,6 +160,22 @@ export async function setSubmissionGitRepository({
   );
 }
 
+export async function removeStudentUsernameAssignment({
+  userId,
+  courseId,
+}: {
+  userId: number;
+  courseId: number;
+}) {
+  await db.none(
+    `
+    DELETE FROM github_student_usernames
+    WHERE user_id = $<userId> AND course_id = $<courseId>
+    `,
+    { userId, courseId }
+  );
+}
+
 export async function getAssignmentGitRepositories(assignmentId: number) {
   const result = await db.manyOrNone(
     `

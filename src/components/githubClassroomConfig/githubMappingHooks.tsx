@@ -148,6 +148,28 @@ export const useSetAssignedStudentRepositoryMutation = () => {
   );
 };
 
+export const useRemoveAssignedStudentUsernameMutation = () => {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
+  const { courseId } = useCurrentCourse();
+
+  return useMutation({
+    mutationFn: async (variables: { userId: number }) =>
+      await trpcClient.githubClassroom.removeAssignedStudentUsername.mutate({
+        courseId,
+        ...variables,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: trpc.githubClassroom.getGithubStudentUsernames.queryKey({
+          courseId,
+        }),
+      });
+    },
+  });
+};
+
 export const useClassroomAssignmentGitUrlsQuery = (
   classroomAssignmentId: number
 ) => {

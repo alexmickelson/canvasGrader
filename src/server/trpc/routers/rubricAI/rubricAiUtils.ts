@@ -30,6 +30,7 @@ import {
   storeTranscriptionPage,
 } from "../../../../utils/aiUtils/extractTextFromImages";
 import { storeRubricCriterionAnalysis } from "./rubricAiDbUtils";
+import { getAssignment } from "../canvas/course/assignment/assignmentDbUtils";
 
 // Helper functions to convert between domain model and OpenAI types
 export function toOpenAIMessage(
@@ -274,6 +275,7 @@ export async function* analyzeSubmissionWithStreaming({
   criterionDescription,
   criterionPoints,
   tools,
+  assignmentId,
 }: {
   submissionDir: string;
   textSubmission: string | null;
@@ -281,11 +283,20 @@ export async function* analyzeSubmissionWithStreaming({
   criterionDescription: string;
   criterionPoints: number;
   tools: AiTool[];
+  assignmentId: number;
 }): AsyncGenerator<
   ConversationMessage,
   { conversation: ConversationMessage[]; analysis: AnalysisResult }
 > {
+  const assignment = await getAssignment(assignmentId);
+  if (!assignment) {
+    throw new Error(`Assignment with ID ${assignmentId} not found`);
+  }
   const systemPrompt = `You are an expert academic evaluator analyzing a student submission against a specific rubric criterion.
+
+<AssignmentFromCanvas>
+${JSON.stringify(assignment, null, 2)}
+</AssignmentFromCanvas>
 
 RUBRIC CRITERION TO EVALUATE:
 - Description: ${criterionDescription}
@@ -606,13 +617,10 @@ export async function* analyzeRubricCriterion({
       studentName,
     });
 
-    // Get text submission if available
     const textSubmission = getTextSubmission(submissionDir);
 
-    // Generate initial file system tree
     const fileSystemTree = getAllFilePaths(submissionDir, submissionDir);
 
-    // Create file system exploration tools
     const getFileSystemTreeTool = createAiTool({
       name: "get_file_system_tree",
       description:
@@ -676,6 +684,7 @@ embedded images been pre-processed to be text with <${imageDescriptionXMLTag}></
       criterionDescription,
       criterionPoints,
       tools,
+      assignmentId,
     });
 
     // Collect conversation messages as they're yielded
