@@ -3,9 +3,18 @@ import { z } from "zod";
 import { getSubmissionDirectory } from "../canvas/canvasStorageUtils.js";
 import fs from "fs";
 import path from "path";
-import { sshExec, ansiToHtml } from "./sandboxSshUtils.js";
+import {
+  sshExec,
+  ansiToHtml,
+  sshExecInTmux,
+  readTmuxOutput,
+} from "./sandboxSshUtils.js";
 import { runAgent } from "./langchainUtils.js";
-import type { BaseMessage, MessageStructure, MessageType } from "@langchain/core/messages";
+import type {
+  BaseMessage,
+  MessageStructure,
+  MessageType,
+} from "@langchain/core/messages";
 
 let currentDirectory = "~";
 const commandHistory: Array<{
@@ -29,7 +38,7 @@ export const sandboxRouter = createTRPCRouter({
       const { stdout: pwdOutput } = await sshExec("pwd");
       currentDirectory = pwdOutput.trim();
 
-      const { stdout, stderr } = await sshExec(command);
+      const { stdout, stderr } = await sshExecInTmux(command);
       commandHistory.push({
         command,
         stdout: ansiToHtml(stdout),
@@ -42,7 +51,8 @@ export const sandboxRouter = createTRPCRouter({
       return { stdout: ansiToHtml(stdout), stderr: ansiToHtml(stderr) };
     }),
   getOutput: publicProcedure.query(async () => {
-    return { history: commandHistory };
+    const { stdout } = await readTmuxOutput();
+    return { history: commandHistory, currentOutput: ansiToHtml(stdout) };
   }),
 
   loadSubmissionToSandbox: publicProcedure

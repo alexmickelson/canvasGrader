@@ -1,11 +1,11 @@
 import { useEffect, useState, type FC } from "react";
 import { SandboxView } from "../../sandbox/SandboxView";
-import { useLoadSubmissionToSandbox } from "../../sandbox/sandboxHooks";
+import { useLoadSubmissionToSandboxMutation } from "../../sandbox/sandboxHooks";
 
 export const AiSandbox: FC<{
   studentName: string;
 }> = ({ studentName }) => {
-  const loadSubmission = useLoadSubmissionToSandbox();
+  const loadSubmission = useLoadSubmissionToSandboxMutation();
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     if (loaded) return;

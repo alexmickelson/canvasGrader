@@ -18,7 +18,7 @@ import {
 import { AiQueueStatus } from "../home/AiQueueStatus";
 import { Toggle } from "../../components/Toggle";
 import { AiSandbox } from "./submission/AiSandbox";
-import { useLoadSubmissionToSandbox } from "../sandbox/sandboxHooks";
+import { useLoadSubmissionToSandboxMutation } from "../sandbox/sandboxHooks";
 import {
   CourseProvider,
   useCurrentCourse,
@@ -131,7 +131,7 @@ const InnerAssignmentPage = () => {
 
   const { data: imageCount } = useUntranscribedImageCountQuery(assignmentId);
 
-  const loadSubmission = useLoadSubmissionToSandbox();
+  const loadSubmission = useLoadSubmissionToSandboxMutation();
 
   const handleSandboxToggle = async (enabled: boolean) => {
     if (enabled && selected) {

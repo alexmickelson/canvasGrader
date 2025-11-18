@@ -19,8 +19,7 @@ export const attachmentsRouter = createTRPCRouter({
         return { count: 0 };
       }
 
-      let totalImages = 0;
-      for (const submission of submissions) {
+      const totalImages = submissions.reduce((count, submission) => {
         const parsedSubmission = parseSchema(
           z.object({ body: z.string().nullable() }),
           submission,
@@ -28,8 +27,8 @@ export const attachmentsRouter = createTRPCRouter({
         );
         const markdown = parsedSubmission.body ?? "";
         const images = extractAttachmentsFromMarkdown(markdown);
-        totalImages += images.length;
-      }
+        return count + images.length;
+      }, 0);
 
       return { count: totalImages };
     }),

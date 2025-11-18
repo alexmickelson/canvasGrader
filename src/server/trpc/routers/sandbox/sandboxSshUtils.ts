@@ -143,6 +143,75 @@ export async function sshExec(
   });
 }
 
+const DEFAULT_TMUX_SESSION = "sandbox";
+
+export async function sshExecInTmux(
+  command: string,
+): Promise<{ stdout: string; stderr: string }> {
+  const conn = await getSSHConnection();
+
+  return new Promise((resolve, reject) => {
+    // Create or attach to tmux session, send command, and capture output
+    const tmuxCommand = `
+      cd /live_project && \
+      tmux has-session -t ${DEFAULT_TMUX_SESSION} 2>/dev/null || tmux new-session -d -s ${DEFAULT_TMUX_SESSION} -c /live_project && \
+      tmux send-keys -t ${DEFAULT_TMUX_SESSION} '${command.replace(
+      /'/g,
+      "'\\''"
+    )}' Enter && \
+      sleep 0.1 && \
+      tmux capture-pane -t ${DEFAULT_TMUX_SESSION} -p
+    `;
+
+    conn.exec(tmuxCommand, { pty: true }, (err, stream) => {
+      if (err) return reject(err);
+
+      let stdout = "";
+      let stderr = "";
+
+      stream.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      stream.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      stream.on("close", () => {
+        resolve({ stdout, stderr });
+      });
+    });
+  });
+}
+
+export async function readTmuxOutput(
+): Promise<{ stdout: string; stderr: string }> {
+  const conn = await getSSHConnection();
+
+  return new Promise((resolve, reject) => {
+    const tmuxCommand = `tmux capture-pane -t ${DEFAULT_TMUX_SESSION} -p`;
+
+    conn.exec(tmuxCommand, { pty: true }, (err, stream) => {
+      if (err) return reject(err);
+
+      let stdout = "";
+      let stderr = "";
+
+      stream.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      stream.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      stream.on("close", () => {
+        resolve({ stdout, stderr });
+      });
+    });
+  });
+}
+
 export function disconnectSSH(): void {
   if (sshClient && isConnected) {
     sshClient.end();

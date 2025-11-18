@@ -3,7 +3,7 @@ import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
 import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 import { useCurrentAssignment } from "../../components/contexts/AssignmentProvider";
 
-export const useExecuteCommand = () => {
+export const useExecuteCommandMutation = () => {
   const queryClient = useQueryClient();
   const trpc = useTRPC();
   return useMutation(
@@ -17,7 +17,7 @@ export const useExecuteCommand = () => {
   );
 };
 
-export const useGetTmuxOutput = ({
+export const useGetTmuxOutputQuery = ({
   refetchInterval,
 }: {
   refetchInterval: number;
@@ -30,7 +30,7 @@ export const useGetTmuxOutput = ({
   );
 };
 
-export const useLoadSubmissionToSandbox = () => {
+export const useLoadSubmissionToSandboxMutation = () => {
   const trpcClient = useTRPCClient();
   const { courseName, termName } = useCurrentCourse();
   const { assignmentName, assignmentId } = useCurrentAssignment();

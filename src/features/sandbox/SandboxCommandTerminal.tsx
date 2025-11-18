@@ -1,11 +1,14 @@
 import { useState, useRef, type FormEvent, type FC } from "react";
-import { useExecuteCommand, useGetTmuxOutput } from "./sandboxHooks";
+import {
+  useExecuteCommandMutation,
+  useGetTmuxOutputQuery,
+} from "./sandboxHooks";
 
 export const SandboxCommandTerminal: FC = () => {
   const [command, setCommand] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const executeCommand = useExecuteCommand();
-  const { data } = useGetTmuxOutput({ refetchInterval: 200 });
+  const executeCommand = useExecuteCommandMutation();
+  const { data } = useGetTmuxOutputQuery({ refetchInterval: 200 });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -21,21 +24,7 @@ export const SandboxCommandTerminal: FC = () => {
   return (
     <div className="flex flex-col gap-2 flex-1 overflow-auto">
       <div className="flex-1 bg-black text-green-400 font-mono p-4 rounded overflow-auto whitespace-pre-wrap">
-        {data?.history && data.history.length > 0
-          ? data.history.map((entry, idx) => (
-              <div key={idx} className="mb-2">
-                <div className="text-blue-400">
-                  {entry.directory}$ {entry.command}
-                </div>
-                {entry.stdout && (
-                  <div className="text-green-400">{entry.stdout}</div>
-                )}
-                {entry.stderr && (
-                  <div className="text-red-400">ERROR: {entry.stderr}</div>
-                )}
-              </div>
-            ))
-          : "No output yet..."}
+          {data?.currentOutput}
       </div>
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
