@@ -8,7 +8,6 @@ import {
 import { useAssignmentGroups } from "./useAssignmentGroups";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
-import { GitHubMappingPanelWithClassroomId } from "../../components/githubClassroomConfig/GitHubMappingPanelWithClassroomId";
 import { CourseNameDisplay } from "../../components/CourseNameDisplay";
 import { useUpdateSubmissionsMutation } from "../grader/graderHooks";
 import { useQueries } from "@tanstack/react-query";
@@ -47,7 +46,7 @@ export const CoursePage = () => {
             </button>
           )}
 
-          <CourseAssignments courseId={parsedCourseId} />
+          <CourseAssignments  />
         </CoursePageCourseProvider>
       ) : (
         <div>Invalid course ID: {parsedCourseId}</div>
@@ -78,9 +77,7 @@ const CoursePageCourseProvider: FC<{
   );
 };
 
-export const CourseAssignments: FC<{
-  courseId: number;
-}> = ({ courseId }) => {
+export const CourseAssignments = () => {
   const { data: assignments } = useAssignmentsQuery();
 
   const [filter, setFilter] = useState("");
@@ -106,8 +103,6 @@ export const CourseAssignments: FC<{
 
   return (
     <div className="mt-4">
-      <GitHubMappingPanelWithClassroomId courseId={courseId} />
-
       <div className="mb-3 space-y-3">
         <div className="flex justify-end">
           {<RefreshAllButton assignments={filtered || []} />}

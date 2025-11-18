@@ -33,7 +33,7 @@ export const prepareTempDir = async () => {
 };
 
 export const cloneClassroomRepositories = async (
-  classroomAssignmentId: string,
+  classroomAssignmentId: number,
   tempDir: string
 ) => {
   const cloneCommand = `gh classroom clone student-repos -a ${classroomAssignmentId}`;

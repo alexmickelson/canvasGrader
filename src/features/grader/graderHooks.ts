@@ -125,9 +125,7 @@ export const useLoadGithubClassroomDataQuery = () => {
   };
 };
 
-export const useGitHubClassroomAssignmentsQuery = (
-  classroomId: number
-) => {
+export const useGitHubClassroomAssignmentsQuery = (classroomId: number) => {
   const trpc = useTRPC();
   return useQuery({
     ...trpc.githubClassroom.getClassroomAssignments.queryOptions({
@@ -170,6 +168,15 @@ export const useUpdateSubmissionsMutation = () => {
   });
 };
 
+export const useUntranscribedImageCountQuery = (assignmentId: number) => {
+  const trpc = useTRPC();
+  return useSuspenseQuery(
+    trpc.canvas.attachments.countUntranscribedImages.queryOptions({
+      assignmentId,
+    })
+  );
+};
+
 export const useTranscribeSubmissionImagesMutation = () => {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
@@ -190,12 +197,17 @@ export const useTranscribeSubmissionImagesMutation = () => {
         assignmentName,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       queryClient.invalidateQueries({
         queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
       });
       queryClient.invalidateQueries({
         queryKey: trpc.fileViewer.getFileContent.queryKey(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: trpc.canvas.attachments.countUntranscribedImages.queryKey({
+          assignmentId: input.assignmentId,
+        }),
       });
     },
   });

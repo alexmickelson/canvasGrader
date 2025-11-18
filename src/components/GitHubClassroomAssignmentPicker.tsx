@@ -5,15 +5,11 @@ import {
 } from "../features/grader/graderHooks";
 import Spinner from "../utils/Spinner";
 
-interface GitHubClassroomAssignmentPickerProps {
-  selectedAssignmentId: string | null;
-  onAssignmentSelect: (assignmentId: string | null) => void;
+export const GitHubClassroomAssignmentPicker: React.FC<{
+  selectedAssignmentId: number | null;
+  onAssignmentSelect: (assignmentId: number | null) => void;
   className?: string;
-}
-
-export const GitHubClassroomAssignmentPicker: React.FC<
-  GitHubClassroomAssignmentPickerProps
-> = ({ selectedAssignmentId, onAssignmentSelect, className = "" }) => {
+}> = ({ selectedAssignmentId, onAssignmentSelect, className = "" }) => {
   const [selectedClassroomId, setSelectedClassroomId] = useState<number | null>(
     null
   );

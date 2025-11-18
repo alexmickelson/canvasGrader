@@ -6,7 +6,6 @@ import { useSettingsQuery } from "../home/settingsHooks";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
-import { GitHubClassroomDownload } from "./GitHubClassroomDownload";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
 import { useCanvasCoursesQuery } from "../home/canvasHooks";
 import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
@@ -14,6 +13,7 @@ import {
   useUpdateSubmissionsMutation,
   useTranscribeSubmissionImagesMutation,
   useLoadGithubClassroomDataQuery,
+  useUntranscribedImageCountQuery,
 } from "./graderHooks";
 import { AiQueueStatus } from "../home/AiQueueStatus";
 import { Toggle } from "../../components/Toggle";
@@ -129,6 +129,8 @@ const InnerAssignmentPage = () => {
 
   const transcribeImagesMutation = useTranscribeSubmissionImagesMutation();
 
+  const { data: imageCount } = useUntranscribedImageCountQuery(assignmentId);
+
   const loadSubmission = useLoadSubmissionToSandbox();
 
   const handleSandboxToggle = async (enabled: boolean) => {
@@ -171,13 +173,12 @@ const InnerAssignmentPage = () => {
               })
             }
             disabled={transcribeImagesMutation.isPending}
-            className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white rounded-md text-sm font-medium transition-colors"
+            className=" text-sm "
           >
             {transcribeImagesMutation.isPending
               ? "Transcribing..."
-              : "Transcribe Images"}
+              : `Transcribe Images (${imageCount.count})`}
           </button>
-          <GitHubClassroomDownload />
           <GithubClassroomSubmissionDownloader />
         </div>
       </div>

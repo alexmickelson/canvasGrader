@@ -136,7 +136,7 @@ export const githubClassroomRouter = createTRPCRouter({
   downloadAndOrganizeRepositories: publicProcedure
     .input(
       z.object({
-        classroomAssignmentId: z.string(),
+        classroomAssignmentId: z.number(),
         termName: z.string(),
         courseName: z.string(),
 
