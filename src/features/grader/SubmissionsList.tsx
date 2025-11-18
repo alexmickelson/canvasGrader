@@ -83,38 +83,31 @@ export const SubmissionsList: FC<{
             >
               <div className="p-3 flex items-start gap-3">
                 {/* Content */}
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 ">
                   {/* Top row: name + chips + grade */}
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2 min-w-0">
-                        <span
-                          className="truncate font-medium text-gray-100"
-                          title={name}
-                        >
-                          {name}
-                        </span>
-                        <div className="flex flex-wrap gap-1">
-                          {statusChips.map((c, i) => (
-                            <span
-                              key={i}
-                              className={`px-1.5 py-0.5 text-[10px] rounded-full ${c.className}`}
-                            >
-                              {c.label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="truncate font-medium text-gray-100"
+                      title={name}
+                    >
+                      {name}
                     </div>
-                    {gradeDisplay && (
-                      <div className="ml-auto shrink-0">
+                    <div className="flex gap-1 justify-end">
+                      {statusChips.map((c, i) => (
+                        <span
+                          key={i}
+                          className={`px-1.5 py-0.5 text-[10px] rounded-full ${c.className}`}
+                        >
+                          {c.label}
+                        </span>
+                      ))}
+                      {gradeDisplay && (
                         <span className="inline-flex items-center rounded-md border border-gray-600 bg-gray-900 px-2 py-0.5 text-xs font-semibold text-gray-100">
                           {gradeDisplay}
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-
                   {/* Bottom row: submitted at, attempt, id */}
                   <div className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[11px] text-gray-400">
                     <span>{timingInfo}</span>

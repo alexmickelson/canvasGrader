@@ -5,15 +5,12 @@ export interface StatusChip {
   className: string;
 }
 
-/**
- * Generate status chips for a Canvas submission based on its state
- */
 export function getSubmissionStatusChips(
   submission: CanvasSubmission
 ): StatusChip[] {
   const chips: StatusChip[] = [];
 
-  if (submission.workflow_state) {
+  if (submission.workflow_state && !submission.missing && submission.workflow_state !== "graded") {
     chips.push({
       label: submission.workflow_state,
       className: "bg-indigo-500/10 text-indigo-300 ring-1 ring-indigo-400/20",
