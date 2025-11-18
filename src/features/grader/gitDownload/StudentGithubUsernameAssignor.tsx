@@ -3,7 +3,7 @@ import {
   useClassroomAssignmentGitUrlsQuery,
   useGithubStudentUsernames,
   useStoreGithubStudentUsername,
-} from "../../../components/githubClassroomConfig/githubMappingHooks";
+} from "./githubMappingHooks";
 import { useAiChoiceQuery } from "../../home/generalAiHooks";
 
 export const StudentGithubUsernameAssignor: FC<{

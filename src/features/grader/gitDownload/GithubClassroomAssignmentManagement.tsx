@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
 import type { GithubClassroomCourse } from "../../../server/trpc/routers/github/gitModels";
 import { useGitHubClassroomAssignmentsQuery } from "../graderHooks";
-import { useAssignGithubClassroomAssignmentMutation } from "../../../components/githubClassroomConfig/githubMappingHooks";
+import { useAssignGithubClassroomAssignmentMutation } from "./githubMappingHooks";
 import { useAiChoiceQuery } from "../../home/generalAiHooks";
 
 export const GithubClassroomAssignmentManagement: FC<{

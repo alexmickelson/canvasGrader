@@ -2,7 +2,7 @@ import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 import {
   useGithubClassroomAssignmentQuery,
   useGithubClassroomIdQuery,
-} from "../../../components/githubClassroomConfig/githubMappingHooks";
+} from "./githubMappingHooks";
 import { AssignGithubClassroomToCourse } from "./AssignGithubClassroomToCourse";
 import { GithubClassroomAssignmentManagement } from "./GithubClassroomAssignmentManagement";
 import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";

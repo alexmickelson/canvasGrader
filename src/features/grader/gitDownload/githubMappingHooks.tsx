@@ -3,8 +3,8 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useTRPC, useTRPCClient } from "../../server/trpc/trpcClient";
-import { useCurrentCourse } from "../contexts/CourseProvider";
+import { useTRPC, useTRPCClient } from "../../../server/trpc/trpcClient";
+import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 
 export type CourseGithubMappingItem = {
   enrollmentId: number;

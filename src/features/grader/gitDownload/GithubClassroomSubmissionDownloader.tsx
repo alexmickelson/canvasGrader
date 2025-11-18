@@ -3,7 +3,7 @@ import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 import {
   useGithubClassroomAssignmentQuery,
   useDownloadAssignedRepositories,
-} from "../../../components/githubClassroomConfig/githubMappingHooks";
+} from "./githubMappingHooks";
 import { Modal } from "../../../components/Modal";
 import { AssignedGithubClassroomStudentGitRepositoriesList } from "./AssignedGithubClassroomStudentGitRepositoriesList";
 import { SuspenseAndError } from "../../../utils/SuspenseAndError";

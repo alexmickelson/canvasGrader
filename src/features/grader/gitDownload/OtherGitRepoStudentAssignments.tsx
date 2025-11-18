@@ -5,7 +5,7 @@ import {
   useAssignedStudentRepositoriesQuery,
   useGuessRepositoryFromSubmission,
   useSetAssignedStudentRepositoryMutation,
-} from "../../../components/githubClassroomConfig/githubMappingHooks";
+} from "./githubMappingHooks";
 import Spinner from "../../../utils/Spinner";
 import { useSubmissionsQuery } from "../graderHooks";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";

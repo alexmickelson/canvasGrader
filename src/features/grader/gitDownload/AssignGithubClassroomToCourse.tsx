@@ -1,4 +1,4 @@
-import { useAssignGithubClassroomIdMutation } from "../../../components/githubClassroomConfig/githubMappingHooks";
+import { useAssignGithubClassroomIdMutation } from "./githubMappingHooks";
 import { useLoadGithubClassroomDataQuery } from "../graderHooks";
 import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 import { useAiChoiceQuery } from "../../home/generalAiHooks";

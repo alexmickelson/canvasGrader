@@ -9,7 +9,7 @@ import {
   useGithubStudentUsernames,
   useRemoveAssignedStudentUsernameMutation,
   useSetAssignedStudentRepositoryMutation,
-} from "../../../components/githubClassroomConfig/githubMappingHooks";
+} from "./githubMappingHooks";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 import { StudentGithubUsernameAssignor } from "./StudentGithubUsernameAssignor";
 
