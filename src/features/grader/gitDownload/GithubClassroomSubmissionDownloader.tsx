@@ -30,11 +30,11 @@ export const GithubClassroomSubmissionDownloader = () => {
           onClick={onClick}
           className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium transition-colors"
         >
-          New GitHub Classroom
+          GitHub Classroom
         </button>
       )}
     >
-      {() => {
+      {({ close }) => {
         return (
           <SuspenseAndError>
             <div>
@@ -42,10 +42,16 @@ export const GithubClassroomSubmissionDownloader = () => {
 
               <div>
                 <button
-                  className="unstyled px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-50 mb-3 flex items-center gap-2"
-                  onClick={() =>
-                    downloadMutation.mutate({ assignmentId, courseId })
-                  }
+                  className={" text-sm my-2"}
+                  onClick={async () => {
+                    const downloadResults = await downloadMutation.mutateAsync({
+                      assignmentId,
+                      courseId,
+                    });
+                    if (downloadResults.failed === 0) {
+                      close();
+                    }
+                  }}
                   disabled={downloadMutation.isPending}
                 >
                   Download Assigned Repositories

@@ -15,11 +15,11 @@ export const Modal: FC<{
   Button: (props: { onClick: () => void }) => ReactNode;
   title: string;
   width?: keyof typeof widthClasses;
-  children: (props: { isOpen: boolean; onClose: () => void }) => ReactNode;
+  children: (props: { isOpen: boolean; close: () => void }) => ReactNode;
 }> = ({ Button, title, width = "md", children }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const onClose = () => setIsOpen(false);
+  const close = () => setIsOpen(false);
 
   return (
     <>
@@ -28,7 +28,7 @@ export const Modal: FC<{
         createPortal(
           <div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={onClose}
+            onClick={close}
           >
             <div
               className={`bg-gray-800 rounded-lg shadow-xl ${widthClasses[width]} w-full mx-4`}
@@ -37,7 +37,7 @@ export const Modal: FC<{
               <div className="flex items-center justify-between p-4 border-b border-gray-700">
                 <h2 className="text-lg font-semibold">{title}</h2>
                 <button
-                  onClick={onClose}
+                  onClick={close}
                   className="text-gray-400 hover:text-gray-200 rounded cursor-pointer"
                   aria-label="Close"
                 >
@@ -57,7 +57,7 @@ export const Modal: FC<{
                   </svg>
                 </button>
               </div>
-              <div className="p-4">{children({ isOpen, onClose })}</div>
+              <div className="p-4">{children({ isOpen, close })}</div>
             </div>
           </div>,
           document.getElementById("modal-root")!

@@ -2,13 +2,17 @@ import type { FC } from "react";
 import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
 import type { GithubClassroomCourse } from "../../../server/trpc/routers/github/gitModels";
 import { useGitHubClassroomAssignmentsQuery } from "../graderHooks";
-import { useAssignGithubClassroomAssignmentMutation } from "./githubMappingHooks";
+import {
+  useAssignGithubClassroomAssignmentMutation,
+  useRemoveGithubClassroomAssignmentMutation,
+} from "./githubMappingHooks";
 import { useAiChoiceQuery } from "../../home/generalAiHooks";
 
 export const GithubClassroomAssignmentManagement: FC<{
   githubClassroom: GithubClassroomCourse;
   onAssigned?: () => void;
-}> = ({ githubClassroom, onAssigned }) => {
+  hasAssignment: boolean;
+}> = ({ githubClassroom, onAssigned, hasAssignment }) => {
   const { assignmentId, assignmentName } = useCurrentAssignment();
 
   const { data: githubClassroomAssignments } =
@@ -16,6 +20,9 @@ export const GithubClassroomAssignmentManagement: FC<{
 
   const assignClassroomAssignmentMutation =
     useAssignGithubClassroomAssignmentMutation();
+
+  const removeClassroomAssignmentMutation =
+    useRemoveGithubClassroomAssignmentMutation();
 
   const { data: aiReccommendedAssignmentName } = useAiChoiceQuery({
     options: githubClassroomAssignments?.map((a) => a.title) || [],
@@ -25,6 +32,19 @@ export const GithubClassroomAssignmentManagement: FC<{
   });
   return (
     <div className="space-y-1.5 max-h-80 overflow-y-auto">
+      {hasAssignment && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              removeClassroomAssignmentMutation.mutate({ assignmentId });
+              onAssigned?.();
+            }}
+            className="unstyled text-left px-3 py-2 rounded text-sm transition-all hover:bg-red-900/30 border border-red-600/50 bg-red-900/40"
+          >
+            Unassign Assignment
+          </button>
+        </div>
+      )}
       {githubClassroomAssignments?.map((assignment) => (
         <button
           key={assignment.id}
@@ -46,16 +66,16 @@ export const GithubClassroomAssignmentManagement: FC<{
           <div className="flex items-center justify-between gap-2">
             <div className="font-semibold text-slate-200">
               {assignment.title}
+              {assignment.title === aiReccommendedAssignmentName?.choice && (
+                <span className="text-xs text-slate-500 ms-2">
+                  ✨ AI Recommended
+                </span>
+              )}
             </div>
             <span className="text-xs px-1.5 py-0.5 bg-slate-700/50 rounded text-slate-400">
               {assignment.type}
             </span>
           </div>
-          {assignment.title === aiReccommendedAssignmentName?.choice && (
-            <div className="text-xs text-blue-400/80 mt-0.5">
-              ✨ AI Recommended
-            </div>
-          )}
         </button>
       ))}
     </div>

@@ -7,7 +7,6 @@ import {
   extractTextFromPdf,
 } from "../../../../../../utils/aiUtils/extractTextFromImages.js";
 import {
-  getMetadataSubmissionDirectory,
   getSubmissionDirectory,
   sanitizeImageTitle,
 } from "../../canvasStorageUtils.js";
@@ -132,13 +131,14 @@ export async function dowloadSubmissionAttachments(
   console.log("dowloading submission images");
   const downloaded = await Promise.all(
     images.map(async (image, index) => {
-      const metadataDir = getMetadataSubmissionDirectory({
+      const metadataDir = getSubmissionDirectory({
         termName,
         courseName,
         assignmentId,
         assignmentName,
         studentName,
       });
+      const attachmentsDir = metadataDir + "/attachments/"
 
       if (
         !image.url.startsWith("http://") &&
@@ -153,11 +153,11 @@ export async function dowloadSubmissionAttachments(
 
       // Check if file already exists with any extension
       const existingFiles = fs
-        .readdirSync(metadataDir)
+        .readdirSync(attachmentsDir)
         .filter((file) => file.startsWith(tempFileName));
 
       if (existingFiles.length > 0) {
-        const existingFilePath = path.join(metadataDir, existingFiles[0]);
+        const existingFilePath = path.join(attachmentsDir, existingFiles[0]);
 
         return {
           title: image.title,
@@ -179,7 +179,7 @@ export async function dowloadSubmissionAttachments(
       const extension = getResponseFileExtension(bytes, headerType, image.url);
 
       const fileName = `${tempFileName}${extension}`;
-      const filePath = path.join(metadataDir, fileName);
+      const filePath = path.join(attachmentsDir, fileName);
 
       fs.writeFileSync(filePath, bytes);
       console.log(`Downloaded and saved: ${image.title} to ${filePath}`);

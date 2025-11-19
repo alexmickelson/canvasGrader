@@ -34,7 +34,7 @@ p:not(.unstyled) {
 }
 
 button {
-  @apply cursor-pointer;
+  @apply cursor-pointer transition-colors;
 }
 
 button:not(.unstyled) {
@@ -78,11 +78,6 @@ summary:not(.unstyled) {
 details:not(.unstyled)[open] summary:not(.unstyled) {
   @apply mb-2 text-blue-200;
 }
-/* details > *:not(summary) {
-  padding: 0.5rem;
-  overflow-y: auto;
-  max-height: 200px; 
-} */
 
 ul:not(.unstyled) {
   @apply list-disc pl-6 mb-4;

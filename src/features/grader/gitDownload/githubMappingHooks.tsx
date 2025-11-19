@@ -96,6 +96,22 @@ export const useAssignGithubClassroomIdMutation = () => {
   );
 };
 
+export const useRemoveGithubClassroomIdMutation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.githubClassroom.removeAssignedGithubClassroom.mutationOptions({
+      onSuccess: (_data, input) => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.githubClassroom.getAssignedGithubClassroomId.queryKey({
+            courseId: input.courseId,
+          }),
+        });
+      },
+    })
+  );
+};
+
 export const useGithubClassroomAssignmentQuery = (assignmentId: number) => {
   const trpc = useTRPC();
   return useSuspenseQuery(
@@ -119,6 +135,27 @@ export const useAssignGithubClassroomAssignmentMutation = () => {
         });
       },
     })
+  );
+};
+
+export const useRemoveGithubClassroomAssignmentMutation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.githubClassroom.removeAssignedGithubClassroomAssignment.mutationOptions(
+      {
+        onSuccess: (_data, input) => {
+          queryClient.invalidateQueries({
+            queryKey:
+              trpc.githubClassroom.getAssignedGithubClassroomAssignment.queryKey(
+                {
+                  assignmentId: input.assignmentId,
+                }
+              ),
+          });
+        },
+      }
+    )
   );
 };
 

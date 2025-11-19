@@ -1,4 +1,7 @@
-import { useAssignGithubClassroomIdMutation } from "./githubMappingHooks";
+import {
+  useAssignGithubClassroomIdMutation,
+  useRemoveGithubClassroomIdMutation,
+} from "./githubMappingHooks";
 import { useLoadGithubClassroomDataQuery } from "../graderHooks";
 import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 import { useAiChoiceQuery } from "../../home/generalAiHooks";
@@ -9,6 +12,7 @@ export const AssignGithubClassroomToCourse: React.FC<{
 }> = ({ courseId, onClick }) => {
   const { courseName } = useCurrentCourse();
   const assignGithubClassroomMutation = useAssignGithubClassroomIdMutation();
+  const removeGithubClassroomMutation = useRemoveGithubClassroomIdMutation();
   const { data: githubClassroomOptions } = useLoadGithubClassroomDataQuery();
 
   const { data: aiRecommendedClassroom } = useAiChoiceQuery({
@@ -20,6 +24,17 @@ export const AssignGithubClassroomToCourse: React.FC<{
 
   return (
     <div className="space-y-1.5 max-h-80 overflow-y-auto">
+      <div className="flex justify-end">
+        <button
+          onClick={() => {
+            removeGithubClassroomMutation.mutate({ courseId });
+            onClick();
+          }}
+          className="unstyled text-left px-3 py-2 rounded text-sm transition-all hover:bg-red-900/30 border border-red-600/50 bg-red-900/40"
+        >
+          Unassign Classroom
+        </button>
+      </div>
       {githubClassroomOptions?.map((classroom) => (
         <button
           key={classroom.id}
@@ -38,12 +53,14 @@ export const AssignGithubClassroomToCourse: React.FC<{
               : "border-slate-600/50 bg-slate-800/30"
           }`}
         >
-          <div className="font-semibold text-slate-200">{classroom.name}</div>
-          {classroom.name === aiRecommendedClassroom?.choice && (
-            <div className="text-xs text-blue-400/80 mt-0.5">
-              ✨ AI Recommended
-            </div>
-          )}
+          <div className="font-semibold text-slate-200">
+            {classroom.name}{" "}
+            {classroom.name === aiRecommendedClassroom?.choice && (
+              <span className="text-xs text-slate-500 mt-0.5">
+                ✨ AI Recommended
+              </span>
+            )}
+          </div>
         </button>
       ))}
     </div>

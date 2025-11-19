@@ -76,6 +76,16 @@ export async function storeGithubClassroomCourse({
   );
 }
 
+export async function removeGithubClassroomCourse(courseId: number) {
+  return await db.none(
+    `
+    DELETE FROM github_classroom_courses
+    WHERE course_id = $<courseId>
+    `,
+    { courseId }
+  );
+}
+
 export async function getGithubClassroomCoursesByCanvasCourseId(
   courseId: number
 ) {
@@ -115,6 +125,16 @@ export async function storeGithubClassroomAssignment({
       name = EXCLUDED.name
     `,
     { githubClassroomAssignmentId, assignmentId, githubClassroomId, name }
+  );
+}
+
+export async function removeGithubClassroomAssignment(assignmentId: number) {
+  return await db.none(
+    `
+    DELETE FROM github_classroom_assignments
+    WHERE assignment_id = $<assignmentId>
+    `,
+    { assignmentId }
   );
 }
 

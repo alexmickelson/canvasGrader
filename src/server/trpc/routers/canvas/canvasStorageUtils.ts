@@ -87,30 +87,6 @@ export function getSubmissionDirectory({
   return submissionDir;
 }
 
-export function getMetadataSubmissionDirectory({
-  termName,
-  courseName,
-  assignmentId,
-  assignmentName,
-  studentName,
-}: {
-  termName: string;
-  courseName: string;
-  assignmentId: number;
-  assignmentName: string;
-  studentName: string;
-}): string {
-  const submissionDir = path.join(
-    storageDirectory,
-    sanitizeName(termName),
-    sanitizeName(courseName),
-    sanitizeName(`${assignmentId} - ${assignmentName}`),
-    sanitizeName(studentName) + "_metadata"
-  );
-  ensureDir(submissionDir);
-  return submissionDir;
-}
-
 export function sanitizeName(name: string): string {
   return (name || "")
     .replace(/[\n\r\t]/g, " ")

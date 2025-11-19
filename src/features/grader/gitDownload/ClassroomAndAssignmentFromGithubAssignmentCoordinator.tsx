@@ -35,10 +35,10 @@ export const ClassroomAndAssignmentFromGithubAssignmentCoordinator = () => {
                 {githubClassroom.name}
               </div>
               <button
-                onClick={() => setReassignClassroom(true)}
+                onClick={() => setReassignClassroom(!reassignClassroom)}
                 className="unstyled px-3 py-1 bg-slate-700/50 hover:bg-slate-600 rounded text-xs transition-colors border border-slate-600/50"
               >
-                Reassign
+                {reassignClassroom ? "Cancel" : "Reassign"}
               </button>
             </div>
             {(!githubClassroom?.github_classroom_id || reassignClassroom) && (
@@ -66,7 +66,7 @@ export const ClassroomAndAssignmentFromGithubAssignmentCoordinator = () => {
           <div className="text-xs text-slate-400 uppercase tracking-wide mb-1">
             Classroom Assignment
           </div>
-          {!githubClassroomAssignment || reassignAssignment ? (
+          {!githubClassroomAssignment ? (
             <div>
               <p className="text-slate-500 text-xs mb-2">
                 Select an assignment
@@ -74,6 +74,7 @@ export const ClassroomAndAssignmentFromGithubAssignmentCoordinator = () => {
               <GithubClassroomAssignmentManagement
                 githubClassroom={githubClassroom}
                 onAssigned={() => setReassignAssignment(false)}
+                hasAssignment={false}
               />
             </div>
           ) : (
@@ -83,12 +84,21 @@ export const ClassroomAndAssignmentFromGithubAssignmentCoordinator = () => {
                   {githubClassroomAssignment.name}
                 </div>
                 <button
-                  onClick={() => setReassignAssignment(true)}
+                  onClick={() => setReassignAssignment(!reassignAssignment)}
                   className="unstyled px-3 py-1 bg-slate-700/50 hover:bg-slate-600 rounded text-xs transition-colors border border-slate-600/50"
                 >
-                  Reassign
+                  {reassignAssignment ? "Cancel" : "Reassign"}
                 </button>
               </div>
+              {reassignAssignment && (
+                <div className="pt-2 border-t border-slate-700/50">
+                  <GithubClassroomAssignmentManagement
+                    githubClassroom={githubClassroom}
+                    onAssigned={() => setReassignAssignment(false)}
+                    hasAssignment={true}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
