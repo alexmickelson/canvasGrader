@@ -34,6 +34,7 @@ import {
   getPreviousAssignmentRepositoriesForUser,
   removeStudentUsernameAssignment,
   setSubmissionGitRepository,
+  removeSubmissionGitRepository,
   storeGithubClassroomAssignment,
   removeGithubClassroomAssignment,
   storeGithubClassroomCourse,
@@ -538,6 +539,20 @@ export const githubClassroomRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       await removeGithubClassroomAssignment(input.assignmentId);
+    }),
+
+  removeStudentRepository: publicProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        assignmentId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await removeSubmissionGitRepository({
+        userId: input.userId,
+        assignmentId: input.assignmentId,
+      });
     }),
 
   getAssignedStudentRepositories: publicProcedure

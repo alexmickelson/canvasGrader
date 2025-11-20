@@ -114,7 +114,8 @@ export async function getSSHConnection(): Promise<Client> {
 }
 
 export async function sshExec(
-  command: string
+  command: string,
+  timeoutMs: number = 10000
 ): Promise<{ stdout: string; stderr: string }> {
   const conn = await getSSHConnection();
 
@@ -122,8 +123,15 @@ export async function sshExec(
     // Prepend cd command to ensure we're in /live_project
     const fullCommand = `cd /live_project && ${command}`;
 
+    const timer = setTimeout(() => {
+      reject(new Error(`Command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
     conn.exec(fullCommand, { pty: true }, (err, stream) => {
-      if (err) return reject(err);
+      if (err) {
+        clearTimeout(timer);
+        return reject(err);
+      }
 
       let stdout = "";
       let stderr = "";
@@ -137,34 +145,44 @@ export async function sshExec(
       });
 
       stream.on("close", () => {
+        clearTimeout(timer);
         resolve({ stdout, stderr });
       });
     });
   });
 }
 
-const DEFAULT_TMUX_SESSION = "sandbox";
-
-export async function sshExecInTmux(
-  command: string,
-): Promise<{ stdout: string; stderr: string }> {
+export async function sshExecInTmux({
+  command,
+  timeoutMs = 15000,
+  sessionName = "sandbox",
+}: {
+  command: string;
+  timeoutMs?: number;
+  sessionName?: string;
+}): Promise<{ stdout: string; stderr: string }> {
   const conn = await getSSHConnection();
 
   return new Promise((resolve, reject) => {
-    // Create or attach to tmux session, send command, and capture output
+    const timer = setTimeout(() => {
+      reject(new Error(`Command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
     const tmuxCommand = `
       cd /live_project && \
-      tmux has-session -t ${DEFAULT_TMUX_SESSION} 2>/dev/null || tmux new-session -d -s ${DEFAULT_TMUX_SESSION} -c /live_project && \
-      tmux send-keys -t ${DEFAULT_TMUX_SESSION} '${command.replace(
+      tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName} -c /live_project && \
+      tmux send-keys -t ${sessionName} '${command.replace(
       /'/g,
       "'\\''"
     )}' Enter && \
       sleep 0.1 && \
-      tmux capture-pane -t ${DEFAULT_TMUX_SESSION} -p
+      tmux capture-pane -t ${sessionName} -p
     `;
 
     conn.exec(tmuxCommand, { pty: true }, (err, stream) => {
-      if (err) return reject(err);
+      if (err) {
+        clearTimeout(timer);
+        return reject(err);
+      }
 
       let stdout = "";
       let stderr = "";
@@ -178,21 +196,34 @@ export async function sshExecInTmux(
       });
 
       stream.on("close", () => {
+        clearTimeout(timer);
         resolve({ stdout, stderr });
       });
     });
   });
 }
 
-export async function readTmuxOutput(
-): Promise<{ stdout: string; stderr: string }> {
+export async function readTmuxOutput({
+  timeoutMs = 15000,
+  sessionName = "sandbox",
+}: {
+  timeoutMs?: number;
+  sessionName?: string;
+}): Promise<{ stdout: string; stderr: string }> {
   const conn = await getSSHConnection();
 
   return new Promise((resolve, reject) => {
-    const tmuxCommand = `tmux capture-pane -t ${DEFAULT_TMUX_SESSION} -p`;
+    const tmuxCommand = `tmux capture-pane -t ${sessionName} -p`;
+
+    const timer = setTimeout(() => {
+      reject(new Error(`Command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
 
     conn.exec(tmuxCommand, { pty: true }, (err, stream) => {
-      if (err) return reject(err);
+      if (err) {
+        clearTimeout(timer);
+        return reject(err);
+      }
 
       let stdout = "";
       let stderr = "";
@@ -206,6 +237,48 @@ export async function readTmuxOutput(
       });
 
       stream.on("close", () => {
+        clearTimeout(timer);
+        resolve({ stdout, stderr });
+      });
+    });
+  });
+}
+
+export async function killTmuxSession({
+  sessionName = "sandbox",
+  timeoutMs = 15000,
+}: {
+  sessionName?: string;
+  timeoutMs?: number;
+}): Promise<{ stdout: string; stderr: string }> {
+  const conn = await getSSHConnection();
+
+  return new Promise((resolve, reject) => {
+    const killCommand = `tmux kill-session -t ${sessionName}`;
+
+    const timer = setTimeout(() => {
+      reject(new Error(`Command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    conn.exec(killCommand, { pty: true }, (err, stream) => {
+      if (err) {
+        clearTimeout(timer);
+        return reject(err);
+      }
+
+      let stdout = "";
+      let stderr = "";
+
+      stream.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      stream.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      stream.on("close", () => {
+        clearTimeout(timer);
         resolve({ stdout, stderr });
       });
     });

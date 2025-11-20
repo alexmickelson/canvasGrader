@@ -83,7 +83,6 @@ const distPath =
   process.env.CANVAS_GRADER_DIST_PATH || path.resolve(process.cwd(), "dist");
 app.use(express.static(distPath));
 
-
 app.get("", (_req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
@@ -99,6 +98,24 @@ function setupGhCli() {
     console.log(
       "Warning: Failed to setup git authentication, some features may not work"
     );
+  }
+
+  try {
+    console.log("Checking GitHub Classroom extension...");
+    execSync("gh classroom --help", { stdio: "ignore" });
+    console.log("✓ GitHub Classroom extension installed");
+  } catch {
+    console.log("Installing GitHub Classroom extension...");
+    try {
+      execSync("gh extension install github/gh-classroom", {
+        stdio: "inherit",
+      });
+      console.log("✓ GitHub Classroom extension installed successfully");
+    } catch {
+      console.log(
+        "Warning: Failed to install GitHub Classroom extension, classroom features may not work"
+      );
+    }
   }
 }
 

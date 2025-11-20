@@ -54,6 +54,17 @@ export async function storeGithubClassroomCourse({
   name: string;
   url: string;
 }) {
+  // Clear student repository assignments for all assignments in this course
+  await db.none(
+    `
+    DELETE FROM submission_git_repository
+    WHERE assignment_id IN (
+      SELECT id FROM assignments WHERE course_id = $<courseId>
+    )
+    `,
+    { courseId }
+  );
+
   await db.none(
     `
     DELETE FROM github_classroom_courses
@@ -114,6 +125,15 @@ export async function storeGithubClassroomAssignment({
   githubClassroomId: number;
   name: string;
 }) {
+  // Clear existing student repository assignments for this assignment
+  await db.none(
+    `
+    DELETE FROM submission_git_repository
+    WHERE assignment_id = $<assignmentId>
+    `,
+    { assignmentId }
+  );
+
   return await db.none(
     `
     INSERT INTO github_classroom_assignments (github_classroom_assignment_id, assignment_id, github_classroom_id, name)
@@ -129,6 +149,15 @@ export async function storeGithubClassroomAssignment({
 }
 
 export async function removeGithubClassroomAssignment(assignmentId: number) {
+  // Clear student repository assignments first
+  await db.none(
+    `
+    DELETE FROM submission_git_repository
+    WHERE assignment_id = $<assignmentId>
+    `,
+    { assignmentId }
+  );
+
   return await db.none(
     `
     DELETE FROM github_classroom_assignments
@@ -175,8 +204,28 @@ export async function setSubmissionGitRepository({
     `
     INSERT INTO submission_git_repository (user_id, assignment_id, repo_url, repo_path)
     VALUES ($<userId>, $<assignmentId>, $<repoUrl>, $<repoPath>)
+    ON CONFLICT (user_id, assignment_id)
+    DO UPDATE SET 
+      repo_url = EXCLUDED.repo_url,
+      repo_path = EXCLUDED.repo_path
     `,
     { userId, assignmentId, repoUrl, repoPath: repoPath || null }
+  );
+}
+
+export async function removeSubmissionGitRepository({
+  userId,
+  assignmentId,
+}: {
+  userId: number;
+  assignmentId: number;
+}) {
+  await db.none(
+    `
+    DELETE FROM submission_git_repository
+    WHERE user_id = $<userId> AND assignment_id = $<assignmentId>
+    `,
+    { userId, assignmentId }
   );
 }
 

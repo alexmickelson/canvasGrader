@@ -74,24 +74,18 @@ export const EvidenceSchema = z.object({
 export type Evidence = z.infer<typeof EvidenceSchema>;
 
 // Define structured output schema for AI analysis
-export const AnalysisResultSchema = z
-  .object({
-    recommendedPoints: z
-      .number()
-      .min(0)
-      .describe(
-        "Recommended points to award for this criterion, if unsure, provide 0"
-      ),
-    description: z.string().describe("brief explanation of the assessment"),
-    evidence: z
-      .array(EvidenceSchema)
-      .default([])
-      .describe("Array of evidence found in the submission files"),
-  })
-  .transform((data) => ({
-    ...data,
-    evidence: data.evidence || [], // Ensure evidence is always an array
-  }));
+export const AnalysisResultSchema = z.object({
+  recommendedPoints: z
+    .number()
+    .min(0)
+    .describe(
+      "Recommended points to award for this criterion, if unsure, provide 0"
+    ),
+  description: z.string().describe("brief explanation of the assessment"),
+  evidence: z
+    .array(EvidenceSchema)
+    .describe("Array of evidence found in the submission files"),
+});
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 

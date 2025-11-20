@@ -9,6 +9,7 @@ import {
   useGithubStudentUsernames,
   useRemoveAssignedStudentUsernameMutation,
   useSetAssignedStudentRepositoryMutation,
+  useRemoveStudentRepositoryMutation,
 } from "./githubMappingHooks";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 import { StudentGithubUsernameAssignor } from "./StudentGithubUsernameAssignor";
@@ -133,7 +134,8 @@ export const SubmissionRepoListItem: FC<{
   const { data: studentGithubUsernames } = useGithubStudentUsernames();
 
   const assignRepoMutation = useSetAssignedStudentRepositoryMutation();
-  const removeRepoMutation = useRemoveAssignedStudentUsernameMutation();
+  const removeUsernameRepoMutation = useRemoveAssignedStudentUsernameMutation();
+  const removeStudentRepoMutation = useRemoveStudentRepositoryMutation();
 
   const studentRepository = submissionRepositories.find(
     (repo) => repo.user_id === submission.user_id
@@ -176,12 +178,12 @@ export const SubmissionRepoListItem: FC<{
                 <button
                   className="unstyled px-2 py-1 rounded bg-red-900/30 hover:bg-red-900 text-white text-xs whitespace-nowrap"
                   onClick={() => {
-                    removeRepoMutation.mutate({
+                    removeUsernameRepoMutation.mutate({
                       userId: submission.user_id,
                     });
                   }}
                 >
-                  Unassign
+                  Unassign Username
                 </button>
               </span>
             ) : (
@@ -197,14 +199,27 @@ export const SubmissionRepoListItem: FC<{
 
         <div className="flex-1 min-w-0">
           {studentRepository ? (
-            <a
-              href={studentRepository.repo_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-400 hover:text-blue-300 text-sm truncate block"
-            >
-              {studentRepository.repo_url}
-            </a>
+            <div className="flex items-center gap-2">
+              <a
+                href={studentRepository.repo_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-400 hover:text-blue-300 text-sm truncate block flex-1"
+              >
+                {studentRepository.repo_url}
+              </a>
+              <button
+                className="unstyled px-2 py-1 rounded bg-red-900/30 hover:bg-red-900 text-white text-xs whitespace-nowrap"
+                onClick={() => {
+                  removeStudentRepoMutation.mutate({
+                    userId: submission.user_id,
+                    assignmentId: canvasAssignmentId,
+                  });
+                }}
+              >
+                Unassign Repo
+              </button>
+            </div>
           ) : githubClassroomRepository ? (
             <div className="flex items-center gap-2">
               <span className="text-gray-500 text-sm">Not assigned</span>

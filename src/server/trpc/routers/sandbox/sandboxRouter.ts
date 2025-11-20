@@ -38,7 +38,7 @@ export const sandboxRouter = createTRPCRouter({
       const { stdout: pwdOutput } = await sshExec("pwd");
       currentDirectory = pwdOutput.trim();
 
-      const { stdout, stderr } = await sshExecInTmux(command);
+      const { stdout, stderr } = await sshExecInTmux({ command });
       commandHistory.push({
         command,
         stdout: ansiToHtml(stdout),
@@ -51,7 +51,7 @@ export const sandboxRouter = createTRPCRouter({
       return { stdout: ansiToHtml(stdout), stderr: ansiToHtml(stderr) };
     }),
   getOutput: publicProcedure.query(async () => {
-    const { stdout } = await readTmuxOutput();
+    const { stdout } = await readTmuxOutput({});
     return { history: commandHistory, currentOutput: ansiToHtml(stdout) };
   }),
 

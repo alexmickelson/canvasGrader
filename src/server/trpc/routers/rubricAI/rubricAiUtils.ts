@@ -708,7 +708,8 @@ embedded images been pre-processed to be text with <${imageDescriptionXMLTag}></
         AnalysisResultSchema
       );
       analysis = {
-        ...parsed,
+        recommendedPoints: parsed.recommendedPoints,
+        description: parsed.description,
         evidence: parsed.evidence || [],
       };
     } catch (error) {

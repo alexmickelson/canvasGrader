@@ -3,7 +3,7 @@ import { EventEmitter } from "events";
 import { QueueStatusSchema } from "./queueModels";
 import { parseSchema } from "../../server/trpc/routers/parseSchema";
 
-const MAX_CONCURRENT = 2;
+const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_AI_REQUESTS ?? "2", 10);
 
 export interface QueueJob {
   id: string;

@@ -108,7 +108,8 @@ db.none(
     user_id BIGINT NOT NULL,
     assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
     repo_url TEXT NOT NULL,
-    repo_path TEXT
+    repo_path TEXT,
+    UNIQUE(user_id, assignment_id)
   );
 
   CREATE TABLE IF NOT EXISTS rubric_criterion_analysis (

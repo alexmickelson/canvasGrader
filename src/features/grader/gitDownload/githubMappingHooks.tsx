@@ -185,6 +185,23 @@ export const useSetAssignedStudentRepositoryMutation = () => {
   );
 };
 
+export const useRemoveStudentRepositoryMutation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.githubClassroom.removeStudentRepository.mutationOptions({
+      onSuccess: (_data, input) => {
+        queryClient.invalidateQueries({
+          queryKey:
+            trpc.githubClassroom.getAssignedStudentRepositories.queryKey({
+              assignmentId: input.assignmentId,
+            }),
+        });
+      },
+    })
+  );
+};
+
 export const useRemoveAssignedStudentUsernameMutation = () => {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();

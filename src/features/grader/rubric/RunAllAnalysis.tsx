@@ -17,12 +17,11 @@ export const RunAllAnalysis: FC<{
   termName,
   courseName,
   assignmentName,
-  submissionId
+  submissionId,
 }) => {
   const aiAnalysisMutation = useAiAnalysisMutation();
-  const { data: rubric, isLoading: rubricLoading } = useRubricQuery(
-    assignmentId
-  );
+  const { data: rubric, isLoading: rubricLoading } =
+    useRubricQuery(assignmentId);
   const [runningCount, setRunningCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
 
@@ -44,15 +43,13 @@ export const RunAllAnalysis: FC<{
           assignmentId,
           studentName,
           criterionDescription:
-            criterion.description ||
-            criterion.long_description ||
-            `Criterion ${criterion.id}`,
+            criterion.description || criterion.long_description || "",
           criterionPoints: criterion.points,
           criterionId: criterion.id,
           termName,
           courseName,
           assignmentName,
-          submissionId
+          submissionId,
         });
         setCompletedCount((prev) => prev + 1);
       } catch (error) {

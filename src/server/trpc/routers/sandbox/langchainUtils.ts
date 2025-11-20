@@ -5,13 +5,16 @@ import {
   MemorySaver,
 } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { tool } from "@langchain/core/tools";
 import { BaseMessage } from "langchain";
 import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient.js";
 import type { MessageStructure, MessageType } from "@langchain/core/messages";
-import { sshExec } from "./sandboxSshUtils.js";
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
-import { z } from "zod";
+import {
+  executeCommandTool,
+  executeBackgroundTmuxCommandTool,
+  viewTmuxSessionOutputTool,
+  endTmuxBackgroundSessionTool,
+} from "./sandboxTools.js";
 
 const aiUrl = process.env.AI_URL;
 const aiToken = process.env.AI_TOKEN;
@@ -121,32 +124,6 @@ export function formatMessagesForInvoke(
   });
 }
 
-const executeCommandTool = tool(
-  async (input) => {
-    const { command } = input as { command: string };
-    console.log(`Agent executing command: ${command}`);
-    const { stdout, stderr } = await sshExec(command);
-
-    if (stderr && stderr.trim()) {
-      const message = `Stderr: ${stderr}\nStdout: ${stdout}`;
-
-      console.log(message);
-      return message;
-    }
-    const res = `Output: ${stdout}`;
-    console.log(res);
-    return res;
-  },
-  {
-    name: "execute_command",
-    description:
-      "Execute a shell command in the /live_project directory. Use this to run code, install dependencies, check files, etc.",
-    schema: z.object({
-      command: z.string().describe("The shell command to execute"),
-    }),
-  }
-);
-
 export async function getAgent() {
   if (!aiUrl || !aiToken) {
     throw new Error("AI_URL and AI_TOKEN environment variables are required");
@@ -154,8 +131,13 @@ export async function getAgent() {
 
   const client = await getMcpClient();
   const mcpTools = await client.getTools();
-  // console.log("MCP Tools available:", mcpTools.length);
-  const tools = [executeCommandTool, ...mcpTools];
+  const tools = [
+    executeCommandTool,
+    executeBackgroundTmuxCommandTool,
+    viewTmuxSessionOutputTool,
+    endTmuxBackgroundSessionTool,
+    ...mcpTools,
+  ];
   console.log(
     "Total tools:",
     tools.length,
