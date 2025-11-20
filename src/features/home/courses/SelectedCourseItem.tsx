@@ -32,10 +32,10 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
   const isPending = updateSettingsMutation.isPending;
 
   return (
-    <li
+    <div
       className={
         "flex items-center justify-between p-3 rounded-lg " +
-        "bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 " +
+        "bg-linear-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 " +
         "transition-all border border-slate-500 cursor-pointer"
       }
       onClick={() => navigate(`/course/${course.canvasId}`)}
@@ -65,7 +65,7 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
       >
         {isPending ? <Spinner className="text-red-300" /> : <RemoveIcon />}
       </button>
-    </li>
+    </div>
   );
 };
 
