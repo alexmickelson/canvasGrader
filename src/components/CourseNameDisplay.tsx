@@ -1,4 +1,4 @@
-import { useCanvasCoursesQuery } from "../features/home/canvasHooks";
+import { useCanvasCoursesQuery } from "../features/home/hooks/canvasHooks";
 import Spinner from "../utils/Spinner";
 
 export const CourseNameDisplay: React.FC<{ courseId: number }> = ({

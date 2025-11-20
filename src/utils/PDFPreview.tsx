@@ -61,6 +61,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
           }
 
           console.log("Converted to Uint8Array, length:", bytes.length);
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPdfData({ data: bytes });
           return;
         } catch (uintError) {

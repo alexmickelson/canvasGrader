@@ -18,6 +18,7 @@ export const useAiQueueStatusSubscription = () => {
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatus("connecting");
 
     const subscription = trpcClient.aiQueue.onStatusUpdate.subscribe(

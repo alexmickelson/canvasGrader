@@ -4,7 +4,7 @@ import {
 } from "./githubMappingHooks";
 import { useLoadGithubClassroomDataQuery } from "../graderHooks";
 import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
-import { useAiChoiceQuery } from "../../home/generalAiHooks";
+import { useAiChoiceQuery } from "../../home/hooks/generalAiHooks";
 
 export const AssignGithubClassroomToCourse: React.FC<{
   courseId: number;

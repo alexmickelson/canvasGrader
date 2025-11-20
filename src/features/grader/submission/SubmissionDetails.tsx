@@ -3,7 +3,7 @@ import { GradingRubricDisplay } from "../rubric/GradingRubricDisplay";
 import { SubmissionComments } from "./SubmissionComments";
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 import { useAssignmentsQuery } from "../../course/canvasAssignmentHooks";
-import { useCanvasCoursesQuery } from "../../home/canvasHooks";
+import { useCanvasCoursesQuery } from "../../home/hooks/canvasHooks";
 import { SubmissionFileExplorer } from "./fileViewer/SubmissionFileExplorer";
 import { useViewingItem } from "../shared/viewingItemContext/ViewingItemContext";
 import { ViewFileComponent } from "./fileViewer/ViewFileComponent";

@@ -1,6 +1,9 @@
-import type { CanvasCourse } from "../../server/trpc/routers/canvas/canvasModels";
-import Spinner from "../../utils/Spinner";
-import { useSettingsQuery, useUpdateSettingsMutation } from "./settingsHooks";
+import type { CanvasCourse } from "../../../server/trpc/routers/canvas/canvasModels";
+import Spinner from "../../../utils/Spinner";
+import {
+  useSettingsQuery,
+  useUpdateSettingsMutation,
+} from "../hooks/settingsHooks";
 
 // SVG Add Icon (self-contained)
 const AddIcon = () => (
@@ -46,11 +49,7 @@ const CanvasCourseItem = ({ course }: { course: CanvasCourse }) => {
         } transition-colors`}
         title="Add course"
       >
-        {isPending ? (
-          <Spinner className="text-green-400" />
-        ) : (
-          <AddIcon />
-        )}
+        {isPending ? <Spinner className="text-green-400" /> : <AddIcon />}
       </button>
     </li>
   );

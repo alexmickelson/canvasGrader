@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useTRPC } from "../../server/trpc/trpcClient";
+import { useTRPC } from "../../../server/trpc/trpcClient";
 
 export const useAiChoiceQuery = ({
   prompt,

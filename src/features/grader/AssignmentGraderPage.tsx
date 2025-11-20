@@ -2,12 +2,11 @@ import { Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { userName } from "./userUtils";
 import { SubmissionDetailsWrapper } from "./submission/SubmissionDetails";
-import { useSettingsQuery } from "../home/settingsHooks";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
 import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
-import { useCanvasCoursesQuery } from "../home/canvasHooks";
+import { useCanvasCoursesQuery } from "../home/hooks/canvasHooks";
 import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
 import {
   useUpdateSubmissionsMutation,
@@ -35,9 +34,7 @@ export const AssignmentGraderPage = () => {
     courseId: string;
     assignmentId: string;
   }>();
-  const { data: settings } = useSettingsQuery();
   const parsedCourseId = courseId ? Number(courseId) : undefined;
-  const course = settings?.courses?.find((c) => c.canvasId === parsedCourseId);
 
   const { data: canvasCourses } = useCanvasCoursesQuery();
 
@@ -52,14 +49,6 @@ export const AssignmentGraderPage = () => {
   if (!parsedCourseId) {
     return (
       <div className="p-4 text-red-400">Course ID must be valid number.</div>
-    );
-  }
-
-  if (!course) {
-    return (
-      <div className="p-4 text-red-400">
-        Course with ID {parsedCourseId} not found in settings.
-      </div>
     );
   }
 

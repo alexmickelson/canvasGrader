@@ -1,6 +1,9 @@
-import type { SettingsCourse } from "../../server/trpc/routers/settingsRouter";
-import Spinner from "../../utils/Spinner";
-import { useSettingsQuery, useUpdateSettingsMutation } from "./settingsHooks";
+import type { SettingsCourse } from "../../../server/trpc/routers/settingsRouter";
+import Spinner from "../../../utils/Spinner";
+import {
+  useSettingsQuery,
+  useUpdateSettingsMutation,
+} from "../hooks/settingsHooks";
 import { useNavigate } from "react-router";
 
 const RemoveIcon = () => (
@@ -60,11 +63,7 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
         }
         title="Remove course"
       >
-        {isPending ? (
-          <Spinner className="text-red-300" />
-        ) : (
-          <RemoveIcon />
-        )}
+        {isPending ? <Spinner className="text-red-300" /> : <RemoveIcon />}
       </button>
     </li>
   );

@@ -6,7 +6,7 @@ import {
   useAssignGithubClassroomAssignmentMutation,
   useRemoveGithubClassroomAssignmentMutation,
 } from "./githubMappingHooks";
-import { useAiChoiceQuery } from "../../home/generalAiHooks";
+import { useAiChoiceQuery } from "../../home/hooks/generalAiHooks";
 
 export const GithubClassroomAssignmentManagement: FC<{
   githubClassroom: GithubClassroomCourse;

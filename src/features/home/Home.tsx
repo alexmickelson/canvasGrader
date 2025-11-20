@@ -1,4 +1,4 @@
-import { ManageSettings } from "./ManageSettings";
+import { ManageSettings } from "./settings/ManageSettings";
 import { AiQueueStatus } from "./AiQueueStatus";
 
 export const Home = () => {

@@ -3,7 +3,7 @@ import {
   useQueryClient,
   useMutation,
 } from "@tanstack/react-query";
-import { useTRPC } from "../../server/trpc/trpcClient";
+import { useTRPC } from "../../../server/trpc/trpcClient";
 
 export const useCanvasCoursesQuery = () => {
   const trpc = useTRPC();

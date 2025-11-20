@@ -4,7 +4,6 @@ import {
   type Dispatch,
   type SetStateAction,
   useState,
-  useRef,
 } from "react";
 
 export function Expandable({
@@ -20,7 +19,6 @@ export function Expandable({
   defaultExpanded?: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const expandRef = useRef<HTMLDivElement | null>(null);
 
   return (
     <>
@@ -29,11 +27,9 @@ export function Expandable({
         isExpanded={isExpanded}
       />
       <div
-        ref={expandRef}
-        className={` overflow-hidden transition-all `}
-        style={{
-          maxHeight: isExpanded ? expandRef?.current?.scrollHeight : "0",
-        }}
+        className={`overflow-hidden transition-all ${
+          isExpanded ? "max-h-screen" : "max-h-0"
+        }`}
       >
         {children}
       </div>

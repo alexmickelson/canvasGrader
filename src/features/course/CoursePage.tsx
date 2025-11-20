@@ -6,7 +6,7 @@ import { useAssignmentGroups } from "./useAssignmentGroups";
 import { CourseNameDisplay } from "../../components/CourseNameDisplay";
 import { Toggle } from "../../components/Toggle";
 import { DisplayWeek } from "./DisplayWeek";
-import { useCanvasCoursesQuery } from "../home/canvasHooks";
+import { useCanvasCoursesQuery } from "../home/hooks/canvasHooks";
 import { CourseProvider } from "../../components/contexts/CourseProvider";
 import { RefetchAssignmentsButton } from "./RefetchAssignmentsButton";
 import { RefreshUngradedSubmissionsButton } from "./RefreshUngradedSubmissionsButton";
@@ -65,11 +65,18 @@ export const CourseAssignments = () => {
 
   const [filter, setFilter] = useState("");
   const [hideGraded, setHideGraded] = useState(true);
+  const [hideFuture, setHideFuture] = useState(true);
+  const [now] = useState(() => Date.now());
 
   const filterValue = filter.trim().toLowerCase();
 
   const filtered = assignments
     .filter((a) => a.name.toLowerCase().includes(filterValue))
+    .filter((a) => {
+      if (!hideFuture) return true;
+      if (!a.due_at) return true;
+      return new Date(a.due_at).getTime() <= now;
+    })
     .slice()
     .sort((a, b) => {
       if (!a.due_at && !b.due_at) return 0;
@@ -79,8 +86,6 @@ export const CourseAssignments = () => {
     });
 
   const groups = useAssignmentGroups(filtered);
-
-  if (!assignments) return assignments;
 
   return (
     <div className="mt-4">
@@ -93,11 +98,16 @@ export const CourseAssignments = () => {
             className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-700"
           />
         </div>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-start">
           <Toggle
-            label="Hide fully graded assignments"
+            label="hide graded assignments"
             value={hideGraded}
             onChange={setHideGraded}
+          />
+          <Toggle
+            label="hide future assignments"
+            value={hideFuture}
+            onChange={setHideFuture}
           />
         </div>
       </div>
