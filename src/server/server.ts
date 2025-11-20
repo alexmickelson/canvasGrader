@@ -82,8 +82,9 @@ app.use(
 const distPath =
   process.env.CANVAS_GRADER_DIST_PATH || path.resolve(process.cwd(), "dist");
 app.use(express.static(distPath));
-// SPA fallback to index.html for non-API routes
-app.get("*", (_req, res) => {
+
+
+app.get("", (_req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 

@@ -1,4 +1,4 @@
-import type z from "../../../../node_modules/zod/v3/external.d.cts";
+import { type z } from "zod";
 
 // Utility: safely parse with Zod, log on error
 export function parseSchema<T extends z.ZodTypeAny>(

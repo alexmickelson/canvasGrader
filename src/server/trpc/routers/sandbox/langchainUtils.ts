@@ -4,8 +4,9 @@ import {
   MessagesAnnotation,
   MemorySaver,
 } from "@langchain/langgraph";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { tool } from "@langchain/core/tools";
-import { BaseMessage, ToolNode } from "langchain";
+import { BaseMessage } from "langchain";
 import { aiModel } from "../../../../utils/aiUtils/getOpenaiClient.js";
 import type { MessageStructure, MessageType } from "@langchain/core/messages";
 import { sshExec } from "./sandboxSshUtils.js";
@@ -171,7 +172,10 @@ export async function getAgent() {
   }).bindTools(tools);
 
   async function callModel(state: typeof MessagesAnnotation.State) {
-    console.log("🤖 [Node: agent] LLM call started with message count", state.messages.length);
+    console.log(
+      "🤖 [Node: agent] LLM call started with message count",
+      state.messages.length
+    );
     // Trim messages to prevent context overflow
     const response = await model.invoke(state.messages);
     console.log("✅ [Node: agent] LLM call completed");
@@ -254,7 +258,7 @@ start executing tool calls immediately, do not update the user what with what is
     }
 
     const lastMessage = allMessages[allMessages.length - 1];
-  
+
     // swallowed by generator
     return {
       summary: lastMessage.content as string,

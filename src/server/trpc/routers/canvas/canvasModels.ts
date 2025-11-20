@@ -11,7 +11,7 @@ export const CanvasEnrollmentSchema = z.object({
   updated_at: z.string(),
   last_activity_at: z.string().nullable().optional(),
   last_attended_at: z.string().nullable().optional(),
-  grades: z.record(z.any()).optional(),
+  grades: z.record(z.string(), z.any()).optional(),
   user: z.any().optional(),
 });
 export type CanvasEnrollment = z.infer<typeof CanvasEnrollmentSchema>;
