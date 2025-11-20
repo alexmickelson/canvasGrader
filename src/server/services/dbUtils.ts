@@ -76,7 +76,9 @@ db.none(
   );
 
   CREATE TABLE IF NOT EXISTS favorite_courses (
-    course_id BIGINT REFERENCES courses(id) NOT NULL
+    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    name TEXT NOT NULL,
+    UNIQUE(course_id)
   );
 
   -- github classroom tables

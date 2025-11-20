@@ -1,9 +1,6 @@
-import type { SettingsCourse } from "../../../server/trpc/routers/settingsRouter";
+import type { FavoriteCourse } from "../settings/SelectedCoursesPanel";
 import Spinner from "../../../utils/Spinner";
-import {
-  useSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../hooks/settingsHooks";
+import { useRemoveFavoriteCourseMutation } from "../hooks/settingsHooks";
 import { useNavigate } from "react-router";
 
 const RemoveIcon = () => (
@@ -23,13 +20,11 @@ const RemoveIcon = () => (
   </svg>
 );
 
-const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
-  const { data: settings } = useSettingsQuery();
-  const updateSettingsMutation = useUpdateSettingsMutation();
+const SelectedCourseItem = ({ course }: { course: FavoriteCourse }) => {
+  const removeFavoriteMutation = useRemoveFavoriteCourseMutation();
   const navigate = useNavigate();
 
-  const courses = settings?.courses || [];
-  const isPending = updateSettingsMutation.isPending;
+  const isPending = removeFavoriteMutation.isPending;
 
   return (
     <div
@@ -38,13 +33,13 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
         "bg-linear-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 " +
         "transition-all border border-slate-500 cursor-pointer"
       }
-      onClick={() => navigate(`/course/${course.canvasId}`)}
+      onClick={() => navigate(`/course/${course.id}`)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          navigate(`/course/${course.canvasId}`);
+          navigate(`/course/${course.id}`);
         }
       }}
     >
@@ -52,8 +47,8 @@ const SelectedCourseItem = ({ course }: { course: SettingsCourse }) => {
       <button
         onClick={(e) => {
           e.stopPropagation();
-          updateSettingsMutation.mutate({
-            courses: courses.filter((c) => c.canvasId !== course.canvasId),
+          removeFavoriteMutation.mutate({
+            courseId: course.id,
           });
         }}
         disabled={isPending}

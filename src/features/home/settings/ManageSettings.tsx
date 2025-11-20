@@ -2,17 +2,18 @@ import {
   useCanvasCoursesQuery,
   useRefreshCanvasCoursesQuery,
 } from "../hooks/canvasHooks";
-import { useSettingsQuery } from "../hooks/settingsHooks";
+import { useFavoriteCoursesQuery } from "../hooks/settingsHooks";
 import { AvailableCoursesPanel } from "./AvailableCoursesPanel";
 import { SelectedCoursesPanel } from "./SelectedCoursesPanel";
 
 export const ManageSettings = () => {
-  const { data: settings, isLoading: isLoadingSettings } = useSettingsQuery();
+  const { data: favoriteCourses, isLoading: isLoadingFavorites } =
+    useFavoriteCoursesQuery();
   const { data: canvasCourses, isLoading: isLoadingCourses } =
     useCanvasCoursesQuery();
   const refreshCoursesMutation = useRefreshCanvasCoursesQuery();
 
-  const courses = settings?.courses || [];
+  const courses = favoriteCourses || [];
 
   return (
     <div className="space-y-6  min-h-0 flex flex-col">
@@ -22,7 +23,7 @@ export const ManageSettings = () => {
           <div className="w-[600px]">
             <SelectedCoursesPanel
               courses={courses}
-              isLoadingSettings={isLoadingSettings}
+              isLoadingSettings={isLoadingFavorites}
             />
           </div>
         </div>
@@ -33,6 +34,7 @@ export const ManageSettings = () => {
               canvasCourses={canvasCourses}
               isLoadingCourses={isLoadingCourses}
               refreshCoursesMutation={refreshCoursesMutation}
+              selectedCourseIds={courses.map((c) => c.id)}
             />
           </div>
         </div>

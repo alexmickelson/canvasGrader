@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Spinner from "../../../utils/Spinner";
 import CanvasCourseItem from "../courses/CanvasCourseItem";
 import type { CanvasCourse } from "../../../server/trpc/routers/canvas/canvasModels";
@@ -48,39 +48,34 @@ export const AvailableCoursesPanel: React.FC<{
     void,
     unknown
   >;
-}> = ({ canvasCourses, isLoadingCourses, refreshCoursesMutation }) => {
+  selectedCourseIds: number[];
+}> = ({
+  canvasCourses,
+  isLoadingCourses,
+  refreshCoursesMutation,
+  selectedCourseIds,
+}) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const filteredCanvasCourses = useMemo(() => {
-    return (
-      canvasCourses?.filter((course) =>
-        course.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) || []
-    );
-  }, [canvasCourses, searchQuery]);
 
-  const groupedByTerm = useMemo(() => {
-    const toTime = (d?: string | null) => (d ? Date.parse(d) : NaN);
-    const fmt = (d: number) =>
-      isFinite(d)
-        ? new Date(d).toLocaleString(undefined, {
-            month: "short",
-            year: "numeric",
-          })
-        : "";
+  const filteredCanvasCourses =
+    canvasCourses?.filter(
+      (course) =>
+        course.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !selectedCourseIds.includes(course.id)
+    ) || [];
 
-    const map = new Map<
-      string,
-      {
-        key: string;
-        termName: string;
-        dateLabel: string;
-        sortTime: number;
-        courses: CanvasCourse[];
-      }
-    >();
+  const toTime = (d?: string | null) => (d ? Date.parse(d) : NaN);
+  const fmt = (d: number) =>
+    isFinite(d)
+      ? new Date(d).toLocaleString(undefined, {
+          month: "short",
+          year: "numeric",
+        })
+      : "";
 
-    for (const course of filteredCanvasCourses as CanvasCourse[]) {
-      if (course.term?.name === "The End of Time") continue;
+  const groupedByTerm = filteredCanvasCourses
+    .filter((course) => course.term?.name !== "The End of Time")
+    .reduce((acc, course) => {
       const termId = course.term?.id ?? "unknown";
       const key = String(termId);
       const start = toTime(course.term?.start_at ?? null);
@@ -96,26 +91,36 @@ export const AvailableCoursesPanel: React.FC<{
       const dateLabel = [fmt(start), fmt(end)].filter(Boolean).join(" — ");
       const termName = course.term?.name ?? "Unknown Term";
 
-      if (!map.has(key)) {
-        map.set(key, {
+      const existing = acc.find((g) => g.key === key);
+      if (existing) {
+        return acc.map((g) =>
+          g.key === key
+            ? {
+                ...g,
+                courses: [...g.courses, course],
+                sortTime: Math.max(g.sortTime, sortTime),
+                dateLabel: g.dateLabel || dateLabel,
+                termName:
+                  g.termName === "Unknown Term" && termName !== "Unknown Term"
+                    ? termName
+                    : g.termName,
+              }
+            : g
+        );
+      }
+
+      return [
+        ...acc,
+        {
           key,
           termName,
           dateLabel,
           sortTime,
-          courses: [],
-        });
-      }
-      const group = map.get(key)!;
-      group.courses.push(course);
-      group.sortTime = Math.max(group.sortTime, sortTime);
-      if (!group.dateLabel && dateLabel) group.dateLabel = dateLabel;
-      if (group.termName === "Unknown Term" && termName !== "Unknown Term") {
-        group.termName = termName;
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) => b.sortTime - a.sortTime);
-  }, [filteredCanvasCourses]);
+          courses: [course],
+        },
+      ];
+    }, [] as Array<{ key: string; termName: string; dateLabel: string; sortTime: number; courses: CanvasCourse[] }>)
+    .sort((a, b) => b.sortTime - a.sortTime);
 
   return (
     <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700 min-h-0 flex flex-col">

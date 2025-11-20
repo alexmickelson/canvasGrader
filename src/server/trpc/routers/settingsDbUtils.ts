@@ -1,18 +1,32 @@
 import { db } from "../../services/dbUtils.js";
+import { z } from "zod";
+import { parseSchema } from "./parseSchema.js";
 
-export async function getFavoriteCourses(): Promise<number[]> {
-  const results = await db.manyOrNone<{ course_id: number }>(
-    `SELECT course_id FROM favorite_courses`
+const FavoriteCourseSchema = z.object({
+  id: z.coerce.number(),
+  name: z.string(),
+});
+
+export async function getFavoriteCourses(): Promise<
+  z.infer<typeof FavoriteCourseSchema>[]
+> {
+  const results = await db.manyOrNone(
+    `SELECT course_id AS id, name FROM favorite_courses`
   );
-  return results.map((r) => r.course_id);
+  return results.map((r) =>
+    parseSchema(FavoriteCourseSchema, r, "favorite_courses row")
+  );
 }
 
-export async function addFavoriteCourse(courseId: number): Promise<void> {
+export async function addFavoriteCourse(
+  courseId: number,
+  courseName: string
+): Promise<void> {
   await db.none(
-    `INSERT INTO favorite_courses (course_id)
-     VALUES ($<courseId>)
-     ON CONFLICT DO NOTHING`,
-    { courseId }
+    `INSERT INTO favorite_courses (course_id, name)
+     VALUES ($<courseId>, $<courseName>)
+     ON CONFLICT (course_id) DO UPDATE SET name = $<courseName>`,
+    { courseId, courseName }
   );
 }
 

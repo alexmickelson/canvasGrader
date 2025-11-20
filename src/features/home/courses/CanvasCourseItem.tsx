@@ -1,8 +1,8 @@
 import type { CanvasCourse } from "../../../server/trpc/routers/canvas/canvasModels";
 import Spinner from "../../../utils/Spinner";
 import {
-  useSettingsQuery,
-  useUpdateSettingsMutation,
+  useFavoriteCoursesQuery,
+  useAddFavoriteCourseMutation,
 } from "../hooks/settingsHooks";
 
 // SVG Add Icon (self-contained)
@@ -25,23 +25,24 @@ const AddIcon = () => (
 );
 
 const CanvasCourseItem = ({ course }: { course: CanvasCourse }) => {
-  const { data: settings, isLoading: isLoadingSettings } = useSettingsQuery();
+  const { data: favoriteCourses, isLoading: isLoadingFavorites } =
+    useFavoriteCoursesQuery();
 
-  const courses = settings?.courses || [];
-  const updateSettingsMutation = useUpdateSettingsMutation();
-  const isSelected = settings?.courses.some((c) => c.canvasId === course.id);
-  const isPending = isLoadingSettings || updateSettingsMutation.isPending;
+  const addFavoriteMutation = useAddFavoriteCourseMutation();
+  const isSelected = favoriteCourses?.some((c) => c.id === course.id);
+  const isPending = isLoadingFavorites || addFavoriteMutation.isPending;
 
   return (
-    <li className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 transition-all border border-gray-600">
+    <li className="flex items-center justify-between p-3 rounded-lg bg-linear-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 transition-all border border-gray-600">
       <span className="font-medium truncate text-gray-200">{course.name}</span>
       <button
         onClick={() =>
-          updateSettingsMutation.mutate({
-            courses: [...courses, { name: course.name, canvasId: course.id }],
+          addFavoriteMutation.mutate({
+            courseId: course.id,
+            courseName: course.name,
           })
         }
-        disabled={isLoadingSettings || updateSettingsMutation.isPending}
+        disabled={isPending}
         className={`p-1.5 rounded-full ${
           isSelected
             ? "text-gray-500 cursor-not-allowed"
