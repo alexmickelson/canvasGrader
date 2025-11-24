@@ -1,15 +1,15 @@
-import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
-import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
+import { useCurrentAssignment } from "../../../../components/contexts/AssignmentProvider";
+import { useCurrentCourse } from "../../../../components/contexts/CourseProvider";
 import {
   useGithubClassroomAssignmentQuery,
   useDownloadAssignedRepositories,
-} from "./githubMappingHooks";
-import { Modal } from "../../../components/Modal";
-import { AssignedGithubClassroomStudentGitRepositoriesList } from "./AssignedGithubClassroomStudentGitRepositoriesList";
-import { SuspenseAndError } from "../../../utils/SuspenseAndError";
-import { OtherGitRepoStudentAssignments } from "./OtherGitRepoStudentAssignments";
-import Spinner from "../../../utils/Spinner";
-import { ClassroomAndAssignmentFromGithubAssignmentCoordinator } from "./ClassroomAndAssignmentFromGithubAssignmentCoordinator";
+} from "../githubMappingHooks";
+import { Modal } from "../../../../components/Modal";
+import { AssignedGithubClassroomStudentGitRepositoriesList } from "../repositories/AssignedGithubClassroomStudentGitRepositoriesList";
+import { SuspenseAndError } from "../../../../utils/SuspenseAndError";
+import { OtherGitRepoStudentAssignments } from "../repositories/OtherGitRepoStudentAssignments";
+import Spinner from "../../../../utils/Spinner";
+import { ClassroomAndAssignmentFromGithubAssignmentCoordinator } from "../classroom/ClassroomAndAssignmentFromGithubAssignmentCoordinator";
 
 export const GithubClassroomSubmissionDownloader = () => {
   const { courseId } = useCurrentCourse();

@@ -1,6 +1,5 @@
 import {
   useCanvasCoursesQuery,
-  useRefreshCanvasCoursesQuery,
 } from "../hooks/canvasHooks";
 import { useFavoriteCoursesQuery } from "../hooks/settingsHooks";
 import { AvailableCoursesPanel } from "./AvailableCoursesPanel";
@@ -11,7 +10,6 @@ export const ManageSettings = () => {
     useFavoriteCoursesQuery();
   const { data: canvasCourses, isLoading: isLoadingCourses } =
     useCanvasCoursesQuery();
-  const refreshCoursesMutation = useRefreshCanvasCoursesQuery();
 
   const courses = favoriteCourses || [];
 
@@ -33,7 +31,6 @@ export const ManageSettings = () => {
             <AvailableCoursesPanel
               canvasCourses={canvasCourses}
               isLoadingCourses={isLoadingCourses}
-              refreshCoursesMutation={refreshCoursesMutation}
               selectedCourseIds={courses.map((c) => c.id)}
             />
           </div>

@@ -1,11 +1,11 @@
-import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
+import { useCurrentCourse } from "../../../../components/contexts/CourseProvider";
 import {
   useGithubClassroomAssignmentQuery,
   useGithubClassroomIdQuery,
-} from "./githubMappingHooks";
+} from "../githubMappingHooks";
 import { AssignGithubClassroomToCourse } from "./AssignGithubClassroomToCourse";
-import { GithubClassroomAssignmentManagement } from "./GithubClassroomAssignmentManagement";
-import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
+import { GithubClassroomAssignmentManagement } from "../assignment/GithubClassroomAssignmentManagement";
+import { useCurrentAssignment } from "../../../../components/contexts/AssignmentProvider";
 import { useState } from "react";
 
 export const ClassroomAndAssignmentFromGithubAssignmentCoordinator = () => {

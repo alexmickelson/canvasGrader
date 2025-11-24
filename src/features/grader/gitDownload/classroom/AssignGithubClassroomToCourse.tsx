@@ -1,10 +1,11 @@
 import {
   useAssignGithubClassroomIdMutation,
   useRemoveGithubClassroomIdMutation,
-} from "./githubMappingHooks";
-import { useLoadGithubClassroomDataQuery } from "../graderHooks";
-import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
-import { useAiChoiceQuery } from "../../home/hooks/generalAiHooks";
+  useGithubClassroomIdQuery,
+} from "../githubMappingHooks";
+import { useLoadGithubClassroomDataQuery } from "../../graderHooks";
+import { useCurrentCourse } from "../../../../components/contexts/CourseProvider";
+import { useAiChoiceQuery } from "../../../home/hooks/generalAiHooks";
 
 export const AssignGithubClassroomToCourse: React.FC<{
   courseId: number;
@@ -14,6 +15,7 @@ export const AssignGithubClassroomToCourse: React.FC<{
   const assignGithubClassroomMutation = useAssignGithubClassroomIdMutation();
   const removeGithubClassroomMutation = useRemoveGithubClassroomIdMutation();
   const { data: githubClassroomOptions } = useLoadGithubClassroomDataQuery();
+  const { data: assignedClassroom } = useGithubClassroomIdQuery(courseId);
 
   const { data: aiRecommendedClassroom } = useAiChoiceQuery({
     options: githubClassroomOptions?.map((c) => c.name) || [],
@@ -24,17 +26,19 @@ export const AssignGithubClassroomToCourse: React.FC<{
 
   return (
     <div className="space-y-1.5 max-h-80 overflow-y-auto">
-      <div className="flex justify-end">
-        <button
-          onClick={() => {
-            removeGithubClassroomMutation.mutate({ courseId });
-            onClick();
-          }}
-          className="unstyled text-left px-3 py-2 rounded text-sm transition-all hover:bg-red-900/30 border border-red-600/50 bg-red-900/40"
-        >
-          Unassign Classroom
-        </button>
-      </div>
+      {!assignedClassroom && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              removeGithubClassroomMutation.mutate({ courseId });
+              onClick();
+            }}
+            className="unstyled text-left px-3 py-2 rounded text-sm transition-all hover:bg-red-900/30 border border-red-600/50 bg-red-900/40"
+          >
+            Unassign Classroom
+          </button>
+        </div>
+      )}
       {githubClassroomOptions?.map((classroom) => (
         <button
           key={classroom.id}

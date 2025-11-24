@@ -26,7 +26,7 @@ import {
   AssignmentProvider,
   useCurrentAssignment,
 } from "../../components/contexts/AssignmentProvider";
-import { GithubClassroomSubmissionDownloader } from "./gitDownload/GithubClassroomSubmissionDownloader";
+import { GithubClassroomSubmissionDownloader } from "./gitDownload/assignment/GithubClassroomSubmissionDownloader";
 
 export const AssignmentGraderPage = () => {
   useLoadGithubClassroomDataQuery();

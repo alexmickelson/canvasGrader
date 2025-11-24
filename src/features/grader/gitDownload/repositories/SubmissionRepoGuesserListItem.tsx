@@ -1,158 +1,20 @@
 import type { FC } from "react";
-import { useState } from "react";
-import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
+import { useCurrentAssignment } from "../../../../components/contexts/AssignmentProvider";
 import {
   useAssignedStudentRepositoriesQuery,
   useGuessRepositoryFromSubmission,
   useSetAssignedStudentRepositoryMutation,
-} from "./githubMappingHooks";
-import Spinner from "../../../utils/Spinner";
-import { useSubmissionsQuery } from "../graderHooks";
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
-import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
-import type { ConversationMessage } from "../../../server/trpc/routers/rubricAI/rubricAiReportModels";
-import { ConversationHistory } from "../shared/ConversationHistory";
-import { Expandable } from "../../../utils/Expandable";
-import ExpandIcon from "../../../utils/ExpandIcon";
+  useRemoveStudentRepositoryMutation,
+} from "../githubMappingHooks";
+import Spinner from "../../../../utils/Spinner";
+import type { CanvasSubmission } from "../../../../server/trpc/routers/canvas/canvasModels";
+import { useCurrentCourse } from "../../../../components/contexts/CourseProvider";
+import type { ConversationMessage } from "../../../../server/trpc/routers/rubricAI/rubricAiReportModels";
+import { ConversationHistory } from "../../shared/ConversationHistory";
+import { Expandable } from "../../../../utils/Expandable";
+import ExpandIcon from "../../../../utils/ExpandIcon";
 
-export const OtherGitRepoStudentAssignments = () => {
-  const { assignmentId, assignmentName } = useCurrentAssignment();
-
-  const { data: canvasAssignmentSubmissions } = useSubmissionsQuery({
-    assignmentId,
-    assignmentName,
-  });
-
-  const {
-    data: { githubRepositories: assignedStudentRepositories },
-  } = useAssignedStudentRepositoriesQuery(assignmentId);
-
-  const [aiGuesses, setAiGuesses] = useState<
-    Record<
-      number,
-      {
-        url: string;
-        messages: ConversationMessage[] | null;
-        reason: string;
-      }
-    >
-  >({});
-
-  const [manualRepoUrls, setManualRepoUrls] = useState<Record<number, string>>(
-    {}
-  );
-
-  const aiGuessMutation = useGuessRepositoryFromSubmission();
-  const assignRepoMutation = useSetAssignedStudentRepositoryMutation();
-
-  const unassignedSubmissions = canvasAssignmentSubmissions.filter(
-    (submission) =>
-      !assignedStudentRepositories.some(
-        (repo) => repo.user_id === submission.user_id
-      )
-  );
-
-  const guessAllUnassigned = async () => {
-    await Promise.all(
-      unassignedSubmissions.map(async (submission) => {
-        const guessResult = await aiGuessMutation.mutateAsync({
-          assignmentId,
-          submisisonId: submission.id,
-          checkPreviousAssignments: true,
-        });
-
-        const guess = guessResult.result?.repoUrl
-          ? {
-              url: guessResult.result.repoUrl,
-              messages: guessResult.messages || null,
-              reason: guessResult.result.reason ?? "",
-            }
-          : { url: "null", messages: null, reason: "" };
-
-        setAiGuesses((prev) => ({
-          ...prev,
-          [submission.id]: guess,
-        }));
-      })
-    );
-  };
-
-  const assignAllGuesses = () => {
-    Object.entries(aiGuesses).forEach(([submissionIdStr, guess]) => {
-      if (guess.url && guess.url !== "null") {
-        const submission = canvasAssignmentSubmissions.find(
-          (s) => s.id === Number(submissionIdStr)
-        );
-        if (submission) {
-          assignRepoMutation.mutate({
-            assignmentId,
-            repoUrl: guess.url,
-            userId: submission.user_id,
-            repoPath: null,
-          });
-        }
-      }
-    });
-  };
-
-  const validGuessesCount = Object.values(aiGuesses).filter(
-    (guess) => guess.url && guess.url !== "null"
-  ).length;
-
-  return (
-    <div>
-      <div className="flex gap-2 mb-3">
-        {unassignedSubmissions.length > 0 && (
-          <button
-            className="unstyled px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            onClick={guessAllUnassigned}
-            disabled={aiGuessMutation.isPending}
-          >
-            Guess All Unassigned
-            {aiGuessMutation.isPending && <Spinner />}
-          </button>
-        )}
-        {validGuessesCount > 0 && (
-          <button
-            className="unstyled px-4 py-2 rounded bg-green-700 hover:bg-green-600 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            onClick={assignAllGuesses}
-            disabled={assignRepoMutation.isPending}
-          >
-            Assign All Guesses ({validGuessesCount})
-            {assignRepoMutation.isPending && <Spinner />}
-          </button>
-        )}
-      </div>
-      <ul
-        className={
-          "divide-y divide-gray-800 bg-gray-900 rounded border border-gray-700 my-3 " +
-          "max-h-[600px] overflow-auto"
-        }
-      >
-        {canvasAssignmentSubmissions.map((submission) => (
-          <SubmissionRepoGuesserListItem
-            key={submission.id}
-            submission={submission}
-            aiGuess={aiGuesses[submission.id]}
-            setAiGuess={(guess: {
-              url: string;
-              messages: ConversationMessage[] | null;
-              reason: string;
-            }) => setAiGuesses((prev) => ({ ...prev, [submission.id]: guess }))}
-            manualRepoUrl={manualRepoUrls[submission.id] || ""}
-            setManualRepoUrl={(url: string) =>
-              setManualRepoUrls((prev) => ({ ...prev, [submission.id]: url }))
-            }
-            aiGuessMutation={aiGuessMutation}
-            assignRepoMutation={assignRepoMutation}
-          />
-        ))}
-      </ul>
-    </div>
-  );
-};
-
-const SubmissionRepoGuesserListItem: FC<{
+export const SubmissionRepoGuesserListItem: FC<{
   submission: CanvasSubmission;
   aiGuess?: {
     url: string;
@@ -170,6 +32,7 @@ const SubmissionRepoGuesserListItem: FC<{
   assignRepoMutation: ReturnType<
     typeof useSetAssignedStudentRepositoryMutation
   >;
+  removeRepoMutation: ReturnType<typeof useRemoveStudentRepositoryMutation>;
 }> = ({
   submission,
   aiGuess,
@@ -178,6 +41,7 @@ const SubmissionRepoGuesserListItem: FC<{
   setManualRepoUrl,
   aiGuessMutation,
   assignRepoMutation,
+  removeRepoMutation,
 }) => {
   const { assignmentId } = useCurrentAssignment();
   const { courseId } = useCurrentCourse();
@@ -192,16 +56,45 @@ const SubmissionRepoGuesserListItem: FC<{
 
   if (assignedRepo) {
     return (
-      <li className="p-3 flex items-center justify-between">
+      <li className="p-3 flex items-center justify-between gap-2">
         <span className="text-gray-300">{submission.user.name}</span>
-        <a
-          href={assignedRepo.repo_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-blue-400/70 hover:text-blue-400 text-sm truncate max-w-md"
-        >
-          {assignedRepo.repo_url}
-        </a>
+        <div className="flex items-center gap-2 flex-1">
+          <a
+            href={assignedRepo.repo_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-400/70 hover:text-blue-400 text-sm truncate flex-1"
+          >
+            {assignedRepo.repo_url}
+          </a>
+          <button
+            onClick={() => {
+              removeRepoMutation.mutate({
+                userId: submission.user_id,
+                assignmentId,
+              });
+            }}
+            disabled={removeRepoMutation.isPending}
+            className="unstyled p-1.5 rounded-full hover:bg-red-900/30 text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+            title="Unassign repository"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </button>
+        </div>
       </li>
     );
   }

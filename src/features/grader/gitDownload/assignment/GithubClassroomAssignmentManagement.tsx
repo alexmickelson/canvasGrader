@@ -1,12 +1,12 @@
 import type { FC } from "react";
-import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
-import type { GithubClassroomCourse } from "../../../server/trpc/routers/github/gitModels";
-import { useGitHubClassroomAssignmentsQuery } from "../graderHooks";
+import { useCurrentAssignment } from "../../../../components/contexts/AssignmentProvider";
+import type { GithubClassroomCourse } from "../../../../server/trpc/routers/github/gitModels";
+import { useGitHubClassroomAssignmentsQuery } from "../../graderHooks";
 import {
   useAssignGithubClassroomAssignmentMutation,
   useRemoveGithubClassroomAssignmentMutation,
-} from "./githubMappingHooks";
-import { useAiChoiceQuery } from "../../home/hooks/generalAiHooks";
+} from "../githubMappingHooks";
+import { useAiChoiceQuery } from "../../../home/hooks/generalAiHooks";
 
 export const GithubClassroomAssignmentManagement: FC<{
   githubClassroom: GithubClassroomCourse;

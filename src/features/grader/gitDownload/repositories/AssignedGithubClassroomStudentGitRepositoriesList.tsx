@@ -1,8 +1,8 @@
 import { useState, type FC } from "react";
-import type { GithubClassroomAssignment } from "../../../server/trpc/routers/github/gitModels";
-import { useSubmissionsQuery } from "../graderHooks";
-import { useCurrentAssignment } from "../../../components/contexts/AssignmentProvider";
-import { SuspenseAndError } from "../../../utils/SuspenseAndError";
+import type { GithubClassroomAssignment } from "../../../../server/trpc/routers/github/gitModels";
+import { useSubmissionsQuery } from "../../graderHooks";
+import { useCurrentAssignment } from "../../../../components/contexts/AssignmentProvider";
+import { SuspenseAndError } from "../../../../utils/SuspenseAndError";
 import {
   useAssignedStudentRepositoriesQuery,
   useClassroomAssignmentGitUrlsQuery,
@@ -10,9 +10,9 @@ import {
   useRemoveAssignedStudentUsernameMutation,
   useSetAssignedStudentRepositoryMutation,
   useRemoveStudentRepositoryMutation,
-} from "./githubMappingHooks";
-import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
-import { StudentGithubUsernameAssignor } from "./StudentGithubUsernameAssignor";
+} from "../githubMappingHooks";
+import type { CanvasSubmission } from "../../../../server/trpc/routers/canvas/canvasModels";
+import { StudentGithubUsernameAssignor } from "../StudentGithubUsernameAssignor";
 
 export const AssignedGithubClassroomStudentGitRepositoriesList: FC<{
   githubClassroomAssignment: GithubClassroomAssignment;
