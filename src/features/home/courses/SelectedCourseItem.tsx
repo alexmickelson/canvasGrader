@@ -30,8 +30,8 @@ const SelectedCourseItem = ({ course }: { course: FavoriteCourse }) => {
     <div
       className={
         "flex items-center justify-between p-3 rounded-lg " +
-        "bg-linear-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 " +
-        "transition-all border border-slate-500 cursor-pointer"
+        "bg-linear-to-r from-slate-800 to-gray-900 hover:from-gray-800 hover:to-slate-700 " +
+        "transition-all border border-slate-500 cursor-pointer "
       }
       onClick={() => navigate(`/course/${course.id}`)}
       role="button"
@@ -54,7 +54,7 @@ const SelectedCourseItem = ({ course }: { course: FavoriteCourse }) => {
         disabled={isPending}
         className={
           "unstyled" +
-          " p-1.5 rounded-full text-red-300 hover:bg-slate-600 transition-colors"
+          " p-1.5 rounded-full text-red-500/50 hover:bg-slate-600 transition-colors"
         }
         title="Remove course"
       >

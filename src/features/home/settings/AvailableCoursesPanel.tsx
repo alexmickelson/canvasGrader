@@ -81,7 +81,7 @@ export const AvailableCoursesPanel: React.FC<{
     .sort((a, b) => b.sortTime - a.sortTime);
 
   return (
-    <div className=" rounded-lg shadow-lg p-4 border border-gray-700 min-h-0 flex flex-col">
+    <div className=" rounded-lg shadow-lg p-4 border border-gray-800 min-h-0 flex flex-col">
       <h3 className="font-semibold mb-3 text-gray-200">Track Course</h3>
       <CourseSearchPanel
         searchQuery={searchQuery}

@@ -8,7 +8,7 @@ export const SelectedCoursesPanel: React.FC<{
   isLoadingSettings: boolean;
 }> = ({ courses, isLoadingSettings }) => {
   return (
-    <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700 min-h-0 flex flex-col">
+    <div className=" rounded-lg shadow-lg p-4  min-h-0 flex flex-col">
       {isLoadingSettings ? (
         <div className="flex justify-center p-4">
           <Spinner className="text-blue-400" />

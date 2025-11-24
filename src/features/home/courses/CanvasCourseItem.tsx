@@ -35,9 +35,9 @@ const CanvasCourseItem = ({ course }: { course: CanvasCourse }) => {
   return (
     <li
       className={
-        "flex items-center " +
+        "flex items-center group " +
         "justify-between p-3 rounded-lg bg-gray-900 " +
-        "hover:from-gray-800 hover:to-gray-700 transition-all border border-gray-600"
+        "hover:from-gray-800 hover:to-gray-700 transition-all border border-gray-600 "
       }
     >
       <span className="font-medium truncate text-gray-200">{course.name}</span>
@@ -52,7 +52,7 @@ const CanvasCourseItem = ({ course }: { course: CanvasCourse }) => {
         className={`unstyled p-1.5 rounded-full ${
           isSelected
             ? "text-gray-500 cursor-not-allowed"
-            : "text-green-800 hover:scale-115"
+            : "text-green-800 group-hover:scale-115"
         } transition-all`}
         title="Add course"
       >
