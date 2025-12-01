@@ -1,4 +1,5 @@
 import { Modal } from "../../components/Modal";
+import { RecentAssignmentsToGrade } from "./recentAssignmentsToGrade/RecentAssignmentsToGrade";
 import { AvailableCoursesPanel } from "./settings/AvailableCoursesPanel";
 import { SelectedCoursesPanel } from "./settings/SelectedCoursesPanel";
 
@@ -24,6 +25,9 @@ export const Home = () => {
           >
             {({ close: _close }) => <AvailableCoursesPanel />}
           </Modal>
+        </div>
+        <div>
+          <RecentAssignmentsToGrade />
         </div>
       </div>
     </div>

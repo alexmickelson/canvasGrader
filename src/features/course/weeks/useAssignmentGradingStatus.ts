@@ -1,9 +1,7 @@
 import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 
-export const getAssignmentGradingStatus = (
-  submissions: CanvasSubmission[] | undefined
-) => {
-  if (!submissions || submissions.length === 0) {
+export const getAssignmentGradingStatus = (submissions: CanvasSubmission[]) => {
+  if (submissions.length === 0) {
     return {
       gradedCount: 0,
       totalCount: 0,

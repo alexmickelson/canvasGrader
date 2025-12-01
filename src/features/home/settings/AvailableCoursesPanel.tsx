@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Spinner from "../../../utils/Spinner";
-import CanvasCourseItem from "../courses/CanvasCourseItem";
+import { CanvasCourseItem } from "../courses/CanvasCourseItem";
 import type { CanvasCourse } from "../../../server/trpc/routers/canvas/canvasModels";
 import { CourseSearchPanel } from "./CourseSearchPanel";
 import { useFavoriteCoursesQuery } from "../settingsHooks";
@@ -82,7 +82,7 @@ const groupCoursesByTerm = (courses: CanvasCourse[]) => {
           year: "numeric",
         })
       : "";
-  return courses
+  const grouped = courses
     .filter((course) => course.term?.name !== "The End of Time")
     .reduce(
       (acc, course) => {
@@ -137,6 +137,7 @@ const groupCoursesByTerm = (courses: CanvasCourse[]) => {
         sortTime: number;
         courses: CanvasCourse[];
       }>
-    )
-    .sort((a, b) => b.sortTime - a.sortTime);
+    );
+  grouped.sort((a, b) => b.sortTime - a.sortTime);
+  return grouped;
 };

@@ -6,12 +6,10 @@ import {
   useUpdateSubmissionsMutation,
   useSubmissionsQuery,
 } from "../../grader/graderHooks";
-import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 
 export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;
 }> = ({ assignment }) => {
-  const { courseId } = useCurrentCourse();
   const fmt = (iso?: string | null) =>
     iso
       ? new Date(iso).toLocaleString(undefined, {
@@ -22,7 +20,7 @@ export const AssignmentListItem: FC<{
 
   return (
     <Link
-      to={`/course/${courseId}/assignment/${assignment.id}`}
+      to={`/course/${assignment.course_id}/assignment/${assignment.id}`}
       className={`
         block p-4 bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700 rounded-lg transition-colors
         w-96

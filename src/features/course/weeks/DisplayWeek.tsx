@@ -6,7 +6,6 @@ import type { useAssignmentGroups } from "./useAssignmentGroups";
 import type { CanvasAssignment } from "../../../server/trpc/routers/canvas/canvasModels";
 import { useSubmissionsQueries } from "../../grader/graderHooks";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
-import { useMemo } from "react";
 
 export const DisplayWeek: FC<{
   group: ReturnType<typeof useAssignmentGroups>[number];
@@ -15,28 +14,18 @@ export const DisplayWeek: FC<{
 }> = ({ group, hideGraded, assignments }) => {
   const submissionsQueries = useSubmissionsQueries(assignments);
 
-  const allGraded = useMemo(() => {
-    const allStatuses = group.items.map((_, index) => {
-      const query = submissionsQueries[index];
-      if (!query.data || query.isLoading || query.isError) {
-        return null;
-      }
-      const { status } = getAssignmentGradingStatus(query.data);
-      return status;
-    });
-
-    return allStatuses.every((status) => status === "graded");
-  }, [group.items, submissionsQueries]);
-
-  const hasVisibleAssignments = useMemo(() => {
-    if (hideGraded && allGraded) {
-      return false;
+  const allStatuses = group.items.map((_, index) => {
+    const query = submissionsQueries[index];
+    if (!query.data || query.isLoading || query.isError) {
+      return null;
     }
+    const { status } = getAssignmentGradingStatus(query.data);
+    return status;
+  });
 
-    return true;
-  }, [hideGraded, allGraded]);
+  const allGraded = allStatuses.every((status) => status === "graded");
 
-  if (!hasVisibleAssignments) {
+  if (hideGraded && allGraded) {
     return <></>;
   }
 

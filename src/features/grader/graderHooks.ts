@@ -47,6 +47,7 @@ export const useSubmissionsQueries = (
   });
 };
 
+
 export const useRubricQuery = (assignmentId: number) => {
   const trpc = useTRPC();
 

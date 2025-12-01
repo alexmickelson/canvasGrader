@@ -1,52 +1,55 @@
-import { useMemo } from "react";
 import type { CanvasAssignment } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const useAssignmentGroups = (
-  assignments?: CanvasAssignment[] | null
+  assignments: CanvasAssignment[]
 ) => {
-  return useMemo(() => {
-    if (!assignments) return [];
+  const getWeekKey = (iso?: string | null) => {
+    if (!iso) return "__nodue";
+    const d = new Date(iso);
+    // Normalize to start of week (Monday)
+    const day = (d.getDay() + 6) % 7; // Monday=0 .. Sunday=6
+    const weekStart = new Date(d);
+    weekStart.setDate(d.getDate() - day);
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart.toISOString();
+  };
 
-    const result: {
-      items: CanvasAssignment[];
-      key: string;
-      weekStart: Date | undefined;
-    }[] = [];
-    const map = new Map<
-      string,
-      { items: CanvasAssignment[]; key: string; weekStart: Date | undefined }
-    >();
+  return assignments.reduce(
+    (acc, assignment) => {
+      const key = getWeekKey(assignment.due_at);
+      const existingIndex = acc.findIndex((g) => g.key === key);
 
-    const getWeekKey = (iso?: string | null) => {
-      if (!iso) return "__nodue";
-      const d = new Date(iso);
-      // Normalize to start of week (Monday)
-      const day = (d.getDay() + 6) % 7; // Monday=0 .. Sunday=6
-      const weekStart = new Date(d);
-      weekStart.setDate(d.getDate() - day);
-      weekStart.setHours(0, 0, 0, 0);
-      return weekStart.toISOString();
-    };
+      if (existingIndex >= 0) {
+        return acc.map((g, i) =>
+          i === existingIndex ? { ...g, items: [...g.items, assignment] } : g
+        );
+      }
 
-    for (const a of assignments) {
-      const key = getWeekKey(a.due_at);
-      if (!map.has(key)) {
-        map.set(key, {
+      return [
+        ...acc,
+        {
           key,
           weekStart: key === "__nodue" ? undefined : new Date(key),
-          items: [],
-        });
-      }
-      map.get(key)!.items.push(a);
+          items: [assignment],
+        },
+      ];
+    },
+    [] as {
+      items: CanvasAssignment[] ;
+      key: string;
+      weekStart: Date | undefined;
+    }[]
+  ).sort((a, b) => {
+    if (a.weekStart && b.weekStart) {
+      return a.weekStart.getTime() - b.weekStart.getTime();
     }
-
-    // Keep order consistent with assignments (which should already be sorted)
-    for (const a of assignments) {
-      const key = getWeekKey(a.due_at);
-      const g = map.get(key)!;
-      if (!result.includes(g)) result.push(g);
+    if (a.weekStart && !b.weekStart) {
+      return -1;
     }
-
-    return result;
-  }, [assignments]);
+    if (!a.weekStart && b.weekStart) {
+      return 1;
+    }
+    return 0;
+  })
+  .reverse();
 };

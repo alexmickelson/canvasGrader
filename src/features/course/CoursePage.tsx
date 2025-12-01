@@ -85,7 +85,7 @@ export const CourseAssignments = () => {
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
 
-  const groups = useAssignmentGroups(filtered);
+  const assignmentsByWeek = useAssignmentGroups(filtered);
 
   return (
     <div className="mt-4">
@@ -113,7 +113,7 @@ export const CourseAssignments = () => {
       </div>
 
       <div className="">
-        {groups.map((group) => (
+        {assignmentsByWeek.map((group) => (
           <DisplayWeek
             key={group.key}
             group={group}

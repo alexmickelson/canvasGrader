@@ -7,15 +7,13 @@ import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 export const ConditionalAssignmentItem: FC<{
   assignment: CanvasAssignment;
   hideGraded: boolean;
-}> = ({ assignment, hideGraded }) => {
-  const { data: submissions, isLoading } = useSubmissionsQuery({
+}> = ({ assignment, hideGraded,  }) => {
+  const { data: submissions } = useSubmissionsQuery({
     assignmentId: assignment.id,
     assignmentName: assignment.name,
   });
 
-  const { status } = isLoading
-    ? { status: "loading" as const }
-    : getAssignmentGradingStatus(submissions);
+  const { status } = getAssignmentGradingStatus(submissions);
 
   // If hideGraded is true and the assignment is graded, don't render it
   if (hideGraded && status === "graded") {
@@ -23,5 +21,5 @@ export const ConditionalAssignmentItem: FC<{
     return null;
   }
 
-  return <AssignmentListItem assignment={assignment} />;
+  return <AssignmentListItem assignment={assignment}  />;
 };
