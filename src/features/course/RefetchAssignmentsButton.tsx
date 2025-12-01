@@ -1,4 +1,4 @@
-import { useRefreshAssignmentsMutation } from "./canvasAssignmentHooks";
+import { useRefreshAssignmentsMutation } from "../../utils/canvas/canvasAssignmentHooks";
 import Spinner from "../../utils/Spinner";
 import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 

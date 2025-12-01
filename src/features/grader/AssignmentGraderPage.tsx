@@ -5,8 +5,8 @@ import { SubmissionDetailsWrapper } from "./submission/SubmissionDetails";
 import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
 import { AssignmentName } from "./AssignmentName";
 import { SubmissionsList } from "./SubmissionsList";
-import { useAssignmentsQuery } from "../course/canvasAssignmentHooks";
-import { useCanvasCoursesQuery } from "../home/hooks/canvasHooks";
+import { useAssignmentsQuery } from "../../utils/canvas/canvasAssignmentHooks";
+import { useCanvasCoursesQuery } from "../../utils/canvas/canvasHooks";
 import { ViewingItemProvider } from "./shared/viewingItemContext/ViewingItemContext";
 import {
   useUpdateSubmissionsMutation,
@@ -136,7 +136,7 @@ const InnerAssignmentPage = () => {
 
   return (
     <div className="p-4 text-gray-200 h-screen w-screen flex flex-col">
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <h1 className="text-xl font-semibold">
           Grade <AssignmentName />
         </h1>
@@ -197,7 +197,7 @@ const InnerAssignmentPage = () => {
                 flex flex-col
           `}
             >
-              <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0 min-h-0">
+              <div className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0 min-h-0">
                 <div className="flex items-center gap-3">
                   <div id="submission-details-title" className="truncate">
                     {selected ? userName(selected) : ""}

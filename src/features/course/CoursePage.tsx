@@ -1,12 +1,12 @@
 import type { FC } from "react";
 import { useState } from "react";
 import { useParams } from "react-router";
-import { useAssignmentsQuery } from "./canvasAssignmentHooks";
-import { useAssignmentGroups } from "./useAssignmentGroups";
+import { useAssignmentsQuery } from "../../utils/canvas/canvasAssignmentHooks";
+import { useAssignmentGroups } from "./weeks/useAssignmentGroups";
 import { CourseNameDisplay } from "../../components/CourseNameDisplay";
 import { Toggle } from "../../components/Toggle";
-import { DisplayWeek } from "./DisplayWeek";
-import { useCanvasCoursesQuery } from "../home/hooks/canvasHooks";
+import { DisplayWeek } from "./weeks/DisplayWeek";
+import { useCanvasCoursesQuery } from "../../utils/canvas/canvasHooks";
 import { CourseProvider } from "../../components/contexts/CourseProvider";
 import { RefetchAssignmentsButton } from "./RefetchAssignmentsButton";
 import { RefreshUngradedSubmissionsButton } from "./RefreshUngradedSubmissionsButton";

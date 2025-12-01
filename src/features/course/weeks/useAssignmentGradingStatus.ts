@@ -1,4 +1,4 @@
-import type { CanvasSubmission } from "../../server/trpc/routers/canvas/canvasModels";
+import type { CanvasSubmission } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const getAssignmentGradingStatus = (
   submissions: CanvasSubmission[] | undefined

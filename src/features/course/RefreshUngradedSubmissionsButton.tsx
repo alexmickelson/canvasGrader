@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { useCurrentCourse } from "../../components/contexts/CourseProvider";
 import { useTRPC } from "../../server/trpc/trpcClient";
 import { useUpdateSubmissionsMutation } from "../grader/graderHooks";
-import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
-import { useAssignmentsQuery } from "./canvasAssignmentHooks";
+import { getAssignmentGradingStatus } from "./weeks/useAssignmentGradingStatus";
+import { useAssignmentsQuery } from "../../utils/canvas/canvasAssignmentHooks";
 
 export const RefreshUngradedSubmissionsButton = () => {
   const { data: assignments } = useAssignmentsQuery();

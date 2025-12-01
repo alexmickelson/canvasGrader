@@ -27,14 +27,17 @@ export const Modal: FC<{
       {isOpen &&
         createPortal(
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 "
             onClick={close}
           >
             <div
-              className={`bg-gray-800 rounded-lg shadow-xl ${widthClasses[width]} w-full mx-4`}
+              className={
+                `bg-gray-800 rounded-lg shadow-xl ${widthClasses[width]} mx-4 max-h-screen min-h-0 ` +
+                `flex flex-col`
+              }
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <div className={"flex items-center justify-between p-4 border-b border-gray-700"}>
                 <h2 className="text-lg font-semibold">{title}</h2>
                 <button
                   onClick={close}
@@ -57,7 +60,7 @@ export const Modal: FC<{
                   </svg>
                 </button>
               </div>
-              <div className="p-4">{children({ isOpen, close })}</div>
+              <div className="flex-1 ">{children({ isOpen, close })}</div>
             </div>
           </div>,
           document.getElementById("modal-root")!

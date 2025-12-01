@@ -31,3 +31,5 @@ storage/
 .env
 temp/
 result/
+
+.pnpm-store/

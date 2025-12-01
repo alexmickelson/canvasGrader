@@ -3,7 +3,7 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useTRPC } from "../../../server/trpc/trpcClient";
+import { useTRPC } from "../../server/trpc/trpcClient";
 
 export const useFavoriteCoursesQuery = () => {
   const trpc = useTRPC();

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
+import type { CanvasAssignment } from "../../../server/trpc/routers/canvas/canvasModels";
 
 export const useAssignmentGroups = (
   assignments?: CanvasAssignment[] | null

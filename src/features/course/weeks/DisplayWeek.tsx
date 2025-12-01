@@ -1,10 +1,10 @@
 import type { FC } from "react";
-import { Expandable } from "../../utils/Expandable";
-import ExpandIcon from "../../utils/ExpandIcon";
+import { Expandable } from "../../../utils/Expandable";
+import ExpandIcon from "../../../utils/ExpandIcon";
 import { ConditionalAssignmentItem } from "./ConditionalAssignmentItem";
 import type { useAssignmentGroups } from "./useAssignmentGroups";
-import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
-import { useSubmissionsQueries } from "../grader/graderHooks";
+import type { CanvasAssignment } from "../../../server/trpc/routers/canvas/canvasModels";
+import { useSubmissionsQueries } from "../../grader/graderHooks";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 import { useMemo } from "react";
 

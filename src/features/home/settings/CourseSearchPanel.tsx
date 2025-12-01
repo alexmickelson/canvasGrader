@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useRefreshCanvasCoursesQuery } from "../hooks/canvasHooks";
+import { useRefreshCanvasCoursesQuery } from "../../../utils/canvas/canvasHooks";
 
 const SearchIcon = () => (
   <svg

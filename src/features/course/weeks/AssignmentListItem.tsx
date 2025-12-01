@@ -1,12 +1,12 @@
 import type { FC } from "react";
 import { Link } from "react-router";
-import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
+import type { CanvasAssignment } from "../../../server/trpc/routers/canvas/canvasModels";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 import {
   useUpdateSubmissionsMutation,
   useSubmissionsQuery,
-} from "../grader/graderHooks";
-import { useCurrentCourse } from "../../components/contexts/CourseProvider";
+} from "../../grader/graderHooks";
+import { useCurrentCourse } from "../../../components/contexts/CourseProvider";
 
 export const AssignmentListItem: FC<{
   assignment: CanvasAssignment;

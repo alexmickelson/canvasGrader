@@ -3,7 +3,7 @@ import Spinner from "../../../utils/Spinner";
 import {
   useFavoriteCoursesQuery,
   useAddFavoriteCourseMutation,
-} from "../hooks/settingsHooks";
+} from "../settingsHooks";
 
 // SVG Add Icon (self-contained)
 const AddIcon = () => (

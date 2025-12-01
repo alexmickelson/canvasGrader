@@ -1,6 +1,6 @@
 import type { FavoriteCourse } from "../settings/SelectedCoursesPanel";
 import Spinner from "../../../utils/Spinner";
-import { useRemoveFavoriteCourseMutation } from "../hooks/settingsHooks";
+import { useRemoveFavoriteCourseMutation } from "../settingsHooks";
 import { useNavigate } from "react-router";
 
 const RemoveIcon = () => (

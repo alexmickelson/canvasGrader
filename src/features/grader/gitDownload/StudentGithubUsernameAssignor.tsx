@@ -4,7 +4,7 @@ import {
   useGithubStudentUsernames,
   useStoreGithubStudentUsername,
 } from "./githubMappingHooks";
-import { useAiChoiceQuery } from "../../home/hooks/generalAiHooks";
+import { useAiChoiceQuery } from "../generalAiHooks";
 
 export const StudentGithubUsernameAssignor: FC<{
   githubClassroomAssignmentId: number;

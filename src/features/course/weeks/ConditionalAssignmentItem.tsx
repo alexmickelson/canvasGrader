@@ -1,6 +1,6 @@
 import type { FC } from "react";
-import type { CanvasAssignment } from "../../server/trpc/routers/canvas/canvasModels";
-import { useSubmissionsQuery } from "../grader/graderHooks";
+import type { CanvasAssignment } from "../../../server/trpc/routers/canvas/canvasModels";
+import { useSubmissionsQuery } from "../../grader/graderHooks";
 import { AssignmentListItem } from "./AssignmentListItem";
 import { getAssignmentGradingStatus } from "./useAssignmentGradingStatus";
 
@@ -23,9 +23,5 @@ export const ConditionalAssignmentItem: FC<{
     return null;
   }
 
-  return (
-    <AssignmentListItem
-      assignment={assignment}
-    />
-  );
+  return <AssignmentListItem assignment={assignment} />;
 };
