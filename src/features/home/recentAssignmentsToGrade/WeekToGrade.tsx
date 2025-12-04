@@ -34,16 +34,29 @@ export const WeekToGrade: FC<{
   if (hideGraded && allGraded) {
     return <></>;
   }
+
+  const totalSubmisissions = fullAssignmentsWithStatus
+    .map((fa) => fa.statusInfo.totalCount)
+    .reduce((a, b) => a + b, 0);
+  const gradedSubmissions = fullAssignmentsWithStatus
+    .map((fa) => fa.statusInfo.gradedCount)
+    .reduce((a, b) => a + b, 0);
+  const percentComplete =
+    totalSubmisissions === 0
+      ? 0
+      : Math.round((gradedSubmissions / totalSubmisissions) * 100);
+
   return (
     <Expandable
-      defaultExpanded={!allGraded}
+      defaultExpanded={false}
       ExpandableElement={({ setIsExpanded, isExpanded }) => (
         <div
           className={`
-                p-2 text-sm flex cursor-pointer group
+                p-2 text-sm cursor-pointer group
                 text-gray-500  transition-all hover:text-gray-200
                 font-medium text-end 
-                border-b-2 border-slate-800 
+                border-b-2 border-slate-800
+                flex flex-row gap-4 items-center justify-end
               `}
           role="button"
           onClick={() => setIsExpanded((e) => !e)}
@@ -51,6 +64,7 @@ export const WeekToGrade: FC<{
           <span className="transition-transform group-hover:scale-105 ">
             {headerLabel}
           </span>
+          <div>{percentComplete}% graded</div>
           <ExpandIcon
             style={{
               ...(isExpanded ? { rotate: "-90deg" } : {}),
@@ -62,6 +76,7 @@ export const WeekToGrade: FC<{
       <div className="flex gap-4 flex-wrap p-4 pt-2">
         {fullAssignmentsWithStatus.map((fullAssignment) => (
           <LocalAssignmentListItem
+            key={fullAssignment.assignment.id}
             assignment={fullAssignment.assignment}
             hideGraded={hideGraded}
             statusInfo={fullAssignment.statusInfo}

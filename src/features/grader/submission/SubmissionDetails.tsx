@@ -67,7 +67,7 @@ export const SubmissionDetails: FC<{
           />
         </div>
         <div className="flex-1 flex flex-col min-h-0">
-          <div className={`space-y-4  flex flex-row w-full min-h-0`}>
+          <div className={`space-x-4 flex flex-row w-full min-h-0 h-full`}>
             <SubmissionFileExplorer
               assignmentId={submission.assignment_id}
               assignmentName={assignmentName}

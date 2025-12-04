@@ -34,8 +34,7 @@ export const RecentAssignmentsToGrade = () => {
   const assignmentsByWeek = useAssignmentGroups(filtered);
   return (
     <div className="">
-      <div>
-        <Toggle
+        {/* <Toggle
           label="hide graded assignments"
           value={hideGraded}
           onChange={setHideGraded}
@@ -44,7 +43,7 @@ export const RecentAssignmentsToGrade = () => {
           label="hide future assignments"
           value={hideFuture}
           onChange={setHideFuture}
-        />
+        /> */}
         {assignmentsByWeek.map((group) => (
           <WeekToGrade
             key={group.key}
@@ -53,7 +52,6 @@ export const RecentAssignmentsToGrade = () => {
             assignments={group.items}
           />
         ))}
-      </div>
     </div>
   );
 };

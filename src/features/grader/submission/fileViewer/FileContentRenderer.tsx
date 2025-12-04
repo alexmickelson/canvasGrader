@@ -2,11 +2,6 @@ import type { FC } from "react";
 import Spinner from "../../../../utils/Spinner";
 import { TextFileRenderer } from "./TextFileRenderer";
 
-// Get file extension and determine file type
-const getFileExtension = (path: string): string => {
-  return path.split(".").pop()?.toLowerCase() || "";
-};
-
 export const FileContentRenderer: FC<{
   fileType: "pdf" | "image" | "text" | "unknown";
   fileName: string;
@@ -127,4 +122,7 @@ export const FileContentRenderer: FC<{
       Failed to load file content
     </div>
   );
+};
+const getFileExtension = (path: string): string => {
+  return path.split(".").pop()?.toLowerCase() || "";
 };

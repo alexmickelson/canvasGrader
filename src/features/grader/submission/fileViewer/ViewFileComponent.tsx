@@ -2,6 +2,62 @@ import type { FC } from "react";
 import { useFileContentQuery } from "./fileViewerHooks";
 import { FileContentRenderer } from "./FileContentRenderer";
 
+
+export const ViewFileComponent: FC<{
+  assignmentId: number;
+  assignmentName: string;
+  studentName: string;
+  termName: string;
+  courseName: string;
+  filePath: string;
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+}> = ({
+  assignmentId,
+  assignmentName,
+  studentName,
+  termName,
+  courseName,
+  filePath,
+  startLine,
+  startColumn,
+  endLine,
+  endColumn,
+}) => {
+  const fileType = getFileType(filePath);
+  const fileName = filePath.split("/").pop() || "Unknown file";
+
+  const {
+    data: fileData,
+    isLoading,
+    error,
+  } = useFileContentQuery({
+    assignmentId,
+    assignmentName,
+    studentName,
+    termName,
+    courseName,
+    filePath,
+  });
+
+  return (
+    <FileContentRenderer
+      fileType={fileType}
+      fileName={fileName}
+      filePath={filePath}
+      fileData={fileData}
+      isLoading={isLoading}
+      error={error}
+      startLine={startLine}
+      startColumn={startColumn}
+      endLine={endLine}
+      endColumn={endColumn}
+    />
+  );
+};
+
 // Get file extension and determine file type
 const getFileExtension = (path: string): string => {
   return path.split(".").pop()?.toLowerCase() || "";
@@ -66,59 +122,4 @@ const getFileType = (path: string): "pdf" | "image" | "text" | "unknown" => {
 
   // For unknown extensions, default to text to attempt loading as text
   return "text";
-};
-
-export const ViewFileComponent: FC<{
-  assignmentId: number;
-  assignmentName: string;
-  studentName: string;
-  termName: string;
-  courseName: string;
-  filePath: string;
-  startLine?: number;
-  startColumn?: number;
-  endLine?: number;
-  endColumn?: number;
-}> = ({
-  assignmentId,
-  assignmentName,
-  studentName,
-  termName,
-  courseName,
-  filePath,
-  startLine,
-  startColumn,
-  endLine,
-  endColumn,
-}) => {
-  const fileType = getFileType(filePath);
-  const fileName = filePath.split("/").pop() || "Unknown file";
-
-  const {
-    data: fileData,
-    isLoading,
-    error,
-  } = useFileContentQuery({
-    assignmentId,
-    assignmentName,
-    studentName,
-    termName,
-    courseName,
-    filePath,
-  });
-
-  return (
-    <FileContentRenderer
-      fileType={fileType}
-      fileName={fileName}
-      filePath={filePath}
-      fileData={fileData}
-      isLoading={isLoading}
-      error={error}
-      startLine={startLine}
-      startColumn={startColumn}
-      endLine={endLine}
-      endColumn={endColumn}
-    />
-  );
 };
