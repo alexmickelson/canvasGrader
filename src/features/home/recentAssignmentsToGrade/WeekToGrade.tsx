@@ -52,12 +52,12 @@ export const WeekToGrade: FC<{
       ExpandableElement={({ setIsExpanded, isExpanded }) => (
         <div
           className={`
-                p-2 text-sm cursor-pointer group
-                text-gray-500  transition-all hover:text-gray-200
-                font-medium text-end 
-                border-b-2 border-slate-800
-                flex flex-row gap-4 items-center justify-end
-              `}
+            p-2 text-sm cursor-pointer group
+            text-gray-500  transition-all hover:text-gray-200
+            font-medium text-end 
+            border-b-2 border-slate-800
+            flex flex-row gap-4 items-center justify-end
+          `}
           role="button"
           onClick={() => setIsExpanded((e) => !e)}
         >
