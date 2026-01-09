@@ -1,9 +1,11 @@
 services:
   app:
     container_name: cavnas_ai_app
-    image: node:20
+    image: node:24
     volumes:
       - ./:/app
+      - storage:/app/storage
+      - /app/node_modules
     working_dir: /app
     ports:
       - 5556:5556
@@ -24,6 +26,7 @@ services:
     volumes:
       - ./:/app
       - live_project:/live_project
+      - app_node_modules:/app/node_modules
     environment:
       - GH_TOKEN=${GH_TOKEN} # get from `gh auth token`
       - POSTGRES_USER=canvasuser
@@ -92,3 +95,5 @@ services:
 volumes:
   live_project:
   postgres_data:
+  app_node_modules:
+  storage:

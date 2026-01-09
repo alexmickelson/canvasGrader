@@ -6,9 +6,6 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [
     react({
-      babel: {
-        plugins: ["babel-plugin-react-compiler"],
-      },
     }),
     tailwindcss(),
   ],
@@ -19,8 +16,21 @@ export default defineConfig({
       },
     },
     watch: {
-      ignored: ["**/temp/**", "**/storage/**", "environments/**"],
+      ignored: [
+        "**/node_modules/**",
+        "**/temp/**",
+        "**/storage/**",
+        "**/dist/**",
+        "**/dist-server/**",
+        "**/.git/**",
+      ],
     },
+    fs: {
+      strict: false,
+    },
+  },
+  optimizeDeps: {
+    exclude: ["storage", "temp", "dist-server",  ],
   },
   clearScreen: false,
 });
