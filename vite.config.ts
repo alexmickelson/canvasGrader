@@ -4,11 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-    }),
-    tailwindcss(),
-  ],
+  plugins: [react({}), tailwindcss()],
   server: {
     proxy: {
       "/trpc": {
@@ -22,6 +18,7 @@ export default defineConfig({
         "**/storage/**",
         "**/dist/**",
         "**/dist-server/**",
+        "**/.pnpm-store/**",
         "**/.git/**",
       ],
     },
@@ -30,7 +27,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["storage", "temp", "dist-server",  ],
+    exclude: ["storage", "temp", "dist-server", ".pnpm-store"],
   },
   clearScreen: false,
 });

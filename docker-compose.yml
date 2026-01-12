@@ -5,7 +5,6 @@ services:
     volumes:
       - ./:/app
       - storage:/app/storage
-      - /app/node_modules
     working_dir: /app
     ports:
       - 5556:5556
