@@ -268,7 +268,7 @@ export async function transcribeSubmissionAttachments(
           console.log(`Saved transcription to: ${transcriptionPath}`);
           return {
             index,
-            // fileName,
+            fileName,
             transcription,
           };
         } catch (error) {

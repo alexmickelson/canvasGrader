@@ -17,6 +17,7 @@ const canvasBaseUrl =
 const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
 
 export const imageDescriptionXMLTag = "descriptionOfImage";
+export const attachedPDFXMLTag = "attachedPDF";
 
 export function ensureDir(dirPath: string) {
   if (!fs.existsSync(dirPath)) {
@@ -34,7 +35,7 @@ export function getCourseDirectory({
   const baseDir = path.join(
     storageDirectory,
     sanitizeName(termName),
-    sanitizeName(courseName)
+    sanitizeName(courseName),
   );
   ensureDir(baseDir);
   return baseDir;
@@ -53,11 +54,11 @@ export function getAssignmentDirectory({
   const baseDir = path.join(
     storageDirectory,
     sanitizeName(termName),
-    sanitizeName(courseName)
+    sanitizeName(courseName),
   );
   const assignDir = path.join(
     baseDir,
-    sanitizeName(`${assignmentId} - ${assignmentName}`)
+    sanitizeName(`${assignmentId} - ${assignmentName}`),
   );
   ensureDir(assignDir);
   return assignDir;
@@ -81,7 +82,7 @@ export function getSubmissionDirectory({
     sanitizeName(termName),
     sanitizeName(courseName),
     sanitizeName(`${assignmentId} - ${assignmentName}`),
-    sanitizeName(studentName)
+    sanitizeName(studentName),
   );
   ensureDir(submissionDir);
   return submissionDir;
@@ -108,13 +109,15 @@ export function replaceMarkdownImagesWithTranscriptions(
   markdown: string,
   transcriptions: {
     index: number;
+    fileName: string;
     transcription: string;
-  }[]
+  }[],
 ): string {
   const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
   const imagesFromMarkdown = Array.from(markdown.matchAll(imageRegex));
 
   let newMarkdown = markdown;
+  const appended: string[] = [];
   transcriptions.forEach((result) => {
     if (result && result.transcription) {
       const image = imagesFromMarkdown[result.index];
@@ -123,9 +126,17 @@ export function replaceMarkdownImagesWithTranscriptions(
         const imageUrl = image[2];
         const replacement = `![<${imageDescriptionXMLTag}>${result.transcription}</${imageDescriptionXMLTag}>](${imageUrl})`;
         newMarkdown = newMarkdown.replace(fullMatch, replacement);
+      } else if (result.index >= 0 && result.index < transcriptions.length) {
+        // If not found in markdown, append at the end
+        // No imageUrl available, just append the transcription as a block
+        const replacement = `<${attachedPDFXMLTag} filename="${result.fileName}">${result.transcription}</${attachedPDFXMLTag}>`;
+        appended.push(replacement);
       }
     }
   });
+  if (appended.length > 0) {
+    newMarkdown = `${newMarkdown}\n\n${appended.join("\n\n")}`;
+  }
   return newMarkdown;
 }
 
@@ -155,7 +166,7 @@ export async function transcribeSubmissionImages(
   courseId: number,
   assignmentId: number,
   submissions: CanvasSubmission[],
-  assignmentName: string
+  assignmentName: string,
 ): Promise<void> {
   try {
     const { courseName, termName } = await getCourseMeta(courseId);
@@ -169,11 +180,18 @@ export async function transcribeSubmissionImages(
           const parsedSubmission = parseSchema(
             CanvasSubmissionSchema,
             submission,
-            "CanvasSubmission"
+            "CanvasSubmission",
           );
 
           const markdown = convertHtmlToMarkdown(parsedSubmission.body ?? "");
           const images = extractAttachmentsFromMarkdown(markdown);
+          const storedAttachments = getStoredAttachments({
+            termName,
+            courseName,
+            assignmentId,
+            assignmentName,
+            studentName: userName,
+          });
           const imagesWithPaths = await dowloadSubmissionAttachments(images, {
             termName,
             courseName,
@@ -182,21 +200,24 @@ export async function transcribeSubmissionImages(
             studentName: userName,
           });
 
+          const allAttachments = [...imagesWithPaths, ...storedAttachments];
+
+          console.log("transcribing these", allAttachments);
+
           const transcriptions = await transcribeSubmissionAttachments(
-            imagesWithPaths,
+            allAttachments,
             {
               termName,
               courseName,
               assignmentId,
               assignmentName,
               studentName: userName,
-            }
+            },
           );
 
-          // Replace images in markdown with transcriptions
           const newMarkdown = replaceMarkdownImagesWithTranscriptions(
             markdown,
-            transcriptions
+            transcriptions,
           );
 
           // Store the updated markdown
@@ -211,16 +232,16 @@ export async function transcribeSubmissionImages(
           fs.writeFileSync(submissionMdPath, newMarkdown, "utf8");
           console.log(
             "Updated submission.md with transcriptions:",
-            submissionMdPath
+            submissionMdPath,
           );
         } catch (err) {
           console.warn(
             "Failed to write submission.json for user",
             submission.user_id,
-            err
+            err,
           );
         }
-      })
+      }),
     );
   } catch (err) {
     console.warn("Failed to persist submissions to storage", err);
@@ -230,7 +251,7 @@ export async function transcribeSubmissionImages(
 export async function persistRubricToStorage(
   courseId: number,
   assignmentId: number,
-  rubric: CanvasRubric
+  rubric: CanvasRubric,
 ) {
   try {
     const { courseName, termName } = await getCourseMeta(courseId);
@@ -238,7 +259,7 @@ export async function persistRubricToStorage(
       `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}`,
       {
         headers: canvasRequestOptions.headers,
-      }
+      },
     );
     const assignmentName = assignment?.name || `Assignment ${assignmentId}`;
 
@@ -272,7 +293,7 @@ export function storeSubmissionMarkdown(
     assignmentId: number;
     assignmentName: string;
     studentName: string;
-  }
+  },
 ): string {
   if (!submission.body || !submission.body.trim()) {
     console.log("No submission body to convert to markdown");
@@ -294,4 +315,39 @@ export function storeSubmissionMarkdown(
   fs.writeFileSync(submissionMdPath, markdown, "utf8");
   console.log("Saved submission.md to:", submissionMdPath);
   return markdown;
+}
+
+export function getStoredAttachments({
+  termName,
+  courseName,
+  assignmentId,
+  assignmentName,
+  studentName,
+}: {
+  termName: string;
+  courseName: string;
+  assignmentId: number;
+  assignmentName: string;
+  studentName: string;
+}): { title: string; url: string; filePath: string }[] {
+  // Look for PDFs in the submission directory (attachments)
+  const submissionDir = getSubmissionDirectory({
+    termName,
+    courseName,
+    assignmentId,
+    assignmentName,
+    studentName,
+  });
+  if (!fs.existsSync(submissionDir)) return [];
+  const files = fs.readdirSync(submissionDir + "/attachments");
+  console.log("checking files", files);
+  return files
+    .map((file) => {
+      const filePath = path.join(submissionDir, "attachments", file);
+      return {
+        title: file,
+        url: "",
+        filePath,
+      };
+    });
 }
