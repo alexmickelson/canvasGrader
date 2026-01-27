@@ -17,7 +17,11 @@ import {
   storeSubmissionMarkdown,
 } from "../../canvasStorageUtils.js";
 import path from "path";
-import { storeAttachments, storeSubmissions } from "./assignmentDbUtils.js";
+import {
+  deleteOtherSubmissions,
+  storeAttachments,
+  storeSubmissions,
+} from "./assignmentDbUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -74,7 +78,7 @@ export const fetchAndStoreSingleSubmissionByIdFromCanvas = async (
   termName: string,
   courseName: string,
   assignmentName: string,
-  studentName: string
+  studentName: string,
 ): Promise<CanvasSubmission> => {
   const submissionUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
 
@@ -88,7 +92,7 @@ export const fetchAndStoreSingleSubmissionByIdFromCanvas = async (
   const parsedSubmission = parseSchema(
     CanvasSubmissionSchema,
     submission,
-    "CanvasSubmission"
+    "CanvasSubmission",
   );
   await storeSubmissions([parsedSubmission]);
   storeSubmissionMarkdown(parsedSubmission, {
@@ -124,15 +128,16 @@ export const fetchAndStoreSubmissionsFromCanvas = async ({
   });
 
   const parsedSubmissions = submissions.map((submission) =>
-    parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission")
+    parseSchema(CanvasSubmissionSchema, submission, "CanvasSubmission"),
   );
 
   // Filter out submissions from Test Student
   const filteredSubmissions = parsedSubmissions.filter(
-    (s) => s.user?.name !== "Test Student"
+    (s) => s.user?.name !== "Test Student",
   );
 
   await storeSubmissions(filteredSubmissions);
+  await deleteOtherSubmissions(filteredSubmissions); // if somebody has dropped the class, don't show their submission
 
   filteredSubmissions.map((s) =>
     storeSubmissionMarkdown(s, {
@@ -141,7 +146,7 @@ export const fetchAndStoreSubmissionsFromCanvas = async ({
       assignmentId,
       assignmentName,
       studentName: s.user.name,
-    })
+    }),
   );
 
   await Promise.all(
@@ -154,7 +159,7 @@ export const fetchAndStoreSubmissionsFromCanvas = async ({
         assignmentName,
         submission,
       });
-    })
+    }),
   );
   return filteredSubmissions;
 };

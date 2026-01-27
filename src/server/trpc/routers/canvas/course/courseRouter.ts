@@ -5,23 +5,14 @@ import {
   canvasRequestOptions,
 } from "../canvasServiceUtils.js";
 import {
-  ensureDir,
-  sanitizeName,
-  getCourseMeta,
-} from "../canvasStorageUtils.js";
-import { parseSchema } from "../../parseSchema.js";
-import { axiosClient } from "../../../../../utils/axiosUtils.js";
-import fs from "fs";
-import path from "path";
-import {
-  CanvasEnrollmentSchema,
   type CanvasCourse,
   CanvasCourseSchema,
   CanvasSubmissionSchema,
-  type CanvasEnrollment,
 } from "../canvasModels.js";
 import { rateLimitAwareGet } from "../canvasRequestUtils.js";
 import { getAllCourses, storeCourses } from "./canvasCourseDbUtils.js";
+import { axiosClient } from "../../../../../utils/axiosUtils.js";
+import { parseSchema } from "../../parseSchema.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -32,78 +23,7 @@ if (!canvasToken) {
   );
 }
 
-const storageDirectory = process.env.STORAGE_DIRECTORY || "./storage";
-
 export const courseRouter = createTRPCRouter({
-  getCourseEnrollments: publicProcedure
-    .input(z.object({ courseId: z.coerce.number() }))
-    .query(async ({ input }) => {
-      const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/enrollments?per_page=100`;
-      const enrollments = await paginatedRequest<unknown[]>({ url });
-      const parsed = enrollments.map((e) =>
-        parseSchema(CanvasEnrollmentSchema, e, "CanvasEnrollment")
-      );
-      // Store in storage/term/courseName/enrollments.json
-      const { courseName, termName } = await getCourseMeta(input.courseId);
-      const enrollmentsPath = path.join(
-        storageDirectory,
-        sanitizeName(termName),
-        sanitizeName(courseName),
-        "enrollments.json"
-      );
-      ensureDir(path.dirname(enrollmentsPath));
-      fs.writeFileSync(
-        enrollmentsPath,
-        JSON.stringify(parsed, null, 2),
-        "utf8"
-      );
-      return parsed;
-    }),
-
-  // List enrollments from enrollments.json
-  listCourseEnrollments: publicProcedure
-    .input(z.object({ courseId: z.coerce.number() }))
-    .query(async ({ input }): Promise<CanvasEnrollment[]> => {
-      const { courseName, termName } = await getCourseMeta(input.courseId);
-      const enrollmentsPath = path.join(
-        storageDirectory,
-        sanitizeName(termName),
-        sanitizeName(courseName),
-        "enrollments.json"
-      );
-      if (!fs.existsSync(enrollmentsPath)) {
-        // File not present: fetch from Canvas and persist to storage, then return
-        const url = `${canvasBaseUrl}/api/v1/courses/${input.courseId}/enrollments?per_page=100`;
-        const enrollments = await paginatedRequest<unknown[]>({ url });
-        const parsed = enrollments.map((e) =>
-          parseSchema(CanvasEnrollmentSchema, e, "CanvasEnrollment")
-        );
-        ensureDir(path.dirname(enrollmentsPath));
-        fs.writeFileSync(
-          enrollmentsPath,
-          JSON.stringify(parsed, null, 2),
-          "utf8"
-        );
-        return parsed;
-      }
-
-      const data = fs.readFileSync(enrollmentsPath, "utf8");
-      try {
-        return JSON.parse(data);
-      } catch (error) {
-        console.error("Failed to parse enrollments file as JSON:", {
-          enrollmentsPath,
-          error: error,
-          data: data.substring(0, 500),
-        });
-        throw new Error(
-          `Failed to parse enrollments file as JSON: ${enrollmentsPath}. Error: ${error}. Data: ${data.substring(
-            0,
-            500
-          )}...`
-        );
-      }
-    }),
   getCourses: publicProcedure.query(async (): Promise<CanvasCourse[]> => {
     // Check if courses are already in the database
     const dbCourses = await getAllCourses();
