@@ -1,4 +1,5 @@
 import z from "zod";
+import { ConversationMessageSchema } from "../generalAi/generalAiModels";
 
 // Evidence formatting requirements for AI prompts
 export const evidenceSchemaPrompt = `EVIDENCE FORMATTING REQUIREMENTS:
@@ -101,51 +102,6 @@ export const EvaluationMetadataSchema = z.object({
 });
 
 export type EvaluationMetadata = z.infer<typeof EvaluationMetadataSchema>;
-
-// Schema for tool calls in conversation messages
-export const ToolCallSchema = z.object({
-  id: z.string().optional(),
-  type: z.string().optional(),
-  function: z
-    .object({
-      name: z.string(),
-      arguments: z.string().optional(),
-    })
-    .optional(),
-});
-
-export type ToolCall = z.infer<typeof ToolCallSchema>;
-
-// Schema for conversation messages (internal domain model)
-export const ConversationMessageSchema = z.object({
-  role: z.enum(["system", "user", "assistant", "tool"]),
-  content: z
-    .union([
-      z.string(),
-      z.array(
-        z.object({
-          type: z.enum(["text", "image_url"]),
-          text: z.string().optional(),
-          image_url: z
-            .object({
-              base64: z.string().describe("Base64 encoded image data"),
-              mediaType: z
-                .string()
-                .optional()
-                .describe("MIME type of the image (e.g., 'image/png')"),
-            })
-            .nullable()
-            .optional(),
-        })
-      ),
-    ])
-    .nullable()
-    .optional(),
-  tool_calls: z.array(ToolCallSchema).optional(),
-  tool_call_id: z.string().optional(),
-});
-
-export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
 
 // Schema for full evaluation data
 export const FullEvaluationSchema = z.object({

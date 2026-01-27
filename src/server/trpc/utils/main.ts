@@ -8,7 +8,7 @@ import { githubClassroomRouter } from "../routers/github/githubClassroomRouter.j
 import { attachmentsRouter } from "../routers/canvas/attachmentsRouter.js";
 import { assignmentsRouter } from "../routers/canvas/course/assignment/assignmentsRouter.js";
 import { createTRPCRouter } from "./trpc.js";
-import { generalAiRouter } from "../routers/generalAiRouter.js";
+import { generalAiRouter } from "../routers/generalAi/generalAiRouter.js";
 
 export const appRouter = createTRPCRouter({
   settings: settingsRouter,

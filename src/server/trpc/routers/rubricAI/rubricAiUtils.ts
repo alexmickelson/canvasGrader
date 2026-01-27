@@ -13,7 +13,6 @@ import {
   AnalysisResultSchema,
   type FullEvaluation,
   FullEvaluationSchema,
-  type ConversationMessage,
   evidenceSchemaPrompt,
   type AnalyzeRubricCriterionResponse,
   AnalyzeRubricCriterionResponseSchema,
@@ -31,6 +30,7 @@ import {
 } from "../../../../utils/aiUtils/extractTextFromImages";
 import { storeRubricCriterionAnalysis } from "./rubricAiDbUtils";
 import { getAssignment } from "../canvas/course/assignment/assignmentDbUtils";
+import type { ConversationMessage } from "../generalAi/generalAiModels";
 
 // Helper functions to convert between domain model and OpenAI types
 export function toOpenAIMessage(

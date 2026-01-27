@@ -64,7 +64,7 @@ export const FileContentRenderer: FC<{
         <img
           src={`data:${fileData.mimeType};base64,${fileData.content}`}
           alt={fileName}
-          className="max-w-full max-h-96 mx-auto rounded border border-gray-700"
+          className="max-w-full mx-auto rounded border border-gray-700"
         />
       </div>
     );

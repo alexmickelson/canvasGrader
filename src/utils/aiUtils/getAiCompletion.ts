@@ -1,6 +1,5 @@
 import { zodFunction, zodResponseFormat } from "openai/helpers/zod.mjs";
 import type z from "zod";
-import type { ConversationMessage } from "../../server/trpc/routers/rubricAI/rubricAiReportModels";
 import {
   toOpenAIMessage,
   fromOpenAIMessage,
@@ -8,6 +7,7 @@ import {
 import type { AiTool } from "./createAiTool";
 import { aiModel, getOpenaiClient } from "./getOpenaiClient";
 import { enqueueJob, type QueueJob } from "./AiQueue";
+import type { ConversationMessage } from "../../server/trpc/routers/generalAi/generalAiModels";
 
 const ratelimtBackoff = 1000 * 15;
 const MAX_RETRIES = 10;

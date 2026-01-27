@@ -27,6 +27,7 @@ import {
   useCurrentAssignment,
 } from "../../components/contexts/AssignmentProvider";
 import { GithubClassroomSubmissionDownloader } from "./gitDownload/assignment/GithubClassroomSubmissionDownloader";
+import { AssignmentChat } from "./AssignmentChat";
 
 export const AssignmentGraderPage = () => {
   useLoadGithubClassroomDataQuery();
@@ -256,6 +257,11 @@ const InnerAssignmentPage = () => {
                     courseId={Number(courseId)}
                   />
                 )}
+                {
+                  !selected && (
+                    <AssignmentChat />
+                  )
+                }
               </div>
             </div>
           </div>

@@ -129,11 +129,12 @@ db.none(
 
 
   -- not used yet...
-  CREATE TABLE IF NOT EXISTS ai_conversations(
-    id SERIAL PRIMARY KEY,
-    conversation_type TEXT NOT NULL,
+  CREATE TABLE IF NOT EXISTS ai_conversations (
+    conversation_key TEXT PRIMARY KEY,
+    conversation_type TEXT NOT NULL, -- used to tell how to parse conversation result
     related_id BIGINT,
-    conversation_object JSONB NOT NULL
+    conversation_messages JSONB NOT NULL,
+    conversation_result JSONB
   );
 `
 ).catch((err) => {
