@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import pdf2pic from "pdf2pic";
 import { getAiCompletion } from "./getAiCompletion";
-import type { ConversationMessage } from "../../server/trpc/routers/rubricAI/rubricAiReportModels";
+import type { ConversationMessage } from "../../server/trpc/routers/generalAi/generalAiModels";
 
 const imageModel = process.env.AI_IMAGE_MODEL || "";
 
@@ -16,7 +16,7 @@ export interface PageTranscription {
 export async function storeTranscriptionPage(
   pdfPath: string,
   pageNumber: number,
-  transcription: string
+  transcription: string,
 ) {
   try {
     const pdfBasename = path.basename(pdfPath, ".pdf");
@@ -28,7 +28,7 @@ export async function storeTranscriptionPage(
   } catch (writeError) {
     console.warn(
       `Could not save markdown file for page ${pageNumber}:`,
-      writeError
+      writeError,
     );
   }
 }
@@ -38,7 +38,7 @@ async function transcribeImageWithAI(
   base64Image: string,
   mediaType: string,
   imageName: string,
-  userPrompt: string
+  userPrompt: string,
 ): Promise<string> {
   try {
     console.log(`Transcribing: ${imageName}`);
@@ -89,8 +89,8 @@ Use clearly marked headings to separate sections of the transcription.
       typeof response.content === "string"
         ? response.content
         : Array.isArray(response.content)
-        ? response.content.find((item) => item.type === "text")?.text
-        : undefined;
+          ? response.content.find((item) => item.type === "text")?.text
+          : undefined;
 
     if (aiResponse) {
       console.log(`Successfully transcribed: ${imageName}`);
@@ -98,7 +98,7 @@ Use clearly marked headings to separate sections of the transcription.
     } else {
       console.warn(`No transcription received for: ${imageName}`);
       throw new Error(
-        `No transcription received from AI service for: ${imageName} ${mediaType}`
+        `No transcription received from AI service for: ${imageName} ${mediaType}`,
       );
     }
   } catch (error) {
@@ -120,39 +120,47 @@ export async function extractTextFromImage(imagePath: string): Promise<string> {
       ext === ".png"
         ? "image/png"
         : ext === ".jpg" || ext === ".jpeg"
-        ? "image/jpeg"
-        : ext === ".gif"
-        ? "image/gif"
-        : ext === ".webp"
-        ? "image/webp"
-        : "image/png";
+          ? "image/jpeg"
+          : ext === ".gif"
+            ? "image/gif"
+            : ext === ".webp"
+              ? "image/webp"
+              : "image/png";
 
     // Use shared transcription logic
     return await transcribeImageWithAI(
       base64Image,
       mediaType,
       path.basename(imagePath),
-      "Please transcribe this image."
+      "Please transcribe this image.",
     );
   } catch (error) {
     console.error(`Error processing image ${imagePath}:`, error);
     throw new Error(
-      `[Error: Failed to process image: ${path.basename(imagePath)}]`
+      `[Error: Failed to process image: ${path.basename(imagePath)}]`,
     );
   }
 }
 
 // Helper function to extract text from PDF files using AI vision, returning array of transcriptions
 export async function extractTextFromPdf(
-  pdfPath: string
+  pdfPath: string,
 ): Promise<PageTranscription[]> {
   try {
+    // Create a random temporary directory in /tmp
+    const tempDir = path.join(
+      "/tmp",
+      `pdf-convert-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    );
+    fs.mkdirSync(tempDir, { recursive: true });
+    console.log(`Created temporary directory: ${tempDir}`);
+
     // Convert PDF to PNG images using pdf2pic with aspect ratio preservation
     const pdfBasename = path.basename(pdfPath, ".pdf");
     const convert = pdf2pic.fromPath(pdfPath, {
       density: 150,
       saveFilename: `${pdfBasename}-page`,
-      savePath: path.dirname(pdfPath),
+      savePath: tempDir,
       format: "png",
       height: 1024,
     });
@@ -180,7 +188,7 @@ export async function extractTextFromPdf(
         base64Png,
         "image/png",
         `${pngFileName} (page ${pageNumber})`,
-        `Please transcribe this page (${pageNumber}) from a PDF document.`
+        `Please transcribe this page (${pageNumber}) from a PDF document.`,
       );
 
       if (transcription && !transcription.startsWith("[Error:")) {
@@ -190,14 +198,22 @@ export async function extractTextFromPdf(
           pngFileName,
         });
         console.log(
-          `Successfully transcribed page ${pageNumber}: ${pngFileName}`
+          `Successfully transcribed page ${pageNumber}: ${pngFileName}`,
         );
       } else {
         console.warn(`Failed to transcribe page ${pageNumber}: ${pngFileName}`);
       }
+    }
 
-      // Keep the PNG file instead of deleting it
-      console.log(`Converted page ${pageNumber} to: ${pngFileName}`);
+    // Clean up the temporary directory
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      console.log(`Cleaned up temporary directory: ${tempDir}`);
+    } catch (cleanupError) {
+      console.warn(
+        `Could not clean up temporary directory: ${tempDir}`,
+        cleanupError,
+      );
     }
 
     return pageTranscriptions;
@@ -211,11 +227,11 @@ export async function extractTextFromPdf(
 // Helper function to combine page transcriptions into a single string (for backward compatibility)
 export function combinePageTranscriptions(
   pdfPath: string,
-  pageTranscriptions: PageTranscription[]
+  pageTranscriptions: PageTranscription[],
 ): string {
   if (pageTranscriptions.length === 0) {
     return `[Error: No transcription received from AI service for PDF: ${path.basename(
-      pdfPath
+      pdfPath,
     )}]`;
   }
 
@@ -223,7 +239,7 @@ export function combinePageTranscriptions(
   const combinedPages = pageTranscriptions
     .map(
       (page) =>
-        `=== Page ${page.pageNumber} (${page.pngFileName}) ===\n${page.transcription}`
+        `=== Page ${page.pageNumber} (${page.pngFileName}) ===\n${page.transcription}`,
     )
     .join("\n\n");
 
@@ -234,6 +250,6 @@ export function combinePageTranscriptions(
     .join("\n");
 
   return `=== PDF Transcription (${path.basename(
-    pdfPath
+    pdfPath,
   )}) ===\n${numberedText}`;
 }

@@ -2,9 +2,6 @@ import { parseSchema } from "../../../parseSchema.js";
 import {
   canvasRequestOptions,
   paginatedRequest,
-  downloadAllAttachmentsUtil,
-  downloadCommentAttachments,
-  downloadEmbeddedAttachments,
 } from "../../canvasServiceUtils.js";
 import {
   type CanvasSubmission,
@@ -22,6 +19,11 @@ import {
   storeAttachments,
   storeSubmissions,
 } from "./assignmentDbUtils.js";
+import {
+  downloadAllAttachmentsUtil,
+  downloadCommentAttachments,
+  downloadEmbeddedAttachments,
+} from "./canvasSubmissionAttachmentUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -64,10 +66,12 @@ async function storeSubmissionAttachments({
       downloadEmbeddedAttachments(submission, attachmentsDir),
     ]);
 
+  console.log("embedded attachments", submission.user.name, embeddedFiles);
+
   await Promise.all([
-    storeAttachments(submissionAttachments, "uploaded"),
-    storeAttachments(commentAttachments, "comment"),
-    storeAttachments(embeddedFiles, "embedded"),
+    storeAttachments(submissionAttachments),
+    storeAttachments(commentAttachments),
+    storeAttachments(embeddedFiles),
   ]);
 }
 

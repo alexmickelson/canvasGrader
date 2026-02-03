@@ -14,7 +14,7 @@ export const useAssignmentsQuery = () => {
   const trpc = useTRPC();
   const { courseId } = useCurrentCourse();
   return useSuspenseQuery(
-    trpc.canvas.assignments.getAssignmentsInCourse.queryOptions({ courseId })
+    trpc.canvas.assignments.getAssignmentsInCourse.queryOptions({ courseId }),
   );
 };
 
@@ -28,8 +28,27 @@ export const useRefreshAssignmentsMutation = () => {
           queryKey: trpc.canvas.assignments.getAssignmentsInCourse.queryKey(),
         });
       },
-    })
+    }),
   );
+};
+
+export const useDeleteAllCourseDataMutation = () => {
+  const { courseId, courseName, termName } = useCurrentCourse();
+  const queryClient = useQueryClient();
+  const trpc = useTRPC();
+  const mutation = useMutation(
+    trpc.canvas.course.deleteCourseData.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries();
+      },
+    }),
+  );
+
+  return {
+    ...mutation,
+    mutate: () => mutation.mutate({ courseId, courseName, termName }),
+    mutateAsync: () => mutation.mutateAsync({ courseId, courseName, termName }),
+  };
 };
 
 export const useAssignmentsFromAllCoursesQuery = () => {
@@ -44,7 +63,7 @@ export const useAssignmentsFromAllCoursesQuery = () => {
         },
         {
           select: (data) => ({ courseId: course.id, assignments: data }),
-        }
+        },
       );
     }),
   });
@@ -59,7 +78,7 @@ export const useFullAssignmentDataQuery = (assignments: CanvasAssignment[]) => {
       if (!course) {
         console.log(courses);
         throw new Error(
-          `Course with ID ${assignment.course_id} not found for assignment ${assignment.id}`
+          `Course with ID ${assignment.course_id} not found for assignment ${assignment.id}`,
         );
       }
       return {
@@ -77,7 +96,7 @@ export const useFullAssignmentDataQuery = (assignments: CanvasAssignment[]) => {
               assignment,
               submissions: data,
             }),
-          }
+          },
         ),
       };
     }),

@@ -22,7 +22,7 @@ if (!dbName) {
 }
 
 export const db = pgp(
-  `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`
+  `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`,
 );
 
 db.$config.options.error = (err, e) => {
@@ -47,14 +47,14 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS assignments (
     id BIGINT UNIQUE NOT NULL,
-    course_id BIGINT NOT NULL,
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     canvas_object JSONB NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS enrollments (
     id BIGINT UNIQUE NOT NULL,
-    course_id BIGINT NOT NULL,
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     user_id BIGINT NOT NULL,
     canvas_object JSONB NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -62,7 +62,7 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS submissions (
     id BIGINT UNIQUE NOT NULL,
-    assignment_id BIGINT NOT NULL,
+    assignment_id BIGINT NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
     user_id BIGINT NOT NULL,
     canvas_object JSONB NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -70,20 +70,21 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS submission_attachments (
     id BIGINT UNIQUE NOT NULL,
-    submission_id BIGINT NOT NULL,
+    submission_id BIGINT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
     type TEXT NOT NULL,
-    filepath TEXT NOT NULL
+    filepath TEXT NOT NULL,
+    ai_transcription TEXT
   );
 
   CREATE TABLE IF NOT EXISTS favorite_courses (
-    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    course_id BIGINT REFERENCES courses(id) ON DELETE CASCADE NOT NULL,
     name TEXT NOT NULL,
     UNIQUE(course_id)
   );
 
   -- github classroom tables
   CREATE TABLE IF NOT EXISTS github_student_usernames (
-    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    course_id BIGINT REFERENCES courses(id) ON DELETE CASCADE NOT NULL,
     user_id BIGINT NOT NULL,
     github_username TEXT,
     UNIQUE(course_id, user_id)
@@ -91,7 +92,7 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS github_classroom_courses (
     github_classroom_id BIGINT UNIQUE NOT NULL,
-    course_id BIGINT REFERENCES courses(id) NOT NULL,
+    course_id BIGINT REFERENCES courses(id) ON DELETE CASCADE NOT NULL,
     name TEXT not null,
     url TEXT not null,
     UNIQUE(github_classroom_id, course_id)
@@ -99,8 +100,8 @@ db.none(
 
   CREATE TABLE IF NOT EXISTS github_classroom_assignments (
     github_classroom_assignment_id BIGINT UNIQUE NOT NULL,
-    assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
-    github_classroom_id BIGINT NOT NULL references github_classroom_courses(github_classroom_id),
+    assignment_id BIGINT REFERENCES assignments(id) ON DELETE CASCADE NOT NULL,
+    github_classroom_id BIGINT NOT NULL REFERENCES github_classroom_courses(github_classroom_id) ON DELETE CASCADE,
     name TEXT not null,
     UNIQUE(github_classroom_assignment_id, assignment_id)
   );
@@ -108,7 +109,7 @@ db.none(
   CREATE TABLE IF NOT EXISTS submission_git_repository (
     id SERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    assignment_id BIGINT REFERENCES assignments(id) NOT NULL,
+    assignment_id BIGINT REFERENCES assignments(id) ON DELETE CASCADE NOT NULL,
     repo_url TEXT NOT NULL,
     repo_path TEXT,
     UNIQUE(user_id, assignment_id)
@@ -117,13 +118,13 @@ db.none(
   CREATE TABLE IF NOT EXISTS rubric_criterion_analysis (
     id SERIAL PRIMARY KEY,
     rubric_criterion_id text NOT NULL,
-    submission_id BIGINT REFERENCES submissions(id) NOT NULL,
+    submission_id BIGINT REFERENCES submissions(id) ON DELETE CASCADE NOT NULL,
     evaluation_object JSONB NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS submission_ai_tasks (
     id SERIAL PRIMARY KEY,
-    submission_id BIGINT REFERENCES submissions(id) NOT NULL,
+    submission_id BIGINT REFERENCES submissions(id) ON DELETE CASCADE NOT NULL,
     task_object JSONB NOT NULL
   );
 
@@ -136,7 +137,7 @@ db.none(
     conversation_messages JSONB NOT NULL,
     conversation_result JSONB
   );
-`
+`,
 ).catch((err) => {
   console.error("Error creating tables:", err);
 });

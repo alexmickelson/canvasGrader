@@ -10,16 +10,21 @@ import {
   CanvasSubmissionSchema,
 } from "../canvasModels.js";
 import { rateLimitAwareGet } from "../canvasRequestUtils.js";
-import { getAllCourses, storeCourses } from "./canvasCourseDbUtils.js";
+import {
+  deleteAllCourseData,
+  getAllCourses,
+  storeCourses,
+} from "./canvasCourseDbUtils.js";
 import { axiosClient } from "../../../../../utils/axiosUtils.js";
 import { parseSchema } from "../../parseSchema.js";
+import { deleteCourseDirectory } from "../canvasStorageUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
 const canvasToken = process.env.CANVAS_TOKEN;
 if (!canvasToken) {
   throw new Error(
-    "Canvas token is not set. Please set the CANVAS_TOKEN environment variable."
+    "Canvas token is not set. Please set the CANVAS_TOKEN environment variable.",
   );
 }
 
@@ -30,7 +35,7 @@ export const courseRouter = createTRPCRouter({
 
     if (dbCourses.length > 0) {
       console.log(
-        `Found ${dbCourses.length} courses in database, skipping Canvas API call`
+        `Found ${dbCourses.length} courses in database, skipping Canvas API call`,
       );
       return dbCourses;
     }
@@ -64,7 +69,7 @@ export const courseRouter = createTRPCRouter({
       const filteredCourses = courses
         .filter((course) => !course.access_restricted_by_date)
         .map((course) =>
-          parseSchema(CanvasCourseSchema, course, "CanvasCourse")
+          parseSchema(CanvasCourseSchema, course, "CanvasCourse"),
         );
 
       // Store courses in database
@@ -72,8 +77,21 @@ export const courseRouter = createTRPCRouter({
 
       console.log(`Successfully refreshed ${filteredCourses.length} courses`);
       return filteredCourses;
-    }
+    },
   ),
+
+  deleteCourseData: publicProcedure
+    .input(
+      z.object({
+        courseId: z.coerce.number(),
+        termName: z.string(),
+        courseName: z.string(),
+      }),
+    )
+    .mutation(async ({ input: { courseId, termName, courseName } }) => {
+      deleteCourseDirectory({ termName, courseName });
+      await deleteAllCourseData(courseId);
+    }),
 
   gradeSubmissionWithRubric: publicProcedure
     .input(
@@ -91,10 +109,10 @@ export const courseRouter = createTRPCRouter({
             rating_id: z.string().optional(),
             points: z.number().optional(),
             comments: z.string().optional(),
-          })
+          }),
         ),
         comment: z.string().optional(),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       const { courseId, assignmentId, studentId, rubricAssessment, comment } =
@@ -111,7 +129,7 @@ export const courseRouter = createTRPCRouter({
         // Calculate total points from rubric assessment
         const totalPoints = Object.values(rubricAssessment).reduce(
           (sum, criterion) => sum + (criterion.points || 0),
-          0
+          0,
         );
 
         console.log(`Calculated total points: ${totalPoints}`);
@@ -143,14 +161,14 @@ export const courseRouter = createTRPCRouter({
                   }),
                   ...(assessment.comments && { comments: assessment.comments }),
                 },
-              ]
-            )
+              ],
+            ),
           ),
         };
 
         console.log(
           "Sending combined submission and rubric data to Canvas API:",
-          JSON.stringify(submissionData, null, 2)
+          JSON.stringify(submissionData, null, 2),
         );
 
         // Use the correct Canvas API endpoint: PUT /courses/:course_id/assignments/:assignment_id/submissions/:user_id
@@ -164,21 +182,21 @@ export const courseRouter = createTRPCRouter({
             params: {
               include: ["user", "rubric_assessment"],
             },
-          }
+          },
         );
 
         console.log(
           "Canvas submission API response status:",
-          submissionResponse.status
+          submissionResponse.status,
         );
         console.log(
           "Canvas submission API response data:",
-          JSON.stringify(submissionResponse.data, null, 2)
+          JSON.stringify(submissionResponse.data, null, 2),
         );
 
         // Refetch the submission to get complete data including user information
         console.log(
-          "Refetching submission data to include user information..."
+          "Refetching submission data to include user information...",
         );
         const refetchUrl = `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${studentId}`;
         const refetchResponse = await rateLimitAwareGet(refetchUrl, {
@@ -192,7 +210,7 @@ export const courseRouter = createTRPCRouter({
         const updatedSubmission = parseSchema(
           CanvasSubmissionSchema,
           refetchResponse.data,
-          "CanvasSubmission"
+          "CanvasSubmission",
         );
 
         console.log("✅ Successfully graded submission");
@@ -215,7 +233,7 @@ export const courseRouter = createTRPCRouter({
             };
             console.error(
               "Canvas API error status:",
-              axiosError.response.status
+              axiosError.response.status,
             );
             console.error("Canvas API error data:", axiosError.response.data);
           }
@@ -224,7 +242,7 @@ export const courseRouter = createTRPCRouter({
         throw new Error(
           `Failed to grade submission: ${
             error instanceof Error ? error.message : String(error)
-          }`
+          }`,
         );
       }
     }),
@@ -236,7 +254,7 @@ export const courseRouter = createTRPCRouter({
         assignmentId: z.number(),
         userId: z.number(),
         comment: z.string().min(1, "Comment cannot be empty"),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       const { courseId, assignmentId, userId, comment } = input;
@@ -271,7 +289,7 @@ export const courseRouter = createTRPCRouter({
         throw new Error(
           `Failed to submit comment: ${
             error instanceof Error ? error.message : String(error)
-          }`
+          }`,
         );
       }
     }),

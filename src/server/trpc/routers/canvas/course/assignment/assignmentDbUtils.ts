@@ -2,8 +2,10 @@ import { db } from "../../../../../services/dbUtils.js";
 import {
   CanvasAssignmentSchema,
   CanvasSubmissionSchema,
+  SubmissionAttachmentSchema,
   type CanvasAssignment,
   type CanvasSubmission,
+  type SubmissionAttachment,
 } from "../../canvasModels.js";
 import { parseSchema } from "../../../parseSchema.js";
 
@@ -153,24 +155,25 @@ export async function deleteOtherSubmissions(submissions: CanvasSubmission[]) {
 }
 
 export async function storeAttachments(
-  attachments: Array<{ id: number; submissionId: number; filepath: string }>,
-  type: "embedded" | "uploaded" | "comment",
+  attachments: Array<SubmissionAttachment>,
 ) {
   const queries = attachments.map((attachment) =>
     db.none(
       `
-      INSERT INTO submission_attachments (id, submission_id, filepath, type)
-      VALUES ($<id>, $<submissionId>, $<filepath>, $<type>)
+      INSERT INTO submission_attachments (id, submission_id, filepath, type, ai_transcription)
+      VALUES ($<id>, $<submission_id>, $<filepath>, $<type>, $<ai_transcription>)
       ON CONFLICT (id) 
       DO UPDATE SET 
         submission_id = EXCLUDED.submission_id,
-        filepath = EXCLUDED.filepath
+        filepath = EXCLUDED.filepath,
+        ai_transcription = EXCLUDED.ai_transcription
       `,
       {
         id: attachment.id,
-        submissionId: attachment.submissionId,
+        submission_id: attachment.submission_id,
         filepath: attachment.filepath,
-        type,
+        type: attachment.type,
+        ai_transcription: attachment.ai_transcription || null,
       },
     ),
   );
@@ -178,12 +181,16 @@ export async function storeAttachments(
   await Promise.all(queries);
 }
 
-export async function getSubmissionAttachments(submissionId: number) {
-  const results = await db.manyOrNone<{ id: number; filepath: string }>(
-    `SELECT id, filepath 
+export async function getSubmissionAttachments(
+  submissionId: number,
+): Promise<SubmissionAttachment[]> {
+  const results = await db.manyOrNone(
+    `SELECT id, submission_id, filepath, type, ai_transcription
     FROM submission_attachments 
     WHERE submission_id = $<submissionId>`,
     { submissionId },
   );
-  return results;
+  return results.map((r) =>
+    parseSchema(SubmissionAttachmentSchema, r, "SubmissionAttachment from DB"),
+  );
 }

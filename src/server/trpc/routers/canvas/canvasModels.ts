@@ -103,7 +103,7 @@ export const CanvasSubmissionCommentSchema = z.object({
         media_entry_id: z.string().nullable().optional(),
         category: z.string().nullable().optional(),
         locked_for_user: z.boolean().nullable().optional(),
-      })
+      }),
     )
     .nullable()
     .optional(),
@@ -126,7 +126,7 @@ export const CanvasRubricAssessmentSchema = z.record(
     rating_id: z.string().nullable().optional(),
     comments: z.string().nullable().optional(),
     points: z.number().optional(),
-  })
+  }),
 );
 
 export const CanvasSubmissionSchema = z.object({
@@ -222,7 +222,7 @@ export const CanvasSubmissionSchema = z.object({
         display_name: z.string().optional(),
         content_type: z.string().optional(),
         url: z.string(),
-      })
+      }),
     )
     .optional(),
 });
@@ -240,7 +240,7 @@ export const CanvasRubricCriterionSchema = z.object({
       description: z.string().optional(),
       long_description: z.string().optional(),
       points: z.number(),
-    })
+    }),
   ),
 });
 
@@ -265,3 +265,13 @@ export type CanvasSubmissionComment = z.infer<
 export type CanvasRubricAssessment = z.infer<
   typeof CanvasRubricAssessmentSchema
 >;
+
+export const SubmissionAttachmentSchema = z.object({
+  id: z.coerce.number(),
+  submission_id: z.coerce.number(),
+  filepath: z.string(),
+  type: z.enum(["embedded", "uploaded", "comment"]),
+  ai_transcription: z.string().nullable().optional(),
+});
+
+export type SubmissionAttachment = z.infer<typeof SubmissionAttachmentSchema>;

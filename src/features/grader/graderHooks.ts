@@ -25,12 +25,12 @@ export const useSubmissionsQuery = ({
       assignmentName,
       termName,
       courseName,
-    })
+    }),
   );
 };
 
 export const useSubmissionsQueries = (
-  assignments: Array<{ id: number; name: string }>
+  assignments: Array<{ id: number; name: string }>,
 ) => {
   const { courseName, courseId, termName } = useCurrentCourse();
   const trpc = useTRPC();
@@ -47,7 +47,6 @@ export const useSubmissionsQueries = (
   });
 };
 
-
 export const useRubricQuery = (assignmentId: number) => {
   const trpc = useTRPC();
 
@@ -56,7 +55,7 @@ export const useRubricQuery = (assignmentId: number) => {
     trpc.canvas.assignments.getAssignmentRubric.queryOptions({
       courseId,
       assignmentId,
-    })
+    }),
   );
 };
 
@@ -70,7 +69,7 @@ export const useGitHubClassroomMutation = () => {
           queryKey: trpc.fileViewer.listStudentFiles.queryKey(),
         });
       },
-    })
+    }),
   );
 };
 
@@ -85,7 +84,7 @@ export const useAiAnalysisMutation = () => {
           queryKey: trpc.rubricAiReport.getAllEvaluations.queryKey(),
         });
       },
-    })
+    }),
   );
 };
 
@@ -98,7 +97,7 @@ export const useAllEvaluationsQuery = ({
   return useQuery(
     trpc.rubricAiReport.getAllEvaluations.queryOptions({
       submissionId,
-    })
+    }),
   );
 };
 
@@ -107,7 +106,7 @@ export const useLoadGithubClassroomDataQuery = () => {
   const trpc = useTRPC();
 
   const classroomsQuery = useQuery(
-    trpc.githubClassroom.getClassrooms.queryOptions()
+    trpc.githubClassroom.getClassrooms.queryOptions(),
   );
 
   // Use useQueries to fetch assignments for all classrooms in parallel
@@ -155,7 +154,7 @@ export const useUpdateSubmissionsMutation = () => {
           courseName,
           termName,
           ...variables,
-        }
+        },
       );
     },
     onSuccess: (_, { assignmentId }) => {
@@ -174,7 +173,7 @@ export const useUntranscribedImageCountQuery = (assignmentId: number) => {
   return useSuspenseQuery(
     trpc.canvas.attachments.countUntranscribedImages.queryOptions({
       assignmentId,
-    })
+    }),
   );
 };
 
@@ -212,4 +211,13 @@ export const useTranscribeSubmissionImagesMutation = () => {
       });
     },
   });
+};
+
+export const useAttachmentsQuery = (submissionId: number) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.canvas.attachments.getSubmissionAttachments.queryOptions({
+      submissionId,
+    }),
+  );
 };

@@ -1,10 +1,11 @@
 import type { FC } from "react";
 import { useFileContentQuery } from "./fileViewerHooks";
 import { FileContentRenderer } from "./FileContentRenderer";
-
+import { useAttachmentsQuery } from "../../graderHooks";
 
 export const ViewFileComponent: FC<{
   assignmentId: number;
+  submissionId: number;
   assignmentName: string;
   studentName: string;
   termName: string;
@@ -16,6 +17,7 @@ export const ViewFileComponent: FC<{
   endColumn?: number;
 }> = ({
   assignmentId,
+  submissionId,
   assignmentName,
   studentName,
   termName,
@@ -28,6 +30,8 @@ export const ViewFileComponent: FC<{
 }) => {
   const fileType = getFileType(filePath);
   const fileName = filePath.split("/").pop() || "Unknown file";
+
+  const attachmentsQuery = useAttachmentsQuery(submissionId);
 
   const {
     data: fileData,
@@ -54,6 +58,11 @@ export const ViewFileComponent: FC<{
       startColumn={startColumn}
       endLine={endLine}
       endColumn={endColumn}
+      transcription={
+        attachmentsQuery.data?.find(
+          (att) => att.filepath === filePath && att.ai_transcription,
+        )?.ai_transcription || undefined
+      }
     />
   );
 };

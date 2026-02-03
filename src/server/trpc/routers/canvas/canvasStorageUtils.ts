@@ -2,15 +2,8 @@ import fs from "fs";
 import path from "path";
 import { rateLimitAwareGet } from "./canvasRequestUtils.js";
 import { canvasRequestOptions } from "./canvasServiceUtils.js";
-import { parseSchema } from "../parseSchema.js";
 import type { CanvasSubmission, CanvasRubric } from "./canvasModels.js";
-import { CanvasSubmissionSchema } from "./canvasModels.js";
 import TurndownService from "turndown";
-import {
-  extractAttachmentsFromMarkdown,
-  dowloadSubmissionAttachments,
-  transcribeSubmissionAttachments,
-} from "./course/assignment/canvasSubmissionAttachmentUtils.js";
 
 const canvasBaseUrl =
   process.env.CANVAS_BASE_URL || "https://snow.instructure.com";
@@ -40,6 +33,25 @@ export function getCourseDirectory({
   ensureDir(baseDir);
   return baseDir;
 }
+
+export function deleteCourseDirectory({
+  termName,
+  courseName,
+}: {
+  termName: string;
+  courseName: string;
+}) {
+  const baseDir = path.join(
+    storageDirectory,
+    sanitizeName(termName),
+    sanitizeName(courseName),
+  );
+  if (fs.existsSync(baseDir)) {
+    fs.rmSync(baseDir, { recursive: true, force: true });
+  }
+}
+
+
 export function getAssignmentDirectory({
   termName,
   courseName,
@@ -162,91 +174,86 @@ export async function getCourseMeta(courseId: number): Promise<{
   }
 }
 
-export async function transcribeSubmissionImages(
-  courseId: number,
-  assignmentId: number,
-  submissions: CanvasSubmission[],
-  assignmentName: string,
-): Promise<void> {
-  try {
-    const { courseName, termName } = await getCourseMeta(courseId);
+// export async function transcribeSubmissionImages(
+//   courseId: number,
+//   assignmentId: number,
+//   submissions: CanvasSubmission[],
+//   assignmentName: string,
+// ): Promise<void> {
+//   try {
+//     const { courseName, termName } = await getCourseMeta(courseId);
 
-    await Promise.all(
-      submissions.map(async (submission) => {
-        try {
-          const userName =
-            (typeof submission.user === "object" && submission.user?.name) ||
-            `User ${submission.user_id}`;
-          const parsedSubmission = parseSchema(
-            CanvasSubmissionSchema,
-            submission,
-            "CanvasSubmission",
-          );
+//     await Promise.all(
+//       submissions.map(async (submission) => {
+//         try {
+//           const userName =
+//             (typeof submission.user === "object" && submission.user?.name) ||
+//             `User ${submission.user_id}`;
 
-          const markdown = convertHtmlToMarkdown(parsedSubmission.body ?? "");
-          const images = extractAttachmentsFromMarkdown(markdown);
-          const storedAttachments = getStoredAttachments({
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-          const imagesWithPaths = await dowloadSubmissionAttachments(images, {
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
+//           const markdown = convertHtmlToMarkdown(submission.body ?? "");
+//           const images = extractAttachmentsFromSubmission(markdown);
+//           const storedAttachments = getStoredAttachments({
+//             termName,
+//             courseName,
+//             assignmentId,
+//             assignmentName,
+//             studentName: userName,
+//           });
+//           const imagesWithPaths = await dowloadSubmissionAttachments(images, {
+//             termName,
+//             courseName,
+//             assignmentId,
+//             assignmentName,
+//             studentName: userName,
+//           });
 
-          const allAttachments = [...imagesWithPaths, ...storedAttachments];
+//           const allAttachments = [...imagesWithPaths, ...storedAttachments];
 
-          console.log("transcribing these", allAttachments);
+//           console.log("transcribing these", allAttachments);
 
-          const transcriptions = await transcribeSubmissionAttachments(
-            allAttachments,
-            {
-              termName,
-              courseName,
-              assignmentId,
-              assignmentName,
-              studentName: userName,
-            },
-          );
+//           const transcriptions = await transcribeSubmissionAttachments(
+//             allAttachments,
+//             {
+//               termName,
+//               courseName,
+//               assignmentId,
+//               assignmentName,
+//               studentName: userName,
+//             },
+//           );
 
-          const newMarkdown = replaceMarkdownImagesWithTranscriptions(
-            markdown,
-            transcriptions,
-          );
+//           const newMarkdown = replaceMarkdownImagesWithTranscriptions(
+//             markdown,
+//             transcriptions,
+//           );
 
-          // Store the updated markdown
-          const submissionDir = getSubmissionDirectory({
-            termName,
-            courseName,
-            assignmentId,
-            assignmentName,
-            studentName: userName,
-          });
-          const submissionMdPath = path.join(submissionDir, "submission.md");
-          fs.writeFileSync(submissionMdPath, newMarkdown, "utf8");
-          console.log(
-            "Updated submission.md with transcriptions:",
-            submissionMdPath,
-          );
-        } catch (err) {
-          console.warn(
-            "Failed to write submission.json for user",
-            submission.user_id,
-            err,
-          );
-        }
-      }),
-    );
-  } catch (err) {
-    console.warn("Failed to persist submissions to storage", err);
-  }
-}
+//           // Store the updated markdown
+//           const submissionDir = getSubmissionDirectory({
+//             termName,
+//             courseName,
+//             assignmentId,
+//             assignmentName,
+//             studentName: userName,
+//           });
+//           const submissionMdPath = path.join(submissionDir, "submission.md");
+//           fs.writeFileSync(submissionMdPath, newMarkdown, "utf8");
+//           console.log(
+//             "Updated submission.md with transcriptions:",
+//             submissionMdPath,
+//           );
+//         } catch (err) {
+//           console.warn(
+//             "Failed to write submission.json for user",
+//             submission.user_id,
+//             err,
+//           );
+//         }
+//       }),
+//     );
+//   } catch (err) {
+//     console.warn("Failed to persist submissions to storage", err);
+//   }
+// }
 
 export async function persistRubricToStorage(
   courseId: number,
@@ -278,7 +285,6 @@ export async function persistRubricToStorage(
   }
 }
 
-// Convert HTML to markdown and store as submission.md
 export function storeSubmissionMarkdown(
   submission: CanvasSubmission,
   {
@@ -341,13 +347,12 @@ export function getStoredAttachments({
   if (!fs.existsSync(submissionDir)) return [];
   const files = fs.readdirSync(submissionDir + "/attachments");
   console.log("checking files", files);
-  return files
-    .map((file) => {
-      const filePath = path.join(submissionDir, "attachments", file);
-      return {
-        title: file,
-        url: "",
-        filePath,
-      };
-    });
+  return files.map((file) => {
+    const filePath = path.join(submissionDir, "attachments", file);
+    return {
+      title: file,
+      url: "",
+      filePath,
+    };
+  });
 }

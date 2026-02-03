@@ -24,7 +24,7 @@ export async function storeCourse(course: CanvasCourse) {
       termId: course.term.id,
       termName: course.term.name,
       course,
-    }
+    },
   );
 }
 
@@ -48,8 +48,8 @@ export async function storeCourses(courses: CanvasCourse[]) {
         termId: course.term.id,
         termName: course.term.name,
         course,
-      }
-    )
+      },
+    ),
   );
 
   await Promise.all(queries);
@@ -58,22 +58,22 @@ export async function storeCourses(courses: CanvasCourse[]) {
 export async function getCourse(courseId: number) {
   const result = await db.oneOrNone<{ canvas_object: unknown }>(
     `SELECT canvas_object FROM courses WHERE id = $<courseId>`,
-    { courseId }
+    { courseId },
   );
   if (!result) return null;
   return parseSchema(
     CanvasCourseSchema,
     result.canvas_object,
-    "CanvasCourse from DB"
+    "CanvasCourse from DB",
   );
 }
 
 export async function getAllCourses() {
   const results = await db.manyOrNone<{ canvas_object: unknown }>(
-    `SELECT canvas_object FROM courses ORDER BY updated_at DESC`
+    `SELECT canvas_object FROM courses ORDER BY updated_at DESC`,
   );
   return results.map((r) =>
-    parseSchema(CanvasCourseSchema, r.canvas_object, "CanvasCourse from DB")
+    parseSchema(CanvasCourseSchema, r.canvas_object, "CanvasCourse from DB"),
   );
 }
 
@@ -94,7 +94,7 @@ export async function storeEnrollment(enrollment: CanvasEnrollment) {
       courseId: enrollment.course_id,
       userId: enrollment.user_id,
       enrollment,
-    }
+    },
   );
 }
 
@@ -118,8 +118,8 @@ export async function storeEnrollments(enrollments: CanvasEnrollment[]) {
         courseId: enrollment.course_id,
         userId: enrollment.user_id,
         enrollment,
-      }
-    )
+      },
+    ),
   );
 
   await Promise.all(queries);
@@ -131,13 +131,17 @@ export async function getCourseEnrollments(courseId: number) {
     FROM enrollments 
     WHERE course_id = $<courseId>
       ORDER BY updated_at DESC`,
-    { courseId }
+    { courseId },
   );
   return results.map((r) =>
     parseSchema(
       CanvasEnrollmentSchema,
       r.canvas_object,
-      "CanvasEnrollment from DB"
-    )
+      "CanvasEnrollment from DB",
+    ),
   );
+}
+
+export async function deleteAllCourseData(courseId: number) {
+  await db.none(`DELETE FROM courses WHERE id = $<courseId>`, { courseId });
 }

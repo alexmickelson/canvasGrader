@@ -10,6 +10,7 @@ import { useCanvasCoursesQuery } from "../../utils/canvas/canvasHooks";
 import { CourseProvider } from "../../components/contexts/CourseProvider";
 import { RefetchAssignmentsButton } from "./RefetchAssignmentsButton";
 import { RefreshUngradedSubmissionsButton } from "./RefreshUngradedSubmissionsButton";
+import { PurgeCourseDataButton } from "./PurgeCourseDataButton";
 
 export const CoursePage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -24,6 +25,7 @@ export const CoursePage = () => {
               Course <CourseNameDisplay courseId={parsedCourseId} />
             </h2>
             <div className="flex gap-x-3">
+              <PurgeCourseDataButton />
               <RefetchAssignmentsButton />
               <RefreshUngradedSubmissionsButton />
             </div>

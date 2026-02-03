@@ -18,7 +18,7 @@ export const SubmissionDetailsWrapper: FC<{
   const course = courses.find((c) => Number(c.id) === Number(courseId));
   const { data: assignments } = useAssignmentsQuery();
   const assignment = assignments?.find(
-    (a) => a.id === submission.assignment_id
+    (a) => a.id === submission.assignment_id,
   );
 
   if (!assignment) {
@@ -79,6 +79,7 @@ export const SubmissionDetails: FC<{
               {viewingItem?.type === "file" && viewingItem.name && (
                 <ViewFileComponent
                   assignmentId={submission.assignment_id}
+                  submissionId={submission.id}
                   assignmentName={assignmentName}
                   studentName={submission.user.name}
                   termName={termName}

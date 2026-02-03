@@ -2,6 +2,17 @@ import type { FC } from "react";
 import Spinner from "../../../../utils/Spinner";
 import { TextFileRenderer } from "./TextFileRenderer";
 
+const TranscriptionDisplay: FC<{ transcription: string }> = ({
+  transcription,
+}) => (
+  <div className="mt-4 p-4 border border-gray-700 bg-gray-800 rounded">
+    <h3 className="text-sm font-medium mb-2">AI Transcription</h3>
+    <div className="text-sm whitespace-pre-wrap text-gray-300">
+      {transcription}
+    </div>
+  </div>
+);
+
 export const FileContentRenderer: FC<{
   fileType: "pdf" | "image" | "text" | "unknown";
   fileName: string;
@@ -20,6 +31,7 @@ export const FileContentRenderer: FC<{
   startColumn?: number;
   endLine?: number;
   endColumn?: number;
+  transcription?: string;
 }> = ({
   fileType,
   fileName,
@@ -31,6 +43,7 @@ export const FileContentRenderer: FC<{
   startColumn,
   endLine,
   endColumn,
+  transcription,
 }) => {
   if (error) {
     return (
@@ -45,10 +58,10 @@ export const FileContentRenderer: FC<{
       fileType === "image"
         ? "Loading image..."
         : fileType === "pdf"
-        ? "Loading PDF..."
-        : fileType === "text"
-        ? "Loading file content..."
-        : "Loading file...";
+          ? "Loading PDF..."
+          : fileType === "text"
+            ? "Loading file content..."
+            : "Loading file...";
 
     return (
       <div className="flex items-center justify-center py-8">
@@ -60,24 +73,34 @@ export const FileContentRenderer: FC<{
 
   if (fileType === "image" && fileData?.type === "binary") {
     return (
-      <div className="text-center">
-        <img
-          src={`data:${fileData.mimeType};base64,${fileData.content}`}
-          alt={fileName}
-          className="max-w-full mx-auto rounded border border-gray-700"
-        />
+      <div>
+        <div className="text-center">
+          <img
+            src={`data:${fileData.mimeType};base64,${fileData.content}`}
+            alt={fileName}
+            className="max-w-full mx-auto rounded border border-gray-700"
+          />
+        </div>
+        {transcription && (
+          <TranscriptionDisplay transcription={transcription} />
+        )}
       </div>
     );
   }
 
   if (fileType === "pdf" && fileData?.type === "binary") {
     return (
-      <div className="border border-gray-700 rounded h-full">
-        <iframe
-          src={`data:${fileData.mimeType};base64,${fileData.content}`}
-          className="w-full h-full rounded"
-          title={fileName}
-        />
+      <div className="h-full flex flex-col">
+        <div className="border border-gray-700 rounded flex-1 min-h-0">
+          <iframe
+            src={`data:${fileData.mimeType};base64,${fileData.content}`}
+            className="w-full h-full rounded"
+            title={fileName}
+          />
+        </div>
+        {transcription && (
+          <TranscriptionDisplay transcription={transcription} />
+        )}
       </div>
     );
   }
