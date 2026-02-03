@@ -9,6 +9,7 @@ export const EvidenceItem: FC<{
   termName: string;
   courseName: string;
   assignmentName: string;
+  submissionId: number;
 }> = ({
   evidence,
   assignmentId,
@@ -16,6 +17,7 @@ export const EvidenceItem: FC<{
   termName,
   courseName,
   assignmentName,
+  submissionId,
 }) => {
   return (
     <div className="border-l-4 border-l-violet-900/60 rounded-lg ps-2">
@@ -25,6 +27,7 @@ export const EvidenceItem: FC<{
       </div>
       <ViewFileComponent
         assignmentId={assignmentId}
+        submissionId={submissionId}
         assignmentName={assignmentName}
         studentName={studentName}
         termName={termName}

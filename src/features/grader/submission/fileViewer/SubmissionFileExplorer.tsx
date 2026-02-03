@@ -61,10 +61,8 @@ export const SubmissionFileExplorer: FC<{
   termName: string;
   courseName: string;
 }> = ({ assignmentId, assignmentName, studentName, termName, courseName }) => {
-  const { viewingItem, setViewingFile } = useViewingItem();
+  const { viewingItem, setViewingItem } = useViewingItem();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-
-  const selectedFile = viewingItem?.type === "file" ? viewingItem.name : null;
 
   const {
     data: allFilePaths,
@@ -94,14 +92,15 @@ export const SubmissionFileExplorer: FC<{
   };
 
   useEffect(() => {
-    if (!viewingItem && allFilePaths && allFilePaths.includes("submission.md")) {
-      setViewingFile("submission.md");
+    if (
+      !viewingItem &&
+      allFilePaths &&
+      allFilePaths.includes("submission.md")
+    ) {
+      // setViewingFile("submission.md");
+      setViewingItem({ filePath: "submission.md" });
     }
-  }, [allFilePaths, setViewingFile, viewingItem]);
-
-  const handleSelectFile = (path: string) => {
-    setViewingFile(path);
-  };
+  }, [allFilePaths, viewingItem, setViewingItem]);
 
   if (isLoading) {
     return (
@@ -123,10 +122,10 @@ export const SubmissionFileExplorer: FC<{
   }
 
   return (
-    <div className="space-y-2 w-[400px]">
+    <div className="space-y-2 w-100">
       {allFilePaths && (
         <div className="flex items-center gap-4 text-xs text-gray-400">
-          <span> {allFilePaths.length} files</span>
+          <span>{allFilePaths.length} files</span>
           <button
             onClick={() => setExpandedNodes(new Set())}
             className="unstyled text-indigo-400 hover:text-indigo-300 cursor-pointer"
@@ -163,9 +162,11 @@ export const SubmissionFileExplorer: FC<{
                 key={node.path}
                 node={node}
                 expandedNodes={expandedNodes}
-                selectedFile={selectedFile}
+                selectedFile={viewingItem?.filePath || null}
                 onToggleExpand={handleToggleExpand}
-                onSelectFile={handleSelectFile}
+                onSelectFile={(path: string) => {
+                  setViewingItem({ filePath: path });
+                }}
               />
             ))}
           </div>

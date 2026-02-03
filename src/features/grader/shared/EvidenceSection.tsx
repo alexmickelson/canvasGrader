@@ -9,6 +9,7 @@ export const EvidenceSection: FC<{
   termName: string;
   courseName: string;
   assignmentName: string;
+  submissionId: number;
 }> = ({
   evidence,
   assignmentId,
@@ -16,6 +17,7 @@ export const EvidenceSection: FC<{
   termName,
   courseName,
   assignmentName,
+  submissionId,
 }) => {
   return (
     <div className="space-y-3">
@@ -28,6 +30,7 @@ export const EvidenceSection: FC<{
           termName={termName}
           courseName={courseName}
           assignmentName={assignmentName}
+          submissionId={submissionId}
         />
       ))}
     </div>

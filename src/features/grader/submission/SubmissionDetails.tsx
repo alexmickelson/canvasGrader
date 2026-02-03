@@ -14,7 +14,6 @@ export const SubmissionDetailsWrapper: FC<{
   courseId: number;
 }> = ({ submission, courseId }) => {
   const { data: courses } = useCanvasCoursesQuery();
-  // console.log("courses data:", courses, "courseId:", courseId);
   const course = courses.find((c) => Number(c.id) === Number(courseId));
   const { data: assignments } = useAssignmentsQuery();
   const assignment = assignments?.find(
@@ -76,7 +75,7 @@ export const SubmissionDetails: FC<{
               courseName={courseName}
             />
             <div className="flex-1 w-96 min-h-0">
-              {viewingItem?.type === "file" && viewingItem.name && (
+              {viewingItem?.filePath && (
                 <ViewFileComponent
                   assignmentId={submission.assignment_id}
                   submissionId={submission.id}
@@ -84,17 +83,17 @@ export const SubmissionDetails: FC<{
                   studentName={submission.user.name}
                   termName={termName}
                   courseName={courseName}
-                  filePath={viewingItem.name}
+                  filePath={viewingItem.filePath}
                 />
               )}
-              {viewingItem?.type === "analysis" && viewingItem.name && (
+              {viewingItem?.evaluation && (
                 <AiCriterionAnalysisDisplay
                   assignmentId={submission.assignment_id}
                   assignmentName={assignmentName}
                   studentName={submission.user.name}
                   termName={termName}
                   courseName={courseName}
-                  analysisName={viewingItem.name}
+                  evaluation={viewingItem?.evaluation}
                   submissionId={submission.id}
                 />
               )}

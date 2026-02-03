@@ -5,16 +5,14 @@ import { useViewingItem } from "../shared/viewingItemContext/ViewingItemContext"
 export const AnalysisItem: FC<{
   evaluation: FullEvaluation;
 }> = ({ evaluation }) => {
-  const { setViewingAnalysis, viewingItem } = useViewingItem();
+  const { viewingItem, setViewingItem } = useViewingItem();
   const analysis = evaluation.evaluation;
-  const isSelected =
-    viewingItem?.type === "analysis" &&
-    viewingItem?.name === evaluation.fileName;
+  const isSelected = viewingItem?.evaluation?.fileName === evaluation.fileName;
 
   return (
     <div className="w-full flex justify-end">
       <button
-        onClick={() => setViewingAnalysis(evaluation.fileName)}
+        onClick={() => setViewingItem({ evaluation: evaluation })}
         className={
           "unstyled cursor-pointer " +
           "rounded px-2 py-1 text-sm " +
